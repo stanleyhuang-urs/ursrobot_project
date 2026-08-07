@@ -153,7 +153,7 @@ export function ImportWizard({
       setParsed(parsedResult);
       setSheetIndex(0);
       setHeaderRowIndex(0);
-      setStep("header");
+      setStep(parsedResult.sheets.length > 1 ? "sheet" : "header");
     } catch (err) {
       setError(err instanceof Error ? err.message : "讀取失敗");
     } finally {

@@ -58,7 +58,7 @@ export async function parseImportFromUrl(url: string): Promise<ParsedWorkbook> {
   if (!match) {
     throw new Error("無法從網址取得 Google Sheet ID,請確認網址格式");
   }
-  const exportUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`;
+  const exportUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=xlsx`;
 
   const res = await fetch(exportUrl);
   if (!res.ok) {
@@ -71,7 +71,7 @@ export async function parseImportFromUrl(url: string): Promise<ParsedWorkbook> {
   }
 
   const buffer = Buffer.from(await res.arrayBuffer());
-  return parseWorkbookBuffer(buffer, "sheet.csv");
+  return parseWorkbookBuffer(buffer, "sheet.xlsx");
 }
 
 function normalizeDateInput(raw: string): string | undefined {

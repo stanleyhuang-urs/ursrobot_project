@@ -56,7 +56,7 @@ export function GroupSection({
     <div
       ref={setNodeRef}
       style={style}
-      className="overflow-hidden rounded-lg border border-neutral-200 bg-white"
+      className="rounded-lg border border-neutral-200 bg-white"
     >
       <div
         className="flex items-center gap-2 border-b border-neutral-100 px-2 py-2"

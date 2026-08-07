@@ -25,7 +25,8 @@ export function StatusCell({
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="flex h-7 w-full items-center rounded px-2 text-xs font-medium text-white"
+          title={current?.label}
+          className="flex h-7 w-full items-center truncate rounded px-2 text-xs font-medium text-white"
           style={{ backgroundColor: current?.color ?? "#c4c4c4" }}
         >
           {current?.label ?? "設定狀態"}

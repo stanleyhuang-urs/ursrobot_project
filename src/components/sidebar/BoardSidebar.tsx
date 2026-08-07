@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, LayoutGrid, Plus, Pencil, Trash2 } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Plus, Pencil, Trash2, Users } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -15,9 +15,11 @@ type Board = { id: string; name: string };
 export function BoardSidebar({
   boards,
   userName,
+  userRole,
 }: {
   boards: Board[];
   userName: string;
+  userRole: "ADMIN" | "MEMBER";
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -83,6 +85,19 @@ export function BoardSidebar({
           <LayoutDashboard size={14} className="shrink-0" />
           儀表板
         </Link>
+        {userRole === "ADMIN" && (
+          <Link
+            href="/users"
+            className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
+              pathname === "/users"
+                ? "bg-blue-50 text-blue-700"
+                : "text-neutral-700 hover:bg-neutral-100"
+            }`}
+          >
+            <Users size={14} className="shrink-0" />
+            使用者管理
+          </Link>
+        )}
         {boards.map((board) => {
           const active = pathname === `/boards/${board.id}`;
           return (
