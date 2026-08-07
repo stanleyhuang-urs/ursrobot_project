@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Table2, LayoutGrid, Upload } from "lucide-react";
+import { Table2, LayoutGrid, Upload, GanttChartSquare } from "lucide-react";
 import type { BoardWithData, UserOption } from "@/types/board";
 import { BoardTable } from "./BoardTable";
 import { BoardKanban } from "./BoardKanban";
+import { BoardGantt } from "./BoardGantt";
 import { AddColumnDialog } from "./AddColumnDialog";
 import { ImportWizard } from "./ImportWizard";
 
@@ -15,7 +16,7 @@ export function BoardView({
   board: BoardWithData;
   users: UserOption[];
 }) {
-  const [view, setView] = useState<"table" | "kanban">("table");
+  const [view, setView] = useState<"table" | "kanban" | "gantt">("table");
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
@@ -69,18 +70,30 @@ export function BoardView({
             >
               <LayoutGrid size={14} /> 看板
             </button>
+            <button
+              type="button"
+              onClick={() => setView("gantt")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${
+                view === "gantt"
+                  ? "bg-neutral-900 text-white"
+                  : "bg-white text-neutral-600 hover:bg-neutral-50"
+              }`}
+            >
+              <GanttChartSquare size={14} /> 甘特圖
+            </button>
           </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto p-6">
-        {view === "table" ? (
+        {view === "table" && (
           <BoardTable
             board={board}
             users={users}
             onAddColumn={() => setAddColumnOpen(true)}
           />
-        ) : (
+        )}
+        {view === "kanban" && (
           <BoardKanban
             board={board}
             statusColumns={statusColumns}
@@ -88,6 +101,7 @@ export function BoardView({
             onChangeColumn={setKanbanColumnId}
           />
         )}
+        {view === "gantt" && <BoardGantt board={board} users={users} />}
       </div>
 
       <AddColumnDialog

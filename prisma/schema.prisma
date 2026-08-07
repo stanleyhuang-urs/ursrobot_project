@@ -31,6 +31,7 @@ model User {
   ownedBoards   Board[]
   comments      Comment[]
   notifications Notification[]
+  assignments   Assignment[]
 }
 
 model Board {
@@ -42,6 +43,11 @@ model Board {
 
   progressColumnId String?
   progressColumn   Column? @relation("BoardProgressColumn", fields: [progressColumnId], references: [id], onDelete: SetNull)
+
+  ganttStartColumnId    String?
+  ganttStartColumn      Column? @relation("BoardGanttStartColumn", fields: [ganttStartColumnId], references: [id], onDelete: SetNull)
+  ganttDurationColumnId String?
+  ganttDurationColumn   Column? @relation("BoardGanttDurationColumn", fields: [ganttDurationColumnId], references: [id], onDelete: SetNull)
 
   groups  Group[]
   columns Column[] @relation("BoardColumns")
@@ -68,8 +74,10 @@ model Column {
   options Json       @default("{}")
   order   Int        @default(0)
 
-  cellValues        CellValue[]
-  progressForBoards Board[]     @relation("BoardProgressColumn")
+  cellValues            CellValue[]
+  progressForBoards     Board[]     @relation("BoardProgressColumn")
+  ganttStartForBoards    Board[]     @relation("BoardGanttStartColumn")
+  ganttDurationForBoards Board[]     @relation("BoardGanttDurationColumn")
 }
 
 model Item {
@@ -88,6 +96,18 @@ model Item {
   cellValues    CellValue[]
   comments      Comment[]
   notifications Notification[]
+  assignments   Assignment[]
+}
+
+model Assignment {
+  id            String @id @default(cuid())
+  itemId        String
+  item          Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  allocationPct Int    @default(100)
+
+  @@unique([itemId, userId])
 }
 
 model Comment {

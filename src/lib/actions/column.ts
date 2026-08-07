@@ -72,3 +72,27 @@ export async function setProgressColumn(
   });
   revalidatePath(`/boards/${boardId}`);
 }
+
+export async function setGanttStartColumn(
+  boardId: string,
+  columnId: string | null
+) {
+  await requireSession();
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { ganttStartColumnId: columnId },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}
+
+export async function setGanttDurationColumn(
+  boardId: string,
+  columnId: string | null
+) {
+  await requireSession();
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { ganttDurationColumnId: columnId },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}
