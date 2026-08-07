@@ -1,0 +1,108 @@
+"use client";
+
+import { useState } from "react";
+import { Table2, LayoutGrid, Upload } from "lucide-react";
+import type { BoardWithData, UserOption } from "@/types/board";
+import { BoardTable } from "./BoardTable";
+import { BoardKanban } from "./BoardKanban";
+import { AddColumnDialog } from "./AddColumnDialog";
+import { ImportWizard } from "./ImportWizard";
+
+export function BoardView({
+  board,
+  users,
+}: {
+  board: BoardWithData;
+  users: UserOption[];
+}) {
+  const [view, setView] = useState<"table" | "kanban">("table");
+  const [addColumnOpen, setAddColumnOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const statusColumns = board.columns.filter((c) => c.type === "STATUS");
+  const [kanbanColumnId, setKanbanColumnId] = useState(
+    statusColumns[0]?.id ?? ""
+  );
+  const progressColumn = board.columns.find(
+    (c) => c.id === board.progressColumnId
+  );
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
+        <div>
+          <h1 className="text-lg font-semibold text-neutral-900">{board.name}</h1>
+          {progressColumn && (
+            <p className="text-xs text-neutral-400">
+              進度欄位:{progressColumn.name}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+          >
+            <Upload size={14} /> 匯入
+          </button>
+          <div className="flex overflow-hidden rounded-md border border-neutral-200">
+            <button
+              type="button"
+              onClick={() => setView("table")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${
+                view === "table"
+                  ? "bg-neutral-900 text-white"
+                  : "bg-white text-neutral-600 hover:bg-neutral-50"
+              }`}
+            >
+              <Table2 size={14} /> 表格
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("kanban")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${
+                view === "kanban"
+                  ? "bg-neutral-900 text-white"
+                  : "bg-white text-neutral-600 hover:bg-neutral-50"
+              }`}
+            >
+              <LayoutGrid size={14} /> 看板
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto p-6">
+        {view === "table" ? (
+          <BoardTable
+            board={board}
+            users={users}
+            onAddColumn={() => setAddColumnOpen(true)}
+          />
+        ) : (
+          <BoardKanban
+            board={board}
+            statusColumns={statusColumns}
+            columnId={kanbanColumnId || statusColumns[0]?.id || ""}
+            onChangeColumn={setKanbanColumnId}
+          />
+        )}
+      </div>
+
+      <AddColumnDialog
+        boardId={board.id}
+        open={addColumnOpen}
+        onOpenChange={setAddColumnOpen}
+      />
+
+      <ImportWizard
+        boardId={board.id}
+        columns={board.columns}
+        groups={board.groups}
+        open={importOpen}
+        onOpenChange={setImportOpen}
+      />
+    </div>
+  );
+}

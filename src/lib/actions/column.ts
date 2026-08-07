@@ -1,0 +1,74 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/session";
+import type { ColumnType, StatusColumnOptions } from "@/types/column";
+import { DEFAULT_STATUSES } from "@/types/column";
+
+export async function createColumn(
+  boardId: string,
+  name: string,
+  type: ColumnType
+) {
+  await requireSession();
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("欄位名稱不可為空");
+
+  const count = await prisma.column.count({ where: { boardId } });
+  const options: StatusColumnOptions | Record<string, never> =
+    type === "STATUS" ? { statuses: DEFAULT_STATUSES } : {};
+
+  await prisma.column.create({
+    data: { boardId, name: trimmed, type, order: count, options },
+  });
+
+  revalidatePath(`/boards/${boardId}`);
+}
+
+export async function renameColumn(
+  boardId: string,
+  columnId: string,
+  name: string
+) {
+  await requireSession();
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("欄位名稱不可為空");
+
+  await prisma.column.update({
+    where: { id: columnId },
+    data: { name: trimmed },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}
+
+export async function updateStatusOptions(
+  boardId: string,
+  columnId: string,
+  statuses: StatusColumnOptions["statuses"]
+) {
+  await requireSession();
+  await prisma.column.update({
+    where: { id: columnId },
+    data: { options: { statuses } },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}
+
+export async function deleteColumn(boardId: string, columnId: string) {
+  await requireSession();
+  await prisma.column.delete({ where: { id: columnId } });
+  revalidatePath(`/boards/${boardId}`);
+}
+
+export async function setProgressColumn(
+  boardId: string,
+  columnId: string | null
+) {
+  await requireSession();
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { progressColumnId: columnId },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}

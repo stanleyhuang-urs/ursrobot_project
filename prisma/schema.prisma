@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+enum ColumnType {
+  TEXT
+  STATUS
+  PERSON
+  DATE
+  NUMBER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(MEMBER)
+  createdAt    DateTime @default(now())
+
+  ownedBoards   Board[]
+  comments      Comment[]
+  notifications Notification[]
+}
+
+model Board {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  createdAt DateTime @default(now())
+
+  progressColumnId String?
+  progressColumn   Column? @relation("BoardProgressColumn", fields: [progressColumnId], references: [id], onDelete: SetNull)
+
+  groups  Group[]
+  columns Column[] @relation("BoardColumns")
+  items   Item[]
+}
+
+model Group {
+  id      String @id @default(cuid())
+  boardId String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  name    String
+  color   String @default("#579bfc")
+  order   Int    @default(0)
+
+  items Item[]
+}
+
+model Column {
+  id      String     @id @default(cuid())
+  boardId String
+  board   Board      @relation("BoardColumns", fields: [boardId], references: [id], onDelete: Cascade)
+  name    String
+  type    ColumnType
+  options Json       @default("{}")
+  order   Int        @default(0)
+
+  cellValues        CellValue[]
+  progressForBoards Board[]     @relation("BoardProgressColumn")
+}
+
+model Item {
+  id        String   @id @default(cuid())
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Item?    @relation("ItemSubitems", fields: [parentId], references: [id], onDelete: Cascade)
+  subitems  Item[]   @relation("ItemSubitems")
+  name      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  cellValues    CellValue[]
+  comments      Comment[]
+  notifications Notification[]
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+}
+
+enum NotificationType {
+  ASSIGNED
+  UPDATED
+  COMMENTED
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actorId   String?
+  type      NotificationType
+  itemId    String
+  item      Item             @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  message   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+}
+
+model CellValue {
+  id       String @id @default(cuid())
+  itemId   String
+  item     Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  columnId String
+  column   Column @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  value    Json   @default("null")
+
+  @@unique([itemId, columnId])
+}
