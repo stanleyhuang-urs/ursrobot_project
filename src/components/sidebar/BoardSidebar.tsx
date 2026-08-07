@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutGrid, Plus, Pencil, Trash2 } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Plus, Pencil, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -72,6 +72,17 @@ export function BoardSidebar({
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-auto px-2">
+        <Link
+          href="/dashboard"
+          className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
+            pathname === "/dashboard"
+              ? "bg-blue-50 text-blue-700"
+              : "text-neutral-700 hover:bg-neutral-100"
+          }`}
+        >
+          <LayoutDashboard size={14} className="shrink-0" />
+          儀表板
+        </Link>
         {boards.map((board) => {
           const active = pathname === `/boards/${board.id}`;
           return (
