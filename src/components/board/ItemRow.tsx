@@ -9,12 +9,14 @@ import {
   MessageSquare,
   Plus,
   Trash2,
+  UserPlus,
 } from "lucide-react";
 import type { ItemData, ColumnData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageStructure, canEditCellValue } from "@/lib/permissions";
 import { CellEditor } from "./cell-editors/CellEditor";
 import { ItemDetailModal } from "./ItemDetailModal";
+import { AssignmentModal } from "./AssignmentModal";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import { renameItem, deleteItem, createItem, insertItem } from "@/lib/actions/item";
 import { computeItemProgress } from "@/lib/progress";
@@ -30,6 +32,7 @@ export function ItemRow({
   users,
   progressColumnId,
   userRole,
+  currentUserId,
 }: {
   boardId: string;
   groupId: string;
@@ -40,11 +43,13 @@ export function ItemRow({
   users: UserOption[];
   progressColumnId: string | null;
   userRole: UserRole;
+  currentUserId: string;
 }) {
   const canEditStructure = canManageStructure(userRole);
   const [name, setName] = useState(item.name);
   const [expanded, setExpanded] = useState(true);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
 
   const children = allGroupItems
     .filter((i) => i.parentId === item.id)
@@ -116,6 +121,20 @@ export function ItemRow({
             <MessageSquare size={14} />
             {commentCount > 0 && <span>{commentCount}</span>}
           </button>
+          {canEditStructure && (
+            <button
+              type="button"
+              onClick={() => setAssignOpen(true)}
+              title={item.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
+              className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
+                item.assignments.length > 0 ? "text-blue-600" : "text-neutral-300"
+              }`}
+              aria-label="指派"
+            >
+              <UserPlus size={14} />
+              {item.assignments.length > 0 && <span>{item.assignments.length}</span>}
+            </button>
+          )}
         </div>
         {columns.map((col) => (
           <div key={col.id} className="px-1">
@@ -168,6 +187,17 @@ export function ItemRow({
         open={detailOpen}
         onOpenChange={setDetailOpen}
       />
+      {canEditStructure && (
+        <AssignmentModal
+          boardId={boardId}
+          item={assignOpen ? item : null}
+          users={users}
+          currentUserId={currentUserId}
+          userRole={userRole}
+          open={assignOpen}
+          onOpenChange={setAssignOpen}
+        />
+      )}
       {expanded &&
         children.map((child) => (
           <ItemRow
@@ -181,6 +211,7 @@ export function ItemRow({
             users={users}
             progressColumnId={progressColumnId}
             userRole={userRole}
+            currentUserId={currentUserId}
           />
         ))}
     </>

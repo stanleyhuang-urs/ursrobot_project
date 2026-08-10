@@ -28,11 +28,13 @@ export function BoardTable({
   board,
   users,
   userRole,
+  currentUserId,
   onAddColumn,
 }: {
   board: BoardWithData;
   users: UserOption[];
   userRole: UserRole;
+  currentUserId: string;
   onAddColumn: () => void;
 }) {
   const canEditStructure = canManageStructure(userRole);
@@ -140,6 +142,7 @@ export function BoardTable({
                   users={users}
                   progressColumnId={board.progressColumnId}
                   userRole={userRole}
+                  currentUserId={currentUserId}
                 />
               );
             })}

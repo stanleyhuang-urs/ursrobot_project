@@ -21,6 +21,7 @@ export function GroupSection({
   users,
   progressColumnId,
   userRole,
+  currentUserId,
 }: {
   boardId: string;
   group: GroupData;
@@ -29,6 +30,7 @@ export function GroupSection({
   users: UserOption[];
   progressColumnId: string | null;
   userRole: UserRole;
+  currentUserId: string;
 }) {
   const canEditStructure = canManageStructure(userRole);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -122,6 +124,7 @@ export function GroupSection({
                 users={users}
                 progressColumnId={progressColumnId}
                 userRole={userRole}
+                currentUserId={currentUserId}
               />
             ))}
           {canEditStructure && (

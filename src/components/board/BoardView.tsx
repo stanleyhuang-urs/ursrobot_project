@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Table2, LayoutGrid, Upload, GanttChartSquare } from "lucide-react";
+import { Table2, LayoutGrid, Upload, GanttChartSquare, Users2 } from "lucide-react";
 import type { BoardWithData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageBoard, canManageStructure } from "@/lib/permissions";
@@ -10,6 +10,7 @@ import { BoardKanban } from "./BoardKanban";
 import { BoardGantt } from "./BoardGantt";
 import { AddColumnDialog } from "./AddColumnDialog";
 import { ImportWizard } from "./ImportWizard";
+import { ResourceMappingModal } from "./ResourceMappingModal";
 
 export function BoardView({
   board,
@@ -25,6 +26,7 @@ export function BoardView({
   const [view, setView] = useState<"table" | "kanban" | "gantt">("table");
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [resourceMappingOpen, setResourceMappingOpen] = useState(false);
 
   const statusColumns = board.columns.filter((c) => c.type === "STATUS");
   const [kanbanColumnId, setKanbanColumnId] = useState(
@@ -53,6 +55,15 @@ export function BoardView({
               className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
             >
               <Upload size={14} /> 匯入
+            </button>
+          )}
+          {canManageBoard(userRole) && (
+            <button
+              type="button"
+              onClick={() => setResourceMappingOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+            >
+              <Users2 size={14} /> Resource 對應
             </button>
           )}
           <div className="flex overflow-hidden rounded-md border border-neutral-200">
@@ -99,6 +110,7 @@ export function BoardView({
             board={board}
             users={users}
             userRole={userRole}
+            currentUserId={currentUserId}
             onAddColumn={() => setAddColumnOpen(true)}
           />
         )}
@@ -135,6 +147,16 @@ export function BoardView({
           groups={board.groups}
           open={importOpen}
           onOpenChange={setImportOpen}
+        />
+      )}
+
+      {canManageBoard(userRole) && (
+        <ResourceMappingModal
+          boardId={board.id}
+          columns={board.columns}
+          users={users}
+          open={resourceMappingOpen}
+          onOpenChange={setResourceMappingOpen}
         />
       )}
     </div>
