@@ -22,6 +22,7 @@ export function GroupSection({
   progressColumnId,
   userRole,
   currentUserId,
+  visibleIds,
 }: {
   boardId: string;
   group: GroupData;
@@ -31,6 +32,7 @@ export function GroupSection({
   progressColumnId: string | null;
   userRole: UserRole;
   currentUserId: string;
+  visibleIds: Set<string> | null;
 }) {
   const canEditStructure = canManageStructure(userRole);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -96,7 +98,12 @@ export function GroupSection({
           readOnly={!canEditStructure}
           className="min-w-0 flex-1 rounded bg-transparent px-1 py-0.5 text-sm font-semibold text-neutral-800 outline-none hover:bg-neutral-100 focus:bg-white focus:ring-1 focus:ring-blue-400"
         />
-        <span className="text-xs text-neutral-400">{items.length} 項目</span>
+        <span className="text-xs text-neutral-400">
+          {visibleIds === null
+            ? items.length
+            : `${items.filter((i) => visibleIds.has(i.id)).length} / ${items.length}`}{" "}
+          項目
+        </span>
         {canEditStructure && (
           <RowMenu>
             <RowMenuItem danger onSelect={() => deleteGroup(boardId, group.id)}>
@@ -112,6 +119,7 @@ export function GroupSection({
         <div>
           {items
             .filter((item) => item.parentId === null)
+            .filter((item) => visibleIds === null || visibleIds.has(item.id))
             .sort((a, b) => a.order - b.order)
             .map((item) => (
               <ItemRow
@@ -125,6 +133,7 @@ export function GroupSection({
                 progressColumnId={progressColumnId}
                 userRole={userRole}
                 currentUserId={currentUserId}
+                visibleIds={visibleIds}
               />
             ))}
           {canEditStructure && (

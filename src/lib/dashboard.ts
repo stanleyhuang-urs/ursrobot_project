@@ -151,20 +151,24 @@ export function computeOverdueUpcoming(boards: BoardWithData[]): {
   return { overdue, upcoming };
 }
 
+export type PersonalItemAssignee = { name: string; allocationPct: number | null };
+
 export type PersonalItemEntry = {
   boardId: string;
   boardName: string;
   itemId: string;
   itemName: string;
   status: StatusOption | null;
+  startDate: Date | null;
   dueDate: Date | null;
-  assigneeNames: string[];
+  assignees: PersonalItemAssignee[];
 };
 
 /**
  * Items assigned to any of the given users, either via a PERSON column or a
  * Gantt Assignment, across all boards. Pass a single id for "my items"; pass
- * a team's ids to see everyone's items at once (assigneeNames disambiguates).
+ * a team's ids to see everyone's items at once (assignees disambiguates who,
+ * and at what allocation % when known from a Gantt Assignment).
  */
 export function computePersonalItems(
   boards: BoardWithData[],
@@ -181,21 +185,23 @@ export function computePersonalItems(
     for (const item of board.items) {
       const personIds = item.cellValues
         .filter((cv) => board.columns.find((c) => c.id === cv.columnId)?.type === "PERSON")
-        .flatMap((cv) => getPersonIds(cv.value));
-      const assignmentIds = item.assignments.map((a) => a.userId);
-      const matchedIds = new Set(
-        [...personIds, ...assignmentIds].filter((id) => idSet.has(id))
-      );
-      if (matchedIds.size === 0) continue;
+        .flatMap((cv) => getPersonIds(cv.value))
+        .filter((id) => idSet.has(id));
+      const matchedAssignments = item.assignments.filter((a) => idSet.has(a.userId));
+      if (personIds.length === 0 && matchedAssignments.length === 0) continue;
+
+      const allocationByUser = new Map<string, number | null>();
+      for (const id of personIds) allocationByUser.set(id, null);
+      for (const a of matchedAssignments) allocationByUser.set(a.userId, a.allocationPct);
 
       const statusValue = statusColumn
         ? item.cellValues.find((cv) => cv.columnId === statusColumn.id)?.value
         : null;
       const status = statusOptions.find((o) => o.id === statusValue) ?? null;
 
-      const dueDate =
+      const range =
         board.ganttStartColumnId && board.ganttDurationColumnId
-          ? getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId)?.end ?? null
+          ? getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId)
           : null;
 
       result.push({
@@ -204,8 +210,11 @@ export function computePersonalItems(
         itemId: item.id,
         itemName: item.name,
         status,
-        dueDate,
-        assigneeNames: [...matchedIds].map((id) => userById.get(id) ?? "").filter(Boolean),
+        startDate: range?.start ?? null,
+        dueDate: range?.end ?? null,
+        assignees: [...allocationByUser.entries()]
+          .map(([id, allocationPct]) => ({ name: userById.get(id) ?? "", allocationPct }))
+          .filter((a) => a.name),
       });
     }
   }

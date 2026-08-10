@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
@@ -53,6 +53,29 @@ export function BoardGantt({
   const canEditStructure = canManageStructure(userRole);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [assignmentItem, setAssignmentItem] = useState<ItemData | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef<{ startX: number; startScrollLeft: number } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if ((e.target as HTMLElement).closest("button")) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    dragState.current = { startX: e.clientX, startScrollLeft: container.scrollLeft };
+    setIsPanning(true);
+    container.setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragState.current || !scrollRef.current) return;
+    scrollRef.current.scrollLeft = dragState.current.startScrollLeft - (e.clientX - dragState.current.startX);
+  }
+
+  function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    dragState.current = null;
+    setIsPanning(false);
+    scrollRef.current?.releasePointerCapture(e.pointerId);
+  }
 
   const startColumnId = board.ganttStartColumnId;
   const durationColumnId = board.ganttDurationColumnId;
@@ -124,7 +147,7 @@ export function BoardGantt({
       const row = (
         <div key={item.id} className="flex items-stretch border-b border-neutral-100">
           <div
-            className="flex shrink-0 items-center gap-1 px-2 py-1.5 text-sm"
+            className="sticky left-0 z-10 flex shrink-0 items-center gap-1 bg-white px-2 py-1.5 text-sm"
             style={{ width: LABEL_WIDTH, paddingLeft: 8 + depth * 16 }}
           >
             {hasChildren ? (
@@ -214,7 +237,16 @@ export function BoardGantt({
       )}
 
       {startColumnId && durationColumnId && days.length > 0 && (
-        <div className="overflow-auto rounded-md border border-neutral-200 bg-white">
+        <div
+          ref={scrollRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          className={`overflow-auto rounded-md border border-neutral-200 bg-white ${
+            isPanning ? "cursor-grabbing select-none" : "cursor-grab"
+          }`}
+        >
           <div className="flex" style={{ minWidth: LABEL_WIDTH + days.length * DAY_WIDTH }}>
             <div
               className="sticky left-0 shrink-0 border-b border-r border-neutral-100 bg-neutral-50 px-2 py-1.5 text-xs font-medium text-neutral-500"
@@ -247,7 +279,7 @@ export function BoardGantt({
               {usersWithLoad.map((u) => (
                 <div key={u.id} className="flex items-stretch border-b border-neutral-100">
                   <div
-                    className="flex shrink-0 items-center px-2 py-1.5 text-sm"
+                    className="sticky left-0 z-10 flex shrink-0 items-center bg-white px-2 py-1.5 text-sm"
                     style={{ width: LABEL_WIDTH }}
                   >
                     {u.name}

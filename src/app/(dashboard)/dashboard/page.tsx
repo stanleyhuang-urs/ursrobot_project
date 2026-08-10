@@ -7,6 +7,7 @@ import {
   computeBoardProgressOverview,
   computeOverdueUpcoming,
   computePersonalItems,
+  type PersonalItemEntry,
 } from "@/lib/dashboard";
 import { TeamWorkloadCard } from "@/components/dashboard/TeamWorkloadCard";
 
@@ -14,16 +15,58 @@ function formatDate(date: Date) {
   return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
 }
 
-export default async function DashboardPage() {
-  const session = await requireSession();
+function AssignedItemRow({ item, showAssignees }: { item: PersonalItemEntry; showAssignees: boolean }) {
+  return (
+    <li className="flex items-center gap-3 px-4 py-2.5">
+      <Link
+        href={`/boards/${item.boardId}`}
+        className="min-w-0 flex-1 truncate text-sm text-neutral-800 hover:text-blue-600"
+      >
+        {item.itemName}
+      </Link>
+      {showAssignees && (
+        <span className="shrink-0 text-xs text-neutral-500">
+          {item.assignees
+            .map((a) => (a.allocationPct !== null ? `${a.name} ${a.allocationPct}%` : a.name))
+            .join(", ")}
+        </span>
+      )}
+      <span className="shrink-0 text-xs text-neutral-400">{item.boardName}</span>
+      {item.status && (
+        <span
+          className="shrink-0 rounded-full px-2 py-0.5 text-xs text-white"
+          style={{ backgroundColor: item.status.color }}
+        >
+          {item.status.label}
+        </span>
+      )}
+      {item.dueDate && (
+        <span className="shrink-0 text-xs text-neutral-500">
+          {item.startDate && `${formatDate(item.startDate)} ~ `}
+          {formatDate(item.dueDate)}
+        </span>
+      )}
+    </li>
+  );
+}
 
-  const [boards, users] = await Promise.all([
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ board?: string }>;
+}) {
+  const session = await requireSession();
+  const { board: boardFilter } = await searchParams;
+
+  const [allBoards, users] = await Promise.all([
     prisma.board.findMany({ ...boardWithDataArgs, orderBy: { createdAt: "asc" } }),
     prisma.user.findMany({
       select: { id: true, name: true, supervisorId: true },
       orderBy: { name: "asc" },
     }),
   ]);
+
+  const boards = boardFilter ? allBoards.filter((b) => b.id === boardFilter) : allBoards;
 
   const userById = new Map(users.map((u) => [u.id, u.name]));
   const isSupervisor = session.role === "SUPERVISOR";
@@ -44,7 +87,30 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 p-6">
-      <h1 className="text-lg font-semibold text-neutral-900">儀表板</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-neutral-900">儀表板</h1>
+        <form action="/dashboard" method="GET" className="flex items-center gap-2 text-sm">
+          <span className="text-neutral-500">看板篩選</span>
+          <select
+            name="board"
+            defaultValue={boardFilter ?? ""}
+            className="rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+          >
+            <option value="">全部看板</option>
+            {allBoards.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-neutral-600 hover:bg-neutral-50"
+          >
+            套用
+          </button>
+        </form>
+      </div>
 
       <TeamWorkloadCard
         title={isSupervisor ? "我的團隊工作量總覽" : "團隊工作量總覽"}
@@ -148,29 +214,7 @@ export default async function DashboardPage() {
             ) : (
               <ul className="divide-y divide-neutral-100">
                 {teamItems.map((item) => (
-                  <li key={`${item.boardId}-${item.itemId}`} className="flex items-center gap-3 px-4 py-2.5">
-                    <Link
-                      href={`/boards/${item.boardId}`}
-                      className="min-w-0 flex-1 truncate text-sm text-neutral-800 hover:text-blue-600"
-                    >
-                      {item.itemName}
-                    </Link>
-                    <span className="shrink-0 text-xs text-neutral-500">
-                      {item.assigneeNames.join(", ")}
-                    </span>
-                    <span className="shrink-0 text-xs text-neutral-400">{item.boardName}</span>
-                    {item.status && (
-                      <span
-                        className="shrink-0 rounded-full px-2 py-0.5 text-xs text-white"
-                        style={{ backgroundColor: item.status.color }}
-                      >
-                        {item.status.label}
-                      </span>
-                    )}
-                    {item.dueDate && (
-                      <span className="shrink-0 text-xs text-neutral-500">{formatDate(item.dueDate)}</span>
-                    )}
-                  </li>
+                  <AssignedItemRow key={`${item.boardId}-${item.itemId}`} item={item} showAssignees />
                 ))}
               </ul>
             )}
@@ -188,26 +232,7 @@ export default async function DashboardPage() {
           ) : (
             <ul className="divide-y divide-neutral-100">
               {personalItems.map((item) => (
-                <li key={`${item.boardId}-${item.itemId}`} className="flex items-center gap-3 px-4 py-2.5">
-                  <Link
-                    href={`/boards/${item.boardId}`}
-                    className="min-w-0 flex-1 truncate text-sm text-neutral-800 hover:text-blue-600"
-                  >
-                    {item.itemName}
-                  </Link>
-                  <span className="shrink-0 text-xs text-neutral-400">{item.boardName}</span>
-                  {item.status && (
-                    <span
-                      className="shrink-0 rounded-full px-2 py-0.5 text-xs text-white"
-                      style={{ backgroundColor: item.status.color }}
-                    >
-                      {item.status.label}
-                    </span>
-                  )}
-                  {item.dueDate && (
-                    <span className="shrink-0 text-xs text-neutral-500">{formatDate(item.dueDate)}</span>
-                  )}
-                </li>
+                <AssignedItemRow key={`${item.boardId}-${item.itemId}`} item={item} showAssignees={false} />
               ))}
             </ul>
           )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -18,7 +18,9 @@ import { Plus, Target, Trash2 } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageStructure } from "@/lib/permissions";
+import { computeVisibleItemIds, type ActiveFilter } from "@/lib/filter";
 import { GroupSection } from "./GroupSection";
+import { FilterBar } from "./FilterBar";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import { gridTemplate } from "./gridTemplate";
 import { createGroup, reorderGroups } from "@/lib/actions/group";
@@ -39,6 +41,11 @@ export function BoardTable({
 }) {
   const canEditStructure = canManageStructure(userRole);
   const [groupOrder, setGroupOrder] = useState(board.groups.map((g) => g.id));
+  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const visibleIds = useMemo(
+    () => computeVisibleItemIds(board.items, filters),
+    [board.items, filters]
+  );
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
@@ -69,6 +76,8 @@ export function BoardTable({
 
   return (
     <div>
+      <FilterBar columns={board.columns} users={users} filters={filters} onChange={setFilters} />
+
       <div
         className="mb-2 grid w-fit items-center text-xs font-medium text-neutral-500"
         style={{ gridTemplateColumns: gridTemplate(board.columns.length) }}
@@ -143,6 +152,7 @@ export function BoardTable({
                   progressColumnId={board.progressColumnId}
                   userRole={userRole}
                   currentUserId={currentUserId}
+                  visibleIds={visibleIds}
                 />
               );
             })}

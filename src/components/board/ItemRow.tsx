@@ -33,6 +33,7 @@ export function ItemRow({
   progressColumnId,
   userRole,
   currentUserId,
+  visibleIds,
 }: {
   boardId: string;
   groupId: string;
@@ -44,6 +45,7 @@ export function ItemRow({
   progressColumnId: string | null;
   userRole: UserRole;
   currentUserId: string;
+  visibleIds: Set<string> | null;
 }) {
   const canEditStructure = canManageStructure(userRole);
   const [name, setName] = useState(item.name);
@@ -53,6 +55,7 @@ export function ItemRow({
 
   const children = allGroupItems
     .filter((i) => i.parentId === item.id)
+    .filter((i) => visibleIds === null || visibleIds.has(i.id))
     .sort((a, b) => a.order - b.order);
   const hasChildren = children.length > 0;
   const commentCount = item._count.comments;
@@ -212,6 +215,7 @@ export function ItemRow({
             progressColumnId={progressColumnId}
             userRole={userRole}
             currentUserId={currentUserId}
+            visibleIds={visibleIds}
           />
         ))}
     </>
