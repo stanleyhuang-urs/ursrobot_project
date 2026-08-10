@@ -5,19 +5,47 @@ import { PersonCell } from "./PersonCell";
 import { DateCell } from "./DateCell";
 import { NumberCell } from "./NumberCell";
 
+function ReadOnlyCell({
+  column,
+  value,
+  users,
+}: {
+  column: ColumnData;
+  value: string | number | null;
+  users: UserOption[];
+}) {
+  let display = "";
+  if (column.type === "PERSON") {
+    display = users.find((u) => u.id === value)?.name ?? "";
+  } else if (value !== null) {
+    display = String(value);
+  }
+  return (
+    <span className="block truncate px-2 py-1 text-sm text-neutral-600" title={display}>
+      {display}
+    </span>
+  );
+}
+
 export function CellEditor({
   boardId,
   itemId,
   column,
   value,
   users,
+  canEdit = true,
 }: {
   boardId: string;
   itemId: string;
   column: ColumnData;
   value: string | number | null;
   users: UserOption[];
+  canEdit?: boolean;
 }) {
+  if (!canEdit) {
+    return <ReadOnlyCell column={column} value={value} users={users} />;
+  }
+
   switch (column.type) {
     case "TEXT":
       return (

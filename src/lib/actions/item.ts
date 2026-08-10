@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
+import { requireStructureAccess } from "@/lib/permissions";
 
 export async function createItem(
   boardId: string,
@@ -10,7 +11,8 @@ export async function createItem(
   name: string,
   parentId?: string
 ) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   const trimmed = name.trim() || "未命名項目";
 
   const count = await prisma.item.count({
@@ -31,7 +33,8 @@ export async function insertItem(
   referenceItemId: string,
   position: "before" | "after"
 ) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
 
   const reference = await prisma.item.findUnique({
     where: { id: referenceItemId },
@@ -64,14 +67,16 @@ export async function renameItem(
   itemId: string,
   name: string
 ) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   const trimmed = name.trim() || "未命名項目";
   await prisma.item.update({ where: { id: itemId }, data: { name: trimmed } });
   revalidatePath(`/boards/${boardId}`);
 }
 
 export async function deleteItem(boardId: string, itemId: string) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   await prisma.item.delete({ where: { id: itemId } });
   revalidatePath(`/boards/${boardId}`);
 }
@@ -81,7 +86,8 @@ export async function moveItemToGroup(
   itemId: string,
   groupId: string
 ) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   const count = await prisma.item.count({ where: { groupId } });
   await prisma.item.update({
     where: { id: itemId },
@@ -94,7 +100,8 @@ export async function reorderItems(
   boardId: string,
   items: { id: string; order: number; groupId: string }[]
 ) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   await prisma.$transaction(
     items.map((item) =>
       prisma.item.update({

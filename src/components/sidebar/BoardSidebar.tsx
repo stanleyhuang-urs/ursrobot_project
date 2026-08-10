@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, LayoutGrid, Plus, Pencil, Trash2, Users } from "lucide-react";
+import type { UserRole } from "@prisma/client";
+import { canManageBoard } from "@/lib/permissions";
 import { Modal } from "@/components/ui/Modal";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -19,8 +21,9 @@ export function BoardSidebar({
 }: {
   boards: Board[];
   userName: string;
-  userRole: "ADMIN" | "MEMBER";
+  userRole: UserRole;
 }) {
+  const canManage = canManageBoard(userRole);
   const pathname = usePathname();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -63,14 +66,16 @@ export function BoardSidebar({
     <div className="flex w-64 shrink-0 flex-col border-r border-neutral-200 bg-white">
       <div className="flex items-center justify-between px-4 py-4">
         <span className="text-sm font-semibold text-neutral-900">看板</span>
-        <button
-          type="button"
-          onClick={() => setCreateOpen(true)}
-          className="rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
-          aria-label="新增看板"
-        >
-          <Plus size={16} />
-        </button>
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+            aria-label="新增看板"
+          >
+            <Plus size={16} />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-auto px-2">
@@ -116,23 +121,25 @@ export function BoardSidebar({
                 <LayoutGrid size={14} className="shrink-0" />
                 <span className="truncate">{board.name}</span>
               </Link>
-              <RowMenu>
-                <RowMenuItem
-                  onSelect={() => {
-                    setRenameTarget(board);
-                    setRenameValue(board.name);
-                  }}
-                >
-                  <span className="flex items-center gap-2">
-                    <Pencil size={14} /> 重新命名
-                  </span>
-                </RowMenuItem>
-                <RowMenuItem danger onSelect={() => handleDelete(board)}>
-                  <span className="flex items-center gap-2">
-                    <Trash2 size={14} /> 刪除
-                  </span>
-                </RowMenuItem>
-              </RowMenu>
+              {canManage && (
+                <RowMenu>
+                  <RowMenuItem
+                    onSelect={() => {
+                      setRenameTarget(board);
+                      setRenameValue(board.name);
+                    }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Pencil size={14} /> 重新命名
+                    </span>
+                  </RowMenuItem>
+                  <RowMenuItem danger onSelect={() => handleDelete(board)}>
+                    <span className="flex items-center gap-2">
+                      <Trash2 size={14} /> 刪除
+                    </span>
+                  </RowMenuItem>
+                </RowMenu>
+              )}
             </div>
           );
         })}

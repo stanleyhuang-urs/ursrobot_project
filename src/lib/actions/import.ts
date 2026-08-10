@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
+import { requireBoardAdmin } from "@/lib/permissions";
 import { parseNumberInput } from "@/lib/cellValue";
 import { parseWorkbookBuffer, type ParsedWorkbook } from "@/lib/import/parseFile";
 import {
@@ -22,7 +23,8 @@ const ALLOWED_EXTENSIONS = ["csv", "xlsx", "xls"];
 export async function parseImportFile(
   formData: FormData
 ): Promise<ParsedWorkbook> {
-  await requireSession();
+  const session = await requireSession();
+  requireBoardAdmin(session.role);
 
   const file = formData.get("file");
   if (!(file instanceof File)) {
@@ -41,7 +43,8 @@ export async function parseImportFile(
 }
 
 export async function parseImportFromUrl(url: string): Promise<ParsedWorkbook> {
-  await requireSession();
+  const session = await requireSession();
+  requireBoardAdmin(session.role);
 
   let parsed: URL;
   try {
@@ -144,7 +147,8 @@ async function coerceValue(
 export async function importRows(
   input: ImportRowsInput
 ): Promise<ImportResult> {
-  await requireSession();
+  const session = await requireSession();
+  requireBoardAdmin(session.role);
   const { boardId, groupId, dataRows, mappings } = input;
 
   const nameMappings = mappings.filter((m) => m.target.kind === "name");

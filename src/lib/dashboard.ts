@@ -2,6 +2,8 @@ import type { BoardWithData, UserOption } from "@/types/board";
 import { getPersonIds, getStatusOptions, type StatusOption } from "@/types/column";
 import { getItemDateRange, computeDailyLoadByUser } from "@/lib/gantt";
 
+export type WorkloadPeriod = "day" | "week" | "month";
+
 function todayUtc(): Date {
   return new Date(new Date().toISOString().slice(0, 10));
 }
@@ -10,14 +12,41 @@ function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-export type TeamWorkloadEntry = { userId: string; userName: string; todayPct: number };
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
 
-/** Sums each user's today's allocation % across every board that has Gantt columns configured. */
+/** All dates (inclusive) covering the requested period, anchored on today. */
+function datesForPeriod(period: WorkloadPeriod): Date[] {
+  const today = todayUtc();
+  if (period === "day") return [today];
+
+  if (period === "week") {
+    const dayOfWeek = today.getUTCDay(); // 0 = Sunday
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = addDays(today, mondayOffset);
+    return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+  }
+
+  const firstOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+  const daysInMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0)).getUTCDate();
+  return Array.from({ length: daysInMonth }, (_, i) => addDays(firstOfMonth, i));
+}
+
+export type TeamWorkloadEntry = { userId: string; userName: string; avgPct: number };
+
+/**
+ * Each user's average allocation % across the requested period (day/week/month),
+ * summed across every board that has Gantt columns configured.
+ */
 export function computeTeamWorkload(
   boards: BoardWithData[],
-  users: UserOption[]
+  users: UserOption[],
+  period: WorkloadPeriod = "day"
 ): TeamWorkloadEntry[] {
-  const today = toIsoDate(todayUtc());
+  const dates = datesForPeriod(period).map(toIsoDate);
   const totals = new Map<string, number>();
 
   for (const board of boards) {
@@ -28,14 +57,18 @@ export function computeTeamWorkload(
       board.ganttDurationColumnId
     );
     for (const [userId, dayMap] of dailyLoad) {
-      const pct = dayMap.get(today) ?? 0;
-      totals.set(userId, (totals.get(userId) ?? 0) + pct);
+      const sum = dates.reduce((acc, date) => acc + (dayMap.get(date) ?? 0), 0);
+      totals.set(userId, (totals.get(userId) ?? 0) + sum);
     }
   }
 
   return users
-    .map((u) => ({ userId: u.id, userName: u.name, todayPct: totals.get(u.id) ?? 0 }))
-    .sort((a, b) => b.todayPct - a.todayPct);
+    .map((u) => ({
+      userId: u.id,
+      userName: u.name,
+      avgPct: Math.round((totals.get(u.id) ?? 0) / dates.length),
+    }))
+    .sort((a, b) => b.avgPct - a.avgPct);
 }
 
 export type BoardProgressEntry = {
@@ -125,10 +158,20 @@ export type PersonalItemEntry = {
   itemName: string;
   status: StatusOption | null;
   dueDate: Date | null;
+  assigneeNames: string[];
 };
 
-/** Items assigned to a user, either via a PERSON column or a Gantt Assignment, across all boards. */
-export function computePersonalItems(boards: BoardWithData[], userId: string): PersonalItemEntry[] {
+/**
+ * Items assigned to any of the given users, either via a PERSON column or a
+ * Gantt Assignment, across all boards. Pass a single id for "my items"; pass
+ * a team's ids to see everyone's items at once (assigneeNames disambiguates).
+ */
+export function computePersonalItems(
+  boards: BoardWithData[],
+  userIds: string[],
+  userById: Map<string, string> = new Map()
+): PersonalItemEntry[] {
+  const idSet = new Set(userIds);
   const result: PersonalItemEntry[] = [];
 
   for (const board of boards) {
@@ -136,11 +179,14 @@ export function computePersonalItems(boards: BoardWithData[], userId: string): P
     const statusOptions = statusColumn ? getStatusOptions(statusColumn.options) : [];
 
     for (const item of board.items) {
-      const viaPerson = item.cellValues.some(
-        (cv) => board.columns.find((c) => c.id === cv.columnId)?.type === "PERSON" && getPersonIds(cv.value).includes(userId)
+      const personIds = item.cellValues
+        .filter((cv) => board.columns.find((c) => c.id === cv.columnId)?.type === "PERSON")
+        .flatMap((cv) => getPersonIds(cv.value));
+      const assignmentIds = item.assignments.map((a) => a.userId);
+      const matchedIds = new Set(
+        [...personIds, ...assignmentIds].filter((id) => idSet.has(id))
       );
-      const viaAssignment = item.assignments.some((a) => a.userId === userId);
-      if (!viaPerson && !viaAssignment) continue;
+      if (matchedIds.size === 0) continue;
 
       const statusValue = statusColumn
         ? item.cellValues.find((cv) => cv.columnId === statusColumn.id)?.value
@@ -159,6 +205,7 @@ export function computePersonalItems(boards: BoardWithData[], userId: string): P
         itemName: item.name,
         status,
         dueDate,
+        assigneeNames: [...matchedIds].map((id) => userById.get(id) ?? "").filter(Boolean),
       });
     }
   }

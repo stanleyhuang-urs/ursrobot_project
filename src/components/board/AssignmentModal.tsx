@@ -4,18 +4,23 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Trash2 } from "lucide-react";
 import type { ItemData, UserOption } from "@/types/board";
+import type { UserRole } from "@prisma/client";
 import { listAssignments, upsertAssignment, removeAssignment } from "@/lib/actions/assignment";
 
 export function AssignmentModal({
   boardId,
   item,
   users,
+  currentUserId,
+  userRole,
   open,
   onOpenChange,
 }: {
   boardId: string;
   item: ItemData | null;
   users: UserOption[];
+  currentUserId: string;
+  userRole: UserRole;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -24,7 +29,7 @@ export function AssignmentModal({
   >([]);
   const [loading, setLoading] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
-  const [pct, setPct] = useState(100);
+  const [pct, setPct] = useState(10);
 
   useEffect(() => {
     if (!open || !item) return;
@@ -45,8 +50,13 @@ export function AssignmentModal({
 
   if (!item) return null;
 
+  const assignableUsers =
+    userRole === "SUPERVISOR"
+      ? users.filter((u) => u.supervisorId === currentUserId)
+      : users;
+
   const assignedUserIds = new Set(assignments.map((a) => a.userId));
-  const availableUsers = users.filter((u) => !assignedUserIds.has(u.id));
+  const availableUsers = assignableUsers.filter((u) => !assignedUserIds.has(u.id));
 
   async function refresh() {
     if (!item) return;
@@ -57,7 +67,7 @@ export function AssignmentModal({
     if (!item || !selectedUserId) return;
     await upsertAssignment(boardId, item.id, selectedUserId, pct);
     setSelectedUserId("");
-    setPct(100);
+    setPct(10);
     await refresh();
   }
 
@@ -95,7 +105,7 @@ export function AssignmentModal({
         ))}
       </div>
 
-      {availableUsers.length > 0 && (
+      {availableUsers.length > 0 ? (
         <div className="flex items-center gap-2">
           <select
             value={selectedUserId}
@@ -111,8 +121,9 @@ export function AssignmentModal({
           </select>
           <input
             type="number"
-            min={1}
+            min={5}
             max={100}
+            step={5}
             value={pct}
             onChange={(e) => setPct(Number(e.target.value))}
             className="w-20 rounded-md border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
@@ -127,6 +138,10 @@ export function AssignmentModal({
             新增
           </button>
         </div>
+      ) : (
+        userRole === "SUPERVISOR" && (
+          <p className="text-sm text-neutral-400">你的團隊目前沒有可指派的成員。</p>
+        )
       )}
     </Modal>
   );

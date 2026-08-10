@@ -3,6 +3,8 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
+import type { UserRole } from "@prisma/client";
+import { canManageStructure } from "@/lib/permissions";
 import { setGanttStartColumn, setGanttDurationColumn } from "@/lib/actions/column";
 import { getItemDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
 import { AssignmentModal } from "./AssignmentModal";
@@ -40,10 +42,15 @@ function formatDay(date: Date) {
 export function BoardGantt({
   board,
   users,
+  userRole,
+  currentUserId,
 }: {
   board: BoardWithData;
   users: UserOption[];
+  userRole: UserRole;
+  currentUserId: string;
 }) {
+  const canEditStructure = canManageStructure(userRole);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [assignmentItem, setAssignmentItem] = useState<ItemData | null>(null);
 
@@ -143,7 +150,7 @@ export function BoardGantt({
                 range={range}
                 minDate={minDate}
                 users={users}
-                onClick={() => setAssignmentItem(item)}
+                onClick={canEditStructure ? () => setAssignmentItem(item) : undefined}
               />
             )}
           </div>
@@ -165,7 +172,8 @@ export function BoardGantt({
           <select
             value={startColumnId ?? ""}
             onChange={(e) => setGanttStartColumn(board.id, e.target.value || null)}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+            disabled={!canEditStructure}
+            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
           >
             <option value="">未設定</option>
             {dateColumns.map((c) => (
@@ -180,7 +188,8 @@ export function BoardGantt({
           <select
             value={durationColumnId ?? ""}
             onChange={(e) => setGanttDurationColumn(board.id, e.target.value || null)}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+            disabled={!canEditStructure}
+            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
           >
             <option value="">未設定</option>
             {numberColumns.map((c) => (
@@ -278,6 +287,8 @@ export function BoardGantt({
         boardId={board.id}
         item={assignmentItem}
         users={users}
+        currentUserId={currentUserId}
+        userRole={userRole}
         open={assignmentItem !== null}
         onOpenChange={(open) => !open && setAssignmentItem(null)}
       />
@@ -296,7 +307,7 @@ function GanttBar({
   range: DateRange;
   minDate: Date;
   users: UserOption[];
-  onClick: () => void;
+  onClick?: () => void;
 }) {
   const left = diffDays(minDate, range.start) * DAY_WIDTH;
   const width = (diffDays(range.start, range.end) + 1) * DAY_WIDTH;
@@ -306,7 +317,8 @@ function GanttBar({
     <button
       type="button"
       onClick={onClick}
-      className="absolute top-1/2 flex -translate-y-1/2 overflow-hidden rounded"
+      disabled={!onClick}
+      className="absolute top-1/2 flex -translate-y-1/2 overflow-hidden rounded disabled:cursor-default"
       style={{ left, width, height: 20 }}
       title={item.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
     >

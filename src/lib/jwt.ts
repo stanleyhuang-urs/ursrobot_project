@@ -11,7 +11,7 @@ export type SessionPayload = {
   userId: string;
   email: string;
   name: string;
-  role: "ADMIN" | "MEMBER";
+  role: "ADMIN" | "SUPERVISOR" | "MEMBER";
 };
 
 export async function createSessionToken(payload: SessionPayload) {

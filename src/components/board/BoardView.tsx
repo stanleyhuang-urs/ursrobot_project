@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Table2, LayoutGrid, Upload, GanttChartSquare } from "lucide-react";
 import type { BoardWithData, UserOption } from "@/types/board";
+import type { UserRole } from "@prisma/client";
+import { canManageBoard, canManageStructure } from "@/lib/permissions";
 import { BoardTable } from "./BoardTable";
 import { BoardKanban } from "./BoardKanban";
 import { BoardGantt } from "./BoardGantt";
@@ -12,9 +14,13 @@ import { ImportWizard } from "./ImportWizard";
 export function BoardView({
   board,
   users,
+  userRole,
+  currentUserId,
 }: {
   board: BoardWithData;
   users: UserOption[];
+  userRole: UserRole;
+  currentUserId: string;
 }) {
   const [view, setView] = useState<"table" | "kanban" | "gantt">("table");
   const [addColumnOpen, setAddColumnOpen] = useState(false);
@@ -40,13 +46,15 @@ export function BoardView({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setImportOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
-          >
-            <Upload size={14} /> 匯入
-          </button>
+          {canManageBoard(userRole) && (
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+            >
+              <Upload size={14} /> 匯入
+            </button>
+          )}
           <div className="flex overflow-hidden rounded-md border border-neutral-200">
             <button
               type="button"
@@ -90,6 +98,7 @@ export function BoardView({
           <BoardTable
             board={board}
             users={users}
+            userRole={userRole}
             onAddColumn={() => setAddColumnOpen(true)}
           />
         )}
@@ -101,22 +110,33 @@ export function BoardView({
             onChangeColumn={setKanbanColumnId}
           />
         )}
-        {view === "gantt" && <BoardGantt board={board} users={users} />}
+        {view === "gantt" && (
+          <BoardGantt
+            board={board}
+            users={users}
+            userRole={userRole}
+            currentUserId={currentUserId}
+          />
+        )}
       </div>
 
-      <AddColumnDialog
-        boardId={board.id}
-        open={addColumnOpen}
-        onOpenChange={setAddColumnOpen}
-      />
+      {canManageStructure(userRole) && (
+        <AddColumnDialog
+          boardId={board.id}
+          open={addColumnOpen}
+          onOpenChange={setAddColumnOpen}
+        />
+      )}
 
-      <ImportWizard
-        boardId={board.id}
-        columns={board.columns}
-        groups={board.groups}
-        open={importOpen}
-        onOpenChange={setImportOpen}
-      />
+      {canManageBoard(userRole) && (
+        <ImportWizard
+          boardId={board.id}
+          columns={board.columns}
+          groups={board.groups}
+          open={importOpen}
+          onOpenChange={setImportOpen}
+        />
+      )}
     </div>
   );
 }

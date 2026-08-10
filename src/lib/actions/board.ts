@@ -3,10 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
+import { requireBoardAdmin } from "@/lib/permissions";
 import { DEFAULT_STATUSES } from "@/types/column";
 
 export async function createBoard(name: string) {
   const session = await requireSession();
+  requireBoardAdmin(session.role);
   const trimmed = name.trim();
   if (!trimmed) throw new Error("看板名稱不可為空");
 
@@ -35,7 +37,8 @@ export async function createBoard(name: string) {
 }
 
 export async function renameBoard(boardId: string, name: string) {
-  await requireSession();
+  const session = await requireSession();
+  requireBoardAdmin(session.role);
   const trimmed = name.trim();
   if (!trimmed) throw new Error("看板名稱不可為空");
 
@@ -49,7 +52,8 @@ export async function renameBoard(boardId: string, name: string) {
 }
 
 export async function deleteBoard(boardId: string) {
-  await requireSession();
+  const session = await requireSession();
+  requireBoardAdmin(session.role);
   await prisma.board.delete({ where: { id: boardId } });
   revalidatePath("/boards");
 }

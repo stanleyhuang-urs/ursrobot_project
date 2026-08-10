@@ -11,6 +11,8 @@ import {
   Trash2,
 } from "lucide-react";
 import type { ItemData, ColumnData, UserOption } from "@/types/board";
+import type { UserRole } from "@prisma/client";
+import { canManageStructure, canEditCellValue } from "@/lib/permissions";
 import { CellEditor } from "./cell-editors/CellEditor";
 import { ItemDetailModal } from "./ItemDetailModal";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
@@ -27,6 +29,7 @@ export function ItemRow({
   columns,
   users,
   progressColumnId,
+  userRole,
 }: {
   boardId: string;
   groupId: string;
@@ -36,7 +39,9 @@ export function ItemRow({
   columns: ColumnData[];
   users: UserOption[];
   progressColumnId: string | null;
+  userRole: UserRole;
 }) {
+  const canEditStructure = canManageStructure(userRole);
   const [name, setName] = useState(item.name);
   const [expanded, setExpanded] = useState(true);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -71,10 +76,10 @@ export function ItemRow({
   return (
     <>
       <div
-        className="grid items-center border-b border-neutral-100 hover:bg-neutral-50"
+        className="group grid w-fit items-center border-b border-neutral-100 hover:bg-neutral-50"
         style={{ gridTemplateColumns: gridTemplate(columns.length) }}
       >
-        <div className="flex items-center justify-center">
+        <div className="sticky left-0 z-10 flex items-center justify-center bg-white group-hover:bg-neutral-50">
           {hasChildren && (
             <button
               type="button"
@@ -86,7 +91,10 @@ export function ItemRow({
             </button>
           )}
         </div>
-        <div className="flex min-w-0 items-center gap-1" style={{ paddingLeft: depth * 20 }}>
+        <div
+          className="sticky left-8 z-10 flex min-w-0 items-center gap-1 bg-white group-hover:bg-neutral-50"
+          style={{ paddingLeft: depth * 20 }}
+        >
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -94,6 +102,7 @@ export function ItemRow({
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
             }}
+            readOnly={!canEditStructure}
             className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-sm outline-none hover:bg-neutral-100 focus:bg-white focus:ring-1 focus:ring-blue-400"
           />
           <button
@@ -122,32 +131,35 @@ export function ItemRow({
                 column={col}
                 value={valuesByColumn.get(col.id) ?? null}
                 users={users}
+                canEdit={canEditCellValue(userRole, col.type, col.id === progressColumnId)}
               />
             )}
           </div>
         ))}
-        <RowMenu>
-          <RowMenuItem onSelect={() => handleInsert("before")}>
-            <span className="flex items-center gap-2">
-              <ArrowUpToLine size={14} /> 上方插入項目
-            </span>
-          </RowMenuItem>
-          <RowMenuItem onSelect={() => handleInsert("after")}>
-            <span className="flex items-center gap-2">
-              <ArrowDownToLine size={14} /> 下方插入項目
-            </span>
-          </RowMenuItem>
-          <RowMenuItem onSelect={handleAddSubitem}>
-            <span className="flex items-center gap-2">
-              <Plus size={14} /> 新增子項目
-            </span>
-          </RowMenuItem>
-          <RowMenuItem danger onSelect={() => deleteItem(boardId, item.id)}>
-            <span className="flex items-center gap-2">
-              <Trash2 size={14} /> 刪除
-            </span>
-          </RowMenuItem>
-        </RowMenu>
+        {canEditStructure && (
+          <RowMenu>
+            <RowMenuItem onSelect={() => handleInsert("before")}>
+              <span className="flex items-center gap-2">
+                <ArrowUpToLine size={14} /> 上方插入項目
+              </span>
+            </RowMenuItem>
+            <RowMenuItem onSelect={() => handleInsert("after")}>
+              <span className="flex items-center gap-2">
+                <ArrowDownToLine size={14} /> 下方插入項目
+              </span>
+            </RowMenuItem>
+            <RowMenuItem onSelect={handleAddSubitem}>
+              <span className="flex items-center gap-2">
+                <Plus size={14} /> 新增子項目
+              </span>
+            </RowMenuItem>
+            <RowMenuItem danger onSelect={() => deleteItem(boardId, item.id)}>
+              <span className="flex items-center gap-2">
+                <Trash2 size={14} /> 刪除
+              </span>
+            </RowMenuItem>
+          </RowMenu>
+        )}
       </div>
       <ItemDetailModal
         boardId={boardId}
@@ -168,6 +180,7 @@ export function ItemRow({
             columns={columns}
             users={users}
             progressColumnId={progressColumnId}
+            userRole={userRole}
           />
         ))}
     </>

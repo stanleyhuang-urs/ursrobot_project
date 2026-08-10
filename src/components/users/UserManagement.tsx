@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
-import { createUser, listUsers } from "@/lib/actions/user";
+import { createUser, updateUserSupervisor, listUsers } from "@/lib/actions/user";
 import type { UserRole } from "@prisma/client";
 
 type UserRow = Awaited<ReturnType<typeof listUsers>>[number];
@@ -14,14 +14,18 @@ export function UserManagement({ users }: { users: UserRow[] }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("MEMBER");
+  const [supervisorId, setSupervisorId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const supervisors = users.filter((u) => u.role === "SUPERVISOR");
 
   function reset() {
     setName("");
     setEmail("");
     setPassword("");
     setRole("MEMBER");
+    setSupervisorId("");
     setError(null);
   }
 
@@ -29,7 +33,7 @@ export function UserManagement({ users }: { users: UserRow[] }) {
     setSubmitting(true);
     setError(null);
     try {
-      await createUser(name, email, password, role);
+      await createUser(name, email, password, role, supervisorId || null);
       setOpen(false);
       reset();
     } catch (err) {
@@ -52,25 +56,42 @@ export function UserManagement({ users }: { users: UserRow[] }) {
       </div>
 
       <div className="overflow-hidden rounded-md border border-neutral-200 bg-white">
-        <div className="grid grid-cols-[1fr_1fr_100px_140px] gap-2 border-b border-neutral-100 px-4 py-2 text-xs font-medium text-neutral-500">
+        <div className="grid grid-cols-[1fr_1fr_90px_140px_160px] gap-2 border-b border-neutral-100 px-4 py-2 text-xs font-medium text-neutral-500">
           <span>姓名</span>
           <span>Email</span>
           <span>角色</span>
           <span>建立時間</span>
+          <span>所屬主管</span>
         </div>
         {users.map((u) => (
           <div
             key={u.id}
-            className="grid grid-cols-[1fr_1fr_100px_140px] gap-2 border-b border-neutral-100 px-4 py-2.5 text-sm last:border-b-0"
+            className="grid grid-cols-[1fr_1fr_90px_140px_160px] items-center gap-2 border-b border-neutral-100 px-4 py-2.5 text-sm last:border-b-0"
           >
             <span className="truncate text-neutral-800">{u.name}</span>
             <span className="truncate text-neutral-500">{u.email}</span>
             <span className="text-neutral-500">
-              {u.role === "ADMIN" ? "管理員" : "成員"}
+              {u.role === "ADMIN" ? "管理者" : u.role === "SUPERVISOR" ? "主管" : "團隊成員"}
             </span>
             <span className="text-neutral-400">
               {new Date(u.createdAt).toLocaleDateString("zh-TW")}
             </span>
+            {u.role === "MEMBER" ? (
+              <select
+                value={u.supervisorId ?? ""}
+                onChange={(e) => updateUserSupervisor(u.id, e.target.value || null)}
+                className="rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+              >
+                <option value="">未設定</option>
+                {supervisors.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-neutral-300">—</span>
+            )}
           </div>
         ))}
       </div>
@@ -114,9 +135,24 @@ export function UserManagement({ users }: { users: UserRow[] }) {
             onChange={(e) => setRole(e.target.value as UserRole)}
             className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
           >
-            <option value="MEMBER">成員</option>
-            <option value="ADMIN">管理員</option>
+            <option value="MEMBER">團隊成員</option>
+            <option value="SUPERVISOR">主管</option>
+            <option value="ADMIN">管理者</option>
           </select>
+          {role === "MEMBER" && (
+            <select
+              value={supervisorId}
+              onChange={(e) => setSupervisorId(e.target.value)}
+              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            >
+              <option value="">所屬主管(未設定)</option>
+              {supervisors.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             type="button"
             disabled={submitting || !name.trim() || !email.trim() || !password}

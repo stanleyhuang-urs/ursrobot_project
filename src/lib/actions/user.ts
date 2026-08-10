@@ -9,7 +9,15 @@ import type { UserRole } from "@prisma/client";
 export async function listUsers() {
   await requireSession();
   return prisma.user.findMany({
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      createdAt: true,
+      supervisorId: true,
+      supervisor: { select: { id: true, name: true } },
+    },
     orderBy: { createdAt: "asc" },
   });
 }
@@ -18,7 +26,8 @@ export async function createUser(
   name: string,
   email: string,
   password: string,
-  role: UserRole
+  role: UserRole,
+  supervisorId: string | null
 ) {
   const session = await requireSession();
   if (session.role !== "ADMIN") {
@@ -41,7 +50,33 @@ export async function createUser(
 
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.user.create({
-    data: { name: trimmedName, email: trimmedEmail, passwordHash, role },
+    data: {
+      name: trimmedName,
+      email: trimmedEmail,
+      passwordHash,
+      role,
+      supervisorId: role === "MEMBER" ? supervisorId : null,
+    },
+  });
+
+  revalidatePath("/users");
+}
+
+export async function updateUserSupervisor(
+  userId: string,
+  supervisorId: string | null
+) {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") {
+    throw new Error("只有管理員可以設定所屬主管");
+  }
+  if (userId === supervisorId) {
+    throw new Error("不可指定自己為主管");
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { supervisorId },
   });
 
   revalidatePath("/users");

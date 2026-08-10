@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
+import { requireStructureAccess } from "@/lib/permissions";
 import type { ColumnType, StatusColumnOptions } from "@/types/column";
 import { DEFAULT_STATUSES } from "@/types/column";
 
@@ -11,7 +12,8 @@ export async function createColumn(
   name: string,
   type: ColumnType
 ) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   const trimmed = name.trim();
   if (!trimmed) throw new Error("欄位名稱不可為空");
 
@@ -31,7 +33,8 @@ export async function renameColumn(
   columnId: string,
   name: string
 ) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   const trimmed = name.trim();
   if (!trimmed) throw new Error("欄位名稱不可為空");
 
@@ -47,7 +50,8 @@ export async function updateStatusOptions(
   columnId: string,
   statuses: StatusColumnOptions["statuses"]
 ) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   await prisma.column.update({
     where: { id: columnId },
     data: { options: { statuses } },
@@ -56,7 +60,8 @@ export async function updateStatusOptions(
 }
 
 export async function deleteColumn(boardId: string, columnId: string) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   await prisma.column.delete({ where: { id: columnId } });
   revalidatePath(`/boards/${boardId}`);
 }
@@ -65,7 +70,8 @@ export async function setProgressColumn(
   boardId: string,
   columnId: string | null
 ) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   await prisma.board.update({
     where: { id: boardId },
     data: { progressColumnId: columnId },
@@ -77,7 +83,8 @@ export async function setGanttStartColumn(
   boardId: string,
   columnId: string | null
 ) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   await prisma.board.update({
     where: { id: boardId },
     data: { ganttStartColumnId: columnId },
@@ -89,7 +96,8 @@ export async function setGanttDurationColumn(
   boardId: string,
   columnId: string | null
 ) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   await prisma.board.update({
     where: { id: boardId },
     data: { ganttDurationColumnId: columnId },

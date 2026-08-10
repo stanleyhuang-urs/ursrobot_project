@@ -16,6 +16,8 @@ import {
 } from "@dnd-kit/sortable";
 import { Plus, Target, Trash2 } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
+import type { UserRole } from "@prisma/client";
+import { canManageStructure } from "@/lib/permissions";
 import { GroupSection } from "./GroupSection";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import { gridTemplate } from "./gridTemplate";
@@ -25,12 +27,15 @@ import { deleteColumn, setProgressColumn } from "@/lib/actions/column";
 export function BoardTable({
   board,
   users,
+  userRole,
   onAddColumn,
 }: {
   board: BoardWithData;
   users: UserOption[];
+  userRole: UserRole;
   onAddColumn: () => void;
 }) {
+  const canEditStructure = canManageStructure(userRole);
   const [groupOrder, setGroupOrder] = useState(board.groups.map((g) => g.id));
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -63,51 +68,55 @@ export function BoardTable({
   return (
     <div>
       <div
-        className="mb-2 grid items-center px-2 text-xs font-medium text-neutral-500"
+        className="mb-2 grid w-fit items-center text-xs font-medium text-neutral-500"
         style={{ gridTemplateColumns: gridTemplate(board.columns.length) }}
       >
-        <div />
-        <div>項目名稱</div>
+        <div className="sticky left-0 z-10 bg-neutral-50" />
+        <div className="sticky left-8 z-10 bg-neutral-50 px-2">項目名稱</div>
         {board.columns.map((col) => (
           <div key={col.id} className="flex items-center justify-between px-1">
             <span className="truncate">{col.name}</span>
-            <RowMenu>
-              {col.type === "NUMBER" && (
+            {canEditStructure && (
+              <RowMenu>
+                {col.type === "NUMBER" && (
+                  <RowMenuItem
+                    onSelect={() =>
+                      setProgressColumn(
+                        board.id,
+                        board.progressColumnId === col.id ? null : col.id
+                      )
+                    }
+                  >
+                    <span className="flex items-center gap-2">
+                      <Target size={14} />
+                      {board.progressColumnId === col.id
+                        ? "取消進度欄位"
+                        : "設為進度欄位"}
+                    </span>
+                  </RowMenuItem>
+                )}
                 <RowMenuItem
-                  onSelect={() =>
-                    setProgressColumn(
-                      board.id,
-                      board.progressColumnId === col.id ? null : col.id
-                    )
-                  }
+                  danger
+                  onSelect={() => deleteColumn(board.id, col.id)}
                 >
                   <span className="flex items-center gap-2">
-                    <Target size={14} />
-                    {board.progressColumnId === col.id
-                      ? "取消進度欄位"
-                      : "設為進度欄位"}
+                    <Trash2 size={14} /> 刪除欄位
                   </span>
                 </RowMenuItem>
-              )}
-              <RowMenuItem
-                danger
-                onSelect={() => deleteColumn(board.id, col.id)}
-              >
-                <span className="flex items-center gap-2">
-                  <Trash2 size={14} /> 刪除欄位
-                </span>
-              </RowMenuItem>
-            </RowMenu>
+              </RowMenu>
+            )}
           </div>
         ))}
-        <button
-          type="button"
-          onClick={onAddColumn}
-          className="flex items-center justify-center text-neutral-400 hover:text-neutral-700"
-          aria-label="新增欄位"
-        >
-          <Plus size={16} />
-        </button>
+        {canEditStructure && (
+          <button
+            type="button"
+            onClick={onAddColumn}
+            className="flex items-center justify-center text-neutral-400 hover:text-neutral-700"
+            aria-label="新增欄位"
+          >
+            <Plus size={16} />
+          </button>
+        )}
       </div>
 
       <DndContext
@@ -130,6 +139,7 @@ export function BoardTable({
                   columns={board.columns}
                   users={users}
                   progressColumnId={board.progressColumnId}
+                  userRole={userRole}
                 />
               );
             })}
@@ -137,13 +147,15 @@ export function BoardTable({
         </SortableContext>
       </DndContext>
 
-      <button
-        type="button"
-        onClick={handleAddGroup}
-        className="mt-4 flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
-      >
-        <Plus size={14} /> 新增分組
-      </button>
+      {canEditStructure && (
+        <button
+          type="button"
+          onClick={handleAddGroup}
+          className="mt-4 flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
+        >
+          <Plus size={14} /> 新增分組
+        </button>
+      )}
     </div>
   );
 }

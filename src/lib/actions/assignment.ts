@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
+import { requireStructureAccess } from "@/lib/permissions";
 
 export async function listAssignments(itemId: string) {
   await requireSession();
@@ -19,7 +20,15 @@ export async function upsertAssignment(
   allocationPct: number
 ) {
   const session = await requireSession();
-  const pct = Math.max(1, Math.min(100, Math.round(allocationPct)));
+  requireStructureAccess(session.role);
+  const pct = Math.max(5, Math.min(100, Math.round(allocationPct / 5) * 5));
+
+  if (session.role === "SUPERVISOR") {
+    const target = await prisma.user.findUnique({ where: { id: userId } });
+    if (target?.supervisorId !== session.userId) {
+      throw new Error("主管只能將任務指派給自己團隊的成員");
+    }
+  }
 
   const [existing, item] = await Promise.all([
     prisma.assignment.findUnique({ where: { itemId_userId: { itemId, userId } } }),
@@ -48,7 +57,8 @@ export async function upsertAssignment(
 }
 
 export async function removeAssignment(boardId: string, itemId: string, userId: string) {
-  await requireSession();
+  const session = await requireSession();
+  requireStructureAccess(session.role);
   await prisma.assignment.delete({
     where: { itemId_userId: { itemId, userId } },
   });

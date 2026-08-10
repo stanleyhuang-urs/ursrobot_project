@@ -5,6 +5,8 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronDown, ChevronRight, GripVertical, Trash2 } from "lucide-react";
 import type { GroupData, ColumnData, ItemData, UserOption } from "@/types/board";
+import type { UserRole } from "@prisma/client";
+import { canManageStructure } from "@/lib/permissions";
 import { ItemRow } from "./ItemRow";
 import { gridTemplate } from "./gridTemplate";
 import { renameGroup, deleteGroup } from "@/lib/actions/group";
@@ -18,6 +20,7 @@ export function GroupSection({
   columns,
   users,
   progressColumnId,
+  userRole,
 }: {
   boardId: string;
   group: GroupData;
@@ -25,9 +28,11 @@ export function GroupSection({
   columns: ColumnData[];
   users: UserOption[];
   progressColumnId: string | null;
+  userRole: UserRole;
 }) {
+  const canEditStructure = canManageStructure(userRole);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: group.id });
+    useSortable({ id: group.id, disabled: !canEditStructure });
   const [collapsed, setCollapsed] = useState(false);
   const [name, setName] = useState(group.name);
   const [newItemName, setNewItemName] = useState("");
@@ -62,14 +67,16 @@ export function GroupSection({
         className="flex items-center gap-2 border-b border-neutral-100 px-2 py-2"
         style={{ borderLeft: `4px solid ${group.color}` }}
       >
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          className="cursor-grab text-neutral-300 hover:text-neutral-500"
-        >
-          <GripVertical size={14} />
-        </button>
+        {canEditStructure && (
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="cursor-grab text-neutral-300 hover:text-neutral-500"
+          >
+            <GripVertical size={14} />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
@@ -84,16 +91,19 @@ export function GroupSection({
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
           }}
+          readOnly={!canEditStructure}
           className="min-w-0 flex-1 rounded bg-transparent px-1 py-0.5 text-sm font-semibold text-neutral-800 outline-none hover:bg-neutral-100 focus:bg-white focus:ring-1 focus:ring-blue-400"
         />
         <span className="text-xs text-neutral-400">{items.length} 項目</span>
-        <RowMenu>
-          <RowMenuItem danger onSelect={() => deleteGroup(boardId, group.id)}>
-            <span className="flex items-center gap-2">
-              <Trash2 size={14} /> 刪除分組
-            </span>
-          </RowMenuItem>
-        </RowMenu>
+        {canEditStructure && (
+          <RowMenu>
+            <RowMenuItem danger onSelect={() => deleteGroup(boardId, group.id)}>
+              <span className="flex items-center gap-2">
+                <Trash2 size={14} /> 刪除分組
+              </span>
+            </RowMenuItem>
+          </RowMenu>
+        )}
       </div>
 
       {!collapsed && (
@@ -111,22 +121,25 @@ export function GroupSection({
                 columns={columns}
                 users={users}
                 progressColumnId={progressColumnId}
+                userRole={userRole}
               />
             ))}
-          <div
-            className="grid items-center px-2 py-1.5"
-            style={{ gridTemplateColumns: gridTemplate(columns.length) }}
-          >
-            <div />
-            <input
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
-              onBlur={handleAddItem}
-              placeholder="+ 新增項目"
-              className="rounded px-2 py-1 text-sm text-neutral-500 outline-none hover:bg-neutral-50 focus:bg-white focus:text-neutral-900 focus:ring-1 focus:ring-blue-400"
-            />
-          </div>
+          {canEditStructure && (
+            <div
+              className="grid w-fit items-center py-1.5"
+              style={{ gridTemplateColumns: gridTemplate(columns.length) }}
+            >
+              <div className="sticky left-0 z-10 bg-white" />
+              <input
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
+                onBlur={handleAddItem}
+                placeholder="+ 新增項目"
+                className="sticky left-8 z-10 rounded bg-white px-2 py-1 text-sm text-neutral-500 outline-none hover:bg-neutral-50 focus:bg-white focus:text-neutral-900 focus:ring-1 focus:ring-blue-400"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

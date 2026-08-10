@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { notifyItemAssignees } from "@/lib/notify";
+import { canEditCellValue } from "@/lib/permissions";
 import { getPersonIds, type CellValueJson } from "@/types/column";
 
 export async function upsertCellValue(
@@ -15,13 +16,21 @@ export async function upsertCellValue(
 ) {
   const session = await requireSession();
 
-  const [existing, column, item] = await Promise.all([
+  const [existing, column, item, board] = await Promise.all([
     prisma.cellValue.findUnique({
       where: { itemId_columnId: { itemId, columnId } },
     }),
     prisma.column.findUnique({ where: { id: columnId } }),
     prisma.item.findUnique({ where: { id: itemId } }),
+    prisma.board.findUnique({ where: { id: boardId }, select: { progressColumnId: true } }),
   ]);
+
+  if (
+    column &&
+    !canEditCellValue(session.role, column.type, column.id === board?.progressColumnId)
+  ) {
+    throw new Error("權限不足:你只能編輯狀態與進度欄位");
+  }
 
   const jsonValue = value === null ? Prisma.JsonNull : value;
 
