@@ -35,7 +35,7 @@ export function StatusCell({
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="start"
-          className="min-w-[160px] rounded-md border border-neutral-200 bg-white p-1 shadow-md"
+          className="z-50 min-w-[160px] rounded-md border border-neutral-200 bg-white p-1 shadow-md"
         >
           {statuses.map((option) => (
             <DropdownMenu.Item

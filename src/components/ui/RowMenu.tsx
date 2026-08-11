@@ -23,7 +23,7 @@ export function RowMenu({ children }: RowMenuProps) {
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="end"
-          className="min-w-[140px] rounded-md border border-neutral-200 bg-white p-1 shadow-md"
+          className="z-50 min-w-[140px] rounded-md border border-neutral-200 bg-white p-1 shadow-md"
         >
           {children}
         </DropdownMenu.Content>

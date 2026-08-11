@@ -72,7 +72,7 @@ export function NotificationBell() {
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="start"
-          className="max-h-96 w-80 overflow-auto rounded-md border border-neutral-200 bg-white p-1 shadow-md"
+          className="z-50 max-h-96 w-80 overflow-auto rounded-md border border-neutral-200 bg-white p-1 shadow-md"
         >
           {notifications.length === 0 && (
             <p className="px-3 py-4 text-center text-sm text-neutral-400">
