@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireStructureAccess } from "@/lib/permissions";
+import { requireBoardAccess } from "@/lib/boardAccess";
 import type { ColumnType, StatusColumnOptions } from "@/types/column";
 import { DEFAULT_STATUSES } from "@/types/column";
 
@@ -13,6 +14,7 @@ export async function createColumn(
   type: ColumnType
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   const trimmed = name.trim();
   if (!trimmed) throw new Error("欄位名稱不可為空");
@@ -34,6 +36,7 @@ export async function renameColumn(
   name: string
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   const trimmed = name.trim();
   if (!trimmed) throw new Error("欄位名稱不可為空");
@@ -51,6 +54,7 @@ export async function updateStatusOptions(
   statuses: StatusColumnOptions["statuses"]
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.column.update({
     where: { id: columnId },
@@ -64,6 +68,7 @@ export async function reorderColumns(
   orderedColumnIds: string[]
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.$transaction(
     orderedColumnIds.map((id, index) =>
@@ -75,6 +80,7 @@ export async function reorderColumns(
 
 export async function deleteColumn(boardId: string, columnId: string) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.column.delete({ where: { id: columnId } });
   revalidatePath(`/boards/${boardId}`);
@@ -85,6 +91,7 @@ export async function setProgressColumn(
   columnId: string | null
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.board.update({
     where: { id: boardId },
@@ -98,6 +105,7 @@ export async function setGanttStartColumn(
   columnId: string | null
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.board.update({
     where: { id: boardId },
@@ -111,6 +119,7 @@ export async function setGanttDurationColumn(
   columnId: string | null
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.board.update({
     where: { id: boardId },
@@ -124,6 +133,7 @@ export async function setGanttEndColumn(
   columnId: string | null
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.board.update({
     where: { id: boardId },
@@ -137,6 +147,7 @@ export async function setPredColumn(
   columnId: string | null
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.board.update({
     where: { id: boardId },
@@ -150,6 +161,7 @@ export async function setLinkColumn(
   columnId: string | null
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.board.update({
     where: { id: boardId },

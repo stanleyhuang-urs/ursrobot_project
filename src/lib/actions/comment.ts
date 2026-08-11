@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { notifyItemAssignees } from "@/lib/notify";
+import { requireBoardAccess } from "@/lib/boardAccess";
 
 export async function createComment(
   boardId: string,
@@ -11,6 +12,7 @@ export async function createComment(
   body: string
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   const trimmed = body.trim();
   if (!trimmed) throw new Error("留言不可為空");
 
@@ -36,7 +38,9 @@ export async function createComment(
 }
 
 export async function listComments(itemId: string) {
-  await requireSession();
+  const session = await requireSession();
+  const item = await prisma.item.findUnique({ where: { id: itemId }, select: { boardId: true } });
+  if (item) await requireBoardAccess(item.boardId, session);
   return prisma.comment.findMany({
     where: { itemId },
     orderBy: { createdAt: "asc" },

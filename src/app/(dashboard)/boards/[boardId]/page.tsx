@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
+import { canAccessBoard } from "@/lib/boardAccess";
 import { boardWithDataArgs } from "@/types/board";
 import { BoardView } from "@/components/board/BoardView";
 
@@ -24,6 +25,7 @@ export default async function BoardPage({
   ]);
 
   if (!board) notFound();
+  if (!(await canAccessBoard(session, boardId))) notFound();
 
   return (
     <BoardView

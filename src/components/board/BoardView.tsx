@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Table2, LayoutGrid, Upload, GanttChartSquare, Users2, Zap } from "lucide-react";
+import { Table2, LayoutGrid, Upload, GanttChartSquare, Users2, Zap, Share2 } from "lucide-react";
 import type { BoardWithData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageBoard, canManageStructure } from "@/lib/permissions";
@@ -12,6 +12,7 @@ import { AddColumnDialog } from "./AddColumnDialog";
 import { ImportWizard } from "./ImportWizard";
 import { ResourceMappingModal } from "./ResourceMappingModal";
 import { AutomationRulesModal } from "./AutomationRulesModal";
+import { BoardSharingModal } from "./BoardSharingModal";
 
 export function BoardView({
   board,
@@ -29,6 +30,8 @@ export function BoardView({
   const [importOpen, setImportOpen] = useState(false);
   const [resourceMappingOpen, setResourceMappingOpen] = useState(false);
   const [automationOpen, setAutomationOpen] = useState(false);
+  const [sharingOpen, setSharingOpen] = useState(false);
+  const canManageSharing = canManageBoard(userRole) || board.ownerId === currentUserId;
 
   const statusColumns = board.columns.filter((c) => c.type === "STATUS");
   const [kanbanColumnId, setKanbanColumnId] = useState(
@@ -42,7 +45,14 @@ export function BoardView({
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
         <div>
-          <h1 className="text-lg font-semibold text-neutral-900">{board.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold text-neutral-900">{board.name}</h1>
+            {board.visibility === "RESTRICTED" && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                限制存取
+              </span>
+            )}
+          </div>
           {progressColumn && (
             <p className="text-xs text-neutral-400">
               進度欄位:{progressColumn.name}
@@ -75,6 +85,15 @@ export function BoardView({
               className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
             >
               <Zap size={14} /> 自動化
+            </button>
+          )}
+          {canManageSharing && (
+            <button
+              type="button"
+              onClick={() => setSharingOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+            >
+              <Share2 size={14} /> 分享設定
             </button>
           )}
           <div className="flex overflow-hidden rounded-md border border-neutral-200">
@@ -179,6 +198,16 @@ export function BoardView({
           users={users}
           open={automationOpen}
           onOpenChange={setAutomationOpen}
+        />
+      )}
+
+      {canManageSharing && (
+        <BoardSharingModal
+          boardId={board.id}
+          visibility={board.visibility}
+          users={users}
+          open={sharingOpen}
+          onOpenChange={setSharingOpen}
         />
       )}
     </div>

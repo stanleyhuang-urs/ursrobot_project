@@ -5,10 +5,12 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireStructureAccess } from "@/lib/permissions";
+import { requireBoardAccess } from "@/lib/boardAccess";
 import type { CellValueJson } from "@/types/column";
 
 export async function listRules(boardId: string) {
-  await requireSession();
+  const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   return prisma.automationRule.findMany({
     where: { boardId },
     include: { triggerColumn: true, notifyUser: true, setColumn: true, moveToGroup: true },
@@ -29,6 +31,7 @@ export async function createRule(
   }
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   const trimmed = name.trim();
   if (!trimmed) throw new Error("規則名稱不可為空");
@@ -51,6 +54,7 @@ export async function createRule(
 
 export async function deleteRule(ruleId: string, boardId: string) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.automationRule.delete({ where: { id: ruleId } });
   revalidatePath(`/boards/${boardId}`);
@@ -58,6 +62,7 @@ export async function deleteRule(ruleId: string, boardId: string) {
 
 export async function toggleRule(ruleId: string, boardId: string, enabled: boolean) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.automationRule.update({ where: { id: ruleId }, data: { enabled } });
   revalidatePath(`/boards/${boardId}`);

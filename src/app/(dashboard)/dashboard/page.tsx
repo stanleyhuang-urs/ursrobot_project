@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { boardWithDataArgs } from "@/types/board";
+import { accessibleBoardWhere } from "@/lib/boardAccess";
 import {
   computeTeamWorkload,
   computeBoardProgressOverview,
@@ -67,7 +68,11 @@ export default async function DashboardPage({
   const { board: boardFilter } = await searchParams;
 
   const [allBoards, users] = await Promise.all([
-    prisma.board.findMany({ ...boardWithDataArgs, orderBy: { createdAt: "asc" } }),
+    prisma.board.findMany({
+      where: accessibleBoardWhere(session),
+      ...boardWithDataArgs,
+      orderBy: { createdAt: "asc" },
+    }),
     prisma.user.findMany({
       select: { id: true, name: true, supervisorId: true },
       orderBy: { name: "asc" },

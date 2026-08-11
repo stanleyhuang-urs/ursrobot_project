@@ -9,6 +9,7 @@ import { executeAutomationRules } from "@/lib/automation";
 import { syncGanttDates } from "@/lib/ganttSync";
 import { syncPredecessorLink } from "@/lib/predecessorLink";
 import { canEditCellValue } from "@/lib/permissions";
+import { requireBoardAccess } from "@/lib/boardAccess";
 import { getPersonIds, type CellValueJson } from "@/types/column";
 
 export async function upsertCellValue(
@@ -18,6 +19,7 @@ export async function upsertCellValue(
   value: CellValueJson
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
 
   const [existing, column, item, board] = await Promise.all([
     prisma.cellValue.findUnique({

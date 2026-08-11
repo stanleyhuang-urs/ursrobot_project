@@ -21,6 +21,11 @@ enum ColumnType {
   NUMBER
 }
 
+enum BoardVisibility {
+  PUBLIC
+  RESTRICTED
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -38,14 +43,16 @@ model User {
   notifications Notification[]
   assignments   Assignment[]
   automationNotifyFor AutomationRule[] @relation("RuleNotifyUser")
+  boardMemberships    BoardMember[]
 }
 
 model Board {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   name      String
   ownerId   String
-  owner     User     @relation(fields: [ownerId], references: [id])
-  createdAt DateTime @default(now())
+  owner     User            @relation(fields: [ownerId], references: [id])
+  createdAt DateTime        @default(now())
+  visibility BoardVisibility @default(PUBLIC)
 
   progressColumnId String?
   progressColumn   Column? @relation("BoardProgressColumn", fields: [progressColumnId], references: [id], onDelete: SetNull)
@@ -66,6 +73,18 @@ model Board {
   columns Column[] @relation("BoardColumns")
   items   Item[]
   automationRules AutomationRule[]
+  members         BoardMember[]
+}
+
+model BoardMember {
+  id        String   @id @default(cuid())
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([boardId, userId])
 }
 
 model Group {

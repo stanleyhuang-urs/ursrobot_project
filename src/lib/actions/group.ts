@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireStructureAccess } from "@/lib/permissions";
+import { requireBoardAccess } from "@/lib/boardAccess";
 
 export async function createGroup(boardId: string, name: string) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   const trimmed = name.trim() || "新分組";
 
@@ -21,6 +23,7 @@ export async function createGroup(boardId: string, name: string) {
 
 export async function renameGroup(boardId: string, groupId: string, name: string) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   const trimmed = name.trim();
   if (!trimmed) throw new Error("分組名稱不可為空");
@@ -31,6 +34,7 @@ export async function renameGroup(boardId: string, groupId: string, name: string
 
 export async function deleteGroup(boardId: string, groupId: string) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.group.delete({ where: { id: groupId } });
   revalidatePath(`/boards/${boardId}`);
@@ -41,6 +45,7 @@ export async function reorderGroups(
   orderedGroupIds: string[]
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.$transaction(
     orderedGroupIds.map((id, index) =>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireStructureAccess } from "@/lib/permissions";
+import { requireBoardAccess } from "@/lib/boardAccess";
 
 export async function createItem(
   boardId: string,
@@ -12,6 +13,7 @@ export async function createItem(
   parentId?: string
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   const trimmed = name.trim() || "未命名項目";
 
@@ -34,6 +36,7 @@ export async function insertItem(
   position: "before" | "after"
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
 
   const reference = await prisma.item.findUnique({
@@ -68,6 +71,7 @@ export async function renameItem(
   name: string
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   const trimmed = name.trim() || "未命名項目";
   await prisma.item.update({ where: { id: itemId }, data: { name: trimmed } });
@@ -76,6 +80,7 @@ export async function renameItem(
 
 export async function deleteItem(boardId: string, itemId: string) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.item.delete({ where: { id: itemId } });
   revalidatePath(`/boards/${boardId}`);
@@ -87,6 +92,7 @@ export async function moveItemToGroup(
   groupId: string
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   const count = await prisma.item.count({ where: { groupId } });
   await prisma.item.update({
@@ -101,6 +107,7 @@ export async function reorderItems(
   items: { id: string; order: number; groupId: string }[]
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.$transaction(
     items.map((item) =>

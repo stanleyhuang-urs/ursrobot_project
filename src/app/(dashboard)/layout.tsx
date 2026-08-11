@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { requireSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { accessibleBoardWhere } from "@/lib/boardAccess";
 import { BoardSidebar } from "@/components/sidebar/BoardSidebar";
 
 export default async function DashboardLayout({
@@ -10,6 +11,7 @@ export default async function DashboardLayout({
 }) {
   const session = await requireSession();
   const boards = await prisma.board.findMany({
+    where: accessibleBoardWhere(session),
     orderBy: { createdAt: "asc" },
     select: { id: true, name: true },
   });

@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireBoardAdmin } from "@/lib/permissions";
+import { requireBoardAccess } from "@/lib/boardAccess";
 
 export async function getDistinctTextValues(boardId: string, columnId: string) {
-  await requireSession();
+  const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   const cellValues = await prisma.cellValue.findMany({
     where: { columnId, item: { boardId } },
     select: { value: true },

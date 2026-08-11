@@ -1,8 +1,12 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/session";
+import { accessibleBoardWhere } from "@/lib/boardAccess";
 
 export default async function BoardsIndexPage() {
+  const session = await requireSession();
   const firstBoard = await prisma.board.findFirst({
+    where: accessibleBoardWhere(session),
     orderBy: { createdAt: "asc" },
     select: { id: true },
   });

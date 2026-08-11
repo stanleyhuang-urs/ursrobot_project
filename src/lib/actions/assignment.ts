@@ -4,9 +4,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireStructureAccess } from "@/lib/permissions";
+import { requireBoardAccess } from "@/lib/boardAccess";
 
 export async function listAssignments(itemId: string) {
-  await requireSession();
+  const session = await requireSession();
+  const item = await prisma.item.findUnique({ where: { id: itemId }, select: { boardId: true } });
+  if (item) await requireBoardAccess(item.boardId, session);
   return prisma.assignment.findMany({
     where: { itemId },
     include: { user: { select: { id: true, name: true } } },
@@ -20,6 +23,7 @@ export async function upsertAssignment(
   allocationPct: number
 ) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   const pct = Math.max(5, Math.min(100, Math.round(allocationPct / 5) * 5));
 
@@ -58,6 +62,7 @@ export async function upsertAssignment(
 
 export async function removeAssignment(boardId: string, itemId: string, userId: string) {
   const session = await requireSession();
+  await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.assignment.delete({
     where: { itemId_userId: { itemId, userId } },
