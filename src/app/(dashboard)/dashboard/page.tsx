@@ -10,6 +10,15 @@ import {
   type PersonalItemEntry,
 } from "@/lib/dashboard";
 import { TeamWorkloadCard } from "@/components/dashboard/TeamWorkloadCard";
+import { WorkloadDetailSection } from "@/components/dashboard/WorkloadDetailSection";
+import { getWorkloadThreshold } from "@/lib/actions/workloadThreshold";
+import {
+  computeMemberTaskBreakdown,
+  computeCrossBoardDailyLoad,
+  computeMonthBuckets,
+  computeMonthlyUtilization,
+  type MemberTask,
+} from "@/lib/workload";
 
 function formatDate(date: Date) {
   return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
@@ -85,6 +94,29 @@ export default async function DashboardPage({
     ? computePersonalItems(boards, teamMembers.map((m) => m.id), userById)
     : [];
 
+  const workloadThreshold = await getWorkloadThreshold();
+  const workloadScopeIds = workloadScope.map((u) => u.id);
+  const memberTasksMap = computeMemberTaskBreakdown(boards, workloadScopeIds);
+  const monthBuckets = computeMonthBuckets(boards);
+  const monthlyUtilization = computeMonthlyUtilization(boards, workloadScopeIds, monthBuckets);
+  const crossBoardDaily = computeCrossBoardDailyLoad(boards, workloadScopeIds);
+
+  const today = new Date();
+  const currentMonthLabel = `${today.getUTCFullYear()}/${today.getUTCMonth() + 1}`;
+  const timelineBucket =
+    monthBuckets.find((b) => b.label === currentMonthLabel) ??
+    monthBuckets[monthBuckets.length - 1] ?? { label: currentMonthLabel, days: [] };
+
+  const tasksByUser: Record<string, MemberTask[]> = {};
+  const timelineByUser: Record<string, Record<string, number>> = {};
+  for (const id of workloadScopeIds) {
+    tasksByUser[id] = memberTasksMap.get(id) ?? [];
+    const dayMap = crossBoardDaily.get(id);
+    const obj: Record<string, number> = {};
+    if (dayMap) for (const [date, pct] of dayMap) obj[date] = pct;
+    timelineByUser[id] = obj;
+  }
+
   return (
     <div className="mx-auto max-w-5xl space-y-8 p-6">
       <div className="flex items-center justify-between">
@@ -117,6 +149,17 @@ export default async function DashboardPage({
         day={teamWorkloadDay}
         week={teamWorkloadWeek}
         month={teamWorkloadMonth}
+      />
+
+      <WorkloadDetailSection
+        users={workloadScope.map((u) => ({ id: u.id, name: u.name }))}
+        tasksByUser={tasksByUser}
+        timelineDays={timelineBucket.days}
+        timelineLabel={timelineBucket.label}
+        timelineByUser={timelineByUser}
+        monthly={monthlyUtilization}
+        threshold={workloadThreshold}
+        canManageThreshold={session.role === "ADMIN"}
       />
 
       <section>

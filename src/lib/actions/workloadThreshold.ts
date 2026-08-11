@@ -1,0 +1,43 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/session";
+import { requireBoardAdmin } from "@/lib/permissions";
+
+export async function getWorkloadThreshold() {
+  const threshold = await prisma.workloadThreshold.findUnique({ where: { id: "global" } });
+  if (threshold) return threshold;
+  return {
+    id: "global",
+    greenMax: 30,
+    yellowMax: 70,
+    greenColor: "#00c875",
+    yellowColor: "#fdab3d",
+    redColor: "#e2445c",
+    updatedAt: new Date(),
+  };
+}
+
+export async function updateWorkloadThreshold(data: {
+  greenMax: number;
+  yellowMax: number;
+  greenColor: string;
+  yellowColor: string;
+  redColor: string;
+}) {
+  const session = await requireSession();
+  requireBoardAdmin(session.role);
+
+  if (data.greenMax < 0 || data.yellowMax <= data.greenMax || data.yellowMax > 500) {
+    throw new Error("門檻設定不合理:綠色上限需小於黃色上限");
+  }
+
+  await prisma.workloadThreshold.upsert({
+    where: { id: "global" },
+    create: { id: "global", ...data },
+    update: data,
+  });
+
+  revalidatePath("/dashboard");
+}

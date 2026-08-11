@@ -177,6 +177,16 @@ model Notification {
   createdAt DateTime         @default(now())
 }
 
+model WorkloadThreshold {
+  id          String   @id @default("global")
+  greenMax    Int      @default(30)
+  yellowMax   Int      @default(70)
+  greenColor  String   @default("#00c875")
+  yellowColor String   @default("#fdab3d")
+  redColor    String   @default("#e2445c")
+  updatedAt   DateTime @updatedAt
+}
+
 model CellValue {
   id       String @id @default(cuid())
   itemId   String
