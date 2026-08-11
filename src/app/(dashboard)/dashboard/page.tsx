@@ -14,9 +14,8 @@ import { WorkloadDetailSection } from "@/components/dashboard/WorkloadDetailSect
 import { getWorkloadThreshold } from "@/lib/actions/workloadThreshold";
 import {
   computeMemberTaskBreakdown,
-  computeCrossBoardDailyLoad,
-  computeMonthBuckets,
-  computeMonthlyUtilization,
+  computeWeekColumns,
+  computeMemberWeeklyLoad,
   type MemberTask,
 } from "@/lib/workload";
 
@@ -97,24 +96,14 @@ export default async function DashboardPage({
   const workloadThreshold = await getWorkloadThreshold();
   const workloadScopeIds = workloadScope.map((u) => u.id);
   const memberTasksMap = computeMemberTaskBreakdown(boards, workloadScopeIds);
-  const monthBuckets = computeMonthBuckets(boards);
-  const monthlyUtilization = computeMonthlyUtilization(boards, workloadScopeIds, monthBuckets);
-  const crossBoardDaily = computeCrossBoardDailyLoad(boards, workloadScopeIds);
-
-  const today = new Date();
-  const currentMonthLabel = `${today.getUTCFullYear()}/${today.getUTCMonth() + 1}`;
-  const timelineBucket =
-    monthBuckets.find((b) => b.label === currentMonthLabel) ??
-    monthBuckets[monthBuckets.length - 1] ?? { label: currentMonthLabel, days: [] };
+  const weekColumns = computeWeekColumns(boards);
+  const weeklyLoadMap = computeMemberWeeklyLoad(boards, workloadScopeIds, weekColumns);
 
   const tasksByUser: Record<string, MemberTask[]> = {};
-  const timelineByUser: Record<string, Record<string, number>> = {};
+  const weeklyLoadByUser: Record<string, number[]> = {};
   for (const id of workloadScopeIds) {
     tasksByUser[id] = memberTasksMap.get(id) ?? [];
-    const dayMap = crossBoardDaily.get(id);
-    const obj: Record<string, number> = {};
-    if (dayMap) for (const [date, pct] of dayMap) obj[date] = pct;
-    timelineByUser[id] = obj;
+    weeklyLoadByUser[id] = weeklyLoadMap.get(id) ?? [];
   }
 
   return (
@@ -154,10 +143,8 @@ export default async function DashboardPage({
       <WorkloadDetailSection
         users={workloadScope.map((u) => ({ id: u.id, name: u.name }))}
         tasksByUser={tasksByUser}
-        timelineDays={timelineBucket.days}
-        timelineLabel={timelineBucket.label}
-        timelineByUser={timelineByUser}
-        monthly={monthlyUtilization}
+        weeks={weekColumns}
+        weeklyLoadByUser={weeklyLoadByUser}
         threshold={workloadThreshold}
         canManageThreshold={session.role === "ADMIN"}
       />

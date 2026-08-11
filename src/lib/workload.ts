@@ -97,14 +97,8 @@ export function computeCrossBoardDailyLoad(
   return merged;
 }
 
-export type MonthBucket = { label: string; days: string[] };
-
-/**
- * Calendar-month buckets spanning every item's date range across the given
- * boards (capped at 12 months). Falls back to the current month if no item
- * has a resolvable date range.
- */
-export function computeMonthBuckets(boards: BoardWithData[]): MonthBucket[] {
+/** Earliest start / latest end across every item with a resolvable Gantt date range. */
+function computeOverallDateRange(boards: BoardWithData[]): { min: Date; max: Date } {
   let min: Date | null = null;
   let max: Date | null = null;
 
@@ -119,46 +113,73 @@ export function computeMonthBuckets(boards: BoardWithData[]): MonthBucket[] {
   }
 
   const today = new Date(new Date().toISOString().slice(0, 10));
-  if (!min || !max) {
-    min = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-    max = min;
-  }
-
-  const buckets: MonthBucket[] = [];
-  let cursor = new Date(Date.UTC(min.getUTCFullYear(), min.getUTCMonth(), 1));
-  const end = new Date(Date.UTC(max.getUTCFullYear(), max.getUTCMonth(), 1));
-
-  while (cursor <= end && buckets.length < 12) {
-    const year = cursor.getUTCFullYear();
-    const month = cursor.getUTCMonth();
-    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-    const firstOfMonth = new Date(Date.UTC(year, month, 1));
-    buckets.push({
-      label: `${year}/${month + 1}`,
-      days: Array.from({ length: daysInMonth }, (_, i) => toIsoDate(addDays(firstOfMonth, i))),
-    });
-    cursor = new Date(Date.UTC(year, month + 1, 1));
-  }
-
-  return buckets;
+  if (!min || !max) return { min: today, max: today };
+  return { min, max };
 }
 
-export type MemberMonthlyUtilization = { userId: string; months: { label: string; avgPct: number }[] };
+export type WeekColumn = { start: Date; label: string; monthLabel: string; isMonthStart: boolean };
 
-/** Per-user average allocation % for each month bucket, using the same cross-board daily load. */
-export function computeMonthlyUtilization(
+function mondayOf(date: Date): Date {
+  const day = date.getUTCDay(); // 0 = Sunday
+  const offset = day === 0 ? -6 : 1 - day;
+  return addDays(date, offset);
+}
+
+/**
+ * Monday-start week columns spanning every item's date range across the
+ * given boards (capped at 60 weeks, ~14 months), each tagged with its
+ * calendar month for grouping. Falls back to the current week if no item
+ * has a resolvable date range.
+ */
+export function computeWeekColumns(boards: BoardWithData[]): WeekColumn[] {
+  const { min, max } = computeOverallDateRange(boards);
+
+  const weeks: WeekColumn[] = [];
+  let cursor = mondayOf(min);
+  let lastMonth = -1;
+
+  while (cursor <= max && weeks.length < 60) {
+    const month = cursor.getUTCMonth();
+    weeks.push({
+      start: new Date(cursor),
+      label: `${cursor.getUTCMonth() + 1}/${cursor.getUTCDate()}`,
+      monthLabel: `${cursor.getUTCFullYear()}/${cursor.getUTCMonth() + 1}`,
+      isMonthStart: month !== lastMonth,
+    });
+    lastMonth = month;
+    cursor = addDays(cursor, 7);
+  }
+
+  return weeks;
+}
+
+/** Per-user average allocation % for each week column, using the same cross-board daily load. */
+export function computeMemberWeeklyLoad(
   boards: BoardWithData[],
   userIds: string[],
-  buckets: MonthBucket[]
-): MemberMonthlyUtilization[] {
+  weeks: WeekColumn[]
+): Map<string, number[]> {
   const dailyLoad = computeCrossBoardDailyLoad(boards, userIds);
 
-  return userIds.map((userId) => {
+  const result = new Map<string, number[]>();
+  for (const userId of userIds) {
     const dayMap = dailyLoad.get(userId);
-    const months = buckets.map((bucket) => {
-      const sum = bucket.days.reduce((acc, date) => acc + (dayMap?.get(date) ?? 0), 0);
-      return { label: bucket.label, avgPct: Math.round(sum / bucket.days.length) };
+    const values = weeks.map((week) => {
+      let sum = 0;
+      for (let i = 0; i < 7; i++) {
+        sum += dayMap?.get(toIsoDate(addDays(week.start, i))) ?? 0;
+      }
+      return Math.round(sum / 7);
     });
-    return { userId, months };
-  });
+    result.set(userId, values);
+  }
+  return result;
+}
+
+/** Index of the week column containing the given date (clamped to the first column). */
+export function weekIndexForDate(date: Date, weeks: WeekColumn[]): number {
+  for (let i = weeks.length - 1; i >= 0; i--) {
+    if (date >= weeks[i].start) return i;
+  }
+  return 0;
 }
