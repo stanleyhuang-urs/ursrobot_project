@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Table2, LayoutGrid, Upload, GanttChartSquare, Users2 } from "lucide-react";
+import { Table2, LayoutGrid, Upload, GanttChartSquare, Users2, Zap } from "lucide-react";
 import type { BoardWithData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageBoard, canManageStructure } from "@/lib/permissions";
@@ -11,6 +11,7 @@ import { BoardGantt } from "./BoardGantt";
 import { AddColumnDialog } from "./AddColumnDialog";
 import { ImportWizard } from "./ImportWizard";
 import { ResourceMappingModal } from "./ResourceMappingModal";
+import { AutomationRulesModal } from "./AutomationRulesModal";
 
 export function BoardView({
   board,
@@ -27,6 +28,7 @@ export function BoardView({
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [resourceMappingOpen, setResourceMappingOpen] = useState(false);
+  const [automationOpen, setAutomationOpen] = useState(false);
 
   const statusColumns = board.columns.filter((c) => c.type === "STATUS");
   const [kanbanColumnId, setKanbanColumnId] = useState(
@@ -64,6 +66,15 @@ export function BoardView({
               className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
             >
               <Users2 size={14} /> Resource 對應
+            </button>
+          )}
+          {canManageStructure(userRole) && (
+            <button
+              type="button"
+              onClick={() => setAutomationOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+            >
+              <Zap size={14} /> 自動化
             </button>
           )}
           <div className="flex overflow-hidden rounded-md border border-neutral-200">
@@ -157,6 +168,17 @@ export function BoardView({
           users={users}
           open={resourceMappingOpen}
           onOpenChange={setResourceMappingOpen}
+        />
+      )}
+
+      {canManageStructure(userRole) && (
+        <AutomationRulesModal
+          boardId={board.id}
+          columns={board.columns}
+          groups={board.groups}
+          users={users}
+          open={automationOpen}
+          onOpenChange={setAutomationOpen}
         />
       )}
     </div>

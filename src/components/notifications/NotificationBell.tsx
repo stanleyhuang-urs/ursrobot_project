@@ -14,6 +14,7 @@ const NOTIFICATION_TYPE_LABEL: Record<string, string> = {
   ASSIGNED: "指派",
   UPDATED: "更新",
   COMMENTED: "留言",
+  AUTOMATION: "自動化",
 };
 
 const POLL_INTERVAL_MS = 30000;

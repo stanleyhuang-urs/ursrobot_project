@@ -37,6 +37,7 @@ model User {
   comments      Comment[]
   notifications Notification[]
   assignments   Assignment[]
+  automationNotifyFor AutomationRule[] @relation("RuleNotifyUser")
 }
 
 model Board {
@@ -57,6 +58,7 @@ model Board {
   groups  Group[]
   columns Column[] @relation("BoardColumns")
   items   Item[]
+  automationRules AutomationRule[]
 }
 
 model Group {
@@ -68,6 +70,7 @@ model Group {
   order   Int    @default(0)
 
   items Item[]
+  automationMoveTargets AutomationRule[]
 }
 
 model Column {
@@ -83,6 +86,8 @@ model Column {
   progressForBoards     Board[]     @relation("BoardProgressColumn")
   ganttStartForBoards    Board[]     @relation("BoardGanttStartColumn")
   ganttDurationForBoards Board[]     @relation("BoardGanttDurationColumn")
+  ruleTriggersFor AutomationRule[] @relation("RuleTriggerColumn")
+  ruleSetsFor     AutomationRule[] @relation("RuleSetColumn")
 }
 
 model Item {
@@ -129,6 +134,31 @@ enum NotificationType {
   ASSIGNED
   UPDATED
   COMMENTED
+  AUTOMATION
+}
+
+model AutomationRule {
+  id      String @id @default(cuid())
+  boardId String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  name    String
+
+  triggerColumnId String
+  triggerColumn   Column @relation("RuleTriggerColumn", fields: [triggerColumnId], references: [id], onDelete: Cascade)
+  triggerValue    String
+
+  notifyUserId String?
+  notifyUser   User?   @relation("RuleNotifyUser", fields: [notifyUserId], references: [id], onDelete: SetNull)
+
+  setColumnId String?
+  setColumn   Column? @relation("RuleSetColumn", fields: [setColumnId], references: [id], onDelete: SetNull)
+  setValue    Json?
+
+  moveToGroupId String?
+  moveToGroup   Group?  @relation(fields: [moveToGroupId], references: [id], onDelete: SetNull)
+
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
 }
 
 model Notification {

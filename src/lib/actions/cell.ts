@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { notifyItemAssignees } from "@/lib/notify";
+import { executeAutomationRules } from "@/lib/automation";
 import { canEditCellValue } from "@/lib/permissions";
 import { getPersonIds, type CellValueJson } from "@/types/column";
 
@@ -67,6 +68,9 @@ export async function upsertCellValue(
           "UPDATED",
           `「${item.name}」的「${column.name}」已更新`
         );
+        if (column.type === "STATUS") {
+          await executeAutomationRules(boardId, itemId, columnId, value, session.userId);
+        }
       }
     }
   }
