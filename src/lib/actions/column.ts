@@ -59,6 +59,20 @@ export async function updateStatusOptions(
   revalidatePath(`/boards/${boardId}`);
 }
 
+export async function reorderColumns(
+  boardId: string,
+  orderedColumnIds: string[]
+) {
+  const session = await requireSession();
+  requireStructureAccess(session.role);
+  await prisma.$transaction(
+    orderedColumnIds.map((id, index) =>
+      prisma.column.update({ where: { id }, data: { order: index } })
+    )
+  );
+  revalidatePath(`/boards/${boardId}`);
+}
+
 export async function deleteColumn(boardId: string, columnId: string) {
   const session = await requireSession();
   requireStructureAccess(session.role);
