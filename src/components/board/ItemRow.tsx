@@ -160,6 +160,11 @@ export function ItemRow({
         ))}
         {canEditStructure && (
           <RowMenu>
+            <RowMenuItem onSelect={handleAddSubitem}>
+              <span className="flex items-center gap-2">
+                <Plus size={14} /> 新增子項目
+              </span>
+            </RowMenuItem>
             <RowMenuItem onSelect={() => handleInsert("before")}>
               <span className="flex items-center gap-2">
                 <ArrowUpToLine size={14} /> 上方插入項目
@@ -168,11 +173,6 @@ export function ItemRow({
             <RowMenuItem onSelect={() => handleInsert("after")}>
               <span className="flex items-center gap-2">
                 <ArrowDownToLine size={14} /> 下方插入項目
-              </span>
-            </RowMenuItem>
-            <RowMenuItem onSelect={handleAddSubitem}>
-              <span className="flex items-center gap-2">
-                <Plus size={14} /> 新增子項目
               </span>
             </RowMenuItem>
             <RowMenuItem danger onSelect={() => deleteItem(boardId, item.id)}>
