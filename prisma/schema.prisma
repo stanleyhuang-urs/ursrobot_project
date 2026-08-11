@@ -54,6 +54,8 @@ model Board {
   ganttStartColumn      Column? @relation("BoardGanttStartColumn", fields: [ganttStartColumnId], references: [id], onDelete: SetNull)
   ganttDurationColumnId String?
   ganttDurationColumn   Column? @relation("BoardGanttDurationColumn", fields: [ganttDurationColumnId], references: [id], onDelete: SetNull)
+  ganttEndColumnId      String?
+  ganttEndColumn        Column? @relation("BoardGanttEndColumn", fields: [ganttEndColumnId], references: [id], onDelete: SetNull)
 
   groups  Group[]
   columns Column[] @relation("BoardColumns")
@@ -86,6 +88,7 @@ model Column {
   progressForBoards     Board[]     @relation("BoardProgressColumn")
   ganttStartForBoards    Board[]     @relation("BoardGanttStartColumn")
   ganttDurationForBoards Board[]     @relation("BoardGanttDurationColumn")
+  ganttEndForBoards      Board[]     @relation("BoardGanttEndColumn")
   ruleTriggersFor AutomationRule[] @relation("RuleTriggerColumn")
   ruleSetsFor     AutomationRule[] @relation("RuleSetColumn")
 }

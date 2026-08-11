@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { notifyItemAssignees } from "@/lib/notify";
 import { executeAutomationRules } from "@/lib/automation";
+import { syncGanttDates } from "@/lib/ganttSync";
 import { canEditCellValue } from "@/lib/permissions";
 import { getPersonIds, type CellValueJson } from "@/types/column";
 
@@ -70,6 +71,9 @@ export async function upsertCellValue(
         );
         if (column.type === "STATUS") {
           await executeAutomationRules(boardId, itemId, columnId, value, session.userId);
+        }
+        if (column.type === "DATE" || column.type === "NUMBER") {
+          await syncGanttDates(boardId, itemId, columnId, value);
         }
       }
     }

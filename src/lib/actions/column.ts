@@ -104,3 +104,16 @@ export async function setGanttDurationColumn(
   });
   revalidatePath(`/boards/${boardId}`);
 }
+
+export async function setGanttEndColumn(
+  boardId: string,
+  columnId: string | null
+) {
+  const session = await requireSession();
+  requireStructureAccess(session.role);
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { ganttEndColumnId: columnId },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}

@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageStructure } from "@/lib/permissions";
-import { setGanttStartColumn, setGanttDurationColumn } from "@/lib/actions/column";
+import { setGanttStartColumn, setGanttDurationColumn, setGanttEndColumn } from "@/lib/actions/column";
 import { getItemDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
 import { AssignmentModal } from "./AssignmentModal";
 
@@ -79,6 +79,7 @@ export function BoardGantt({
 
   const startColumnId = board.ganttStartColumnId;
   const durationColumnId = board.ganttDurationColumnId;
+  const endColumnId = board.ganttEndColumnId;
   const dateColumns = board.columns.filter((c) => c.type === "DATE");
   const numberColumns = board.columns.filter((c) => c.type === "NUMBER");
 
@@ -222,7 +223,28 @@ export function BoardGantt({
             ))}
           </select>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-500">結束日期欄位</span>
+          <select
+            value={endColumnId ?? ""}
+            onChange={(e) => setGanttEndColumn(board.id, e.target.value || null)}
+            disabled={!canEditStructure}
+            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
+          >
+            <option value="">未設定</option>
+            {dateColumns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
+      {startColumnId && durationColumnId && endColumnId && (
+        <p className="mb-2 text-xs text-neutral-400">
+          已啟用自動計算:填寫開始日期+天數會自動算出結束日期,填寫開始日期+結束日期會自動算出天數(以工作日計算)。
+        </p>
+      )}
 
       {(!startColumnId || !durationColumnId) && (
         <p className="text-sm text-neutral-400">
