@@ -131,3 +131,29 @@ export async function setGanttEndColumn(
   });
   revalidatePath(`/boards/${boardId}`);
 }
+
+export async function setPredColumn(
+  boardId: string,
+  columnId: string | null
+) {
+  const session = await requireSession();
+  requireStructureAccess(session.role);
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { predColumnId: columnId },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}
+
+export async function setLinkColumn(
+  boardId: string,
+  columnId: string | null
+) {
+  const session = await requireSession();
+  requireStructureAccess(session.role);
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { linkColumnId: columnId },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}

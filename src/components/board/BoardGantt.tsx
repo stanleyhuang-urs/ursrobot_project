@@ -5,7 +5,13 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageStructure } from "@/lib/permissions";
-import { setGanttStartColumn, setGanttDurationColumn, setGanttEndColumn } from "@/lib/actions/column";
+import {
+  setGanttStartColumn,
+  setGanttDurationColumn,
+  setGanttEndColumn,
+  setPredColumn,
+  setLinkColumn,
+} from "@/lib/actions/column";
 import { getItemDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
 import { AssignmentModal } from "./AssignmentModal";
 
@@ -80,8 +86,12 @@ export function BoardGantt({
   const startColumnId = board.ganttStartColumnId;
   const durationColumnId = board.ganttDurationColumnId;
   const endColumnId = board.ganttEndColumnId;
+  const predColumnId = board.predColumnId;
+  const linkColumnId = board.linkColumnId;
   const dateColumns = board.columns.filter((c) => c.type === "DATE");
   const numberColumns = board.columns.filter((c) => c.type === "NUMBER");
+  const textColumns = board.columns.filter((c) => c.type === "TEXT");
+  const statusColumns = board.columns.filter((c) => c.type === "STATUS");
 
   const ranges = useMemo(() => {
     const map = new Map<string, DateRange>();
@@ -239,7 +249,44 @@ export function BoardGantt({
             ))}
           </select>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-500">前置依賴欄位</span>
+          <select
+            value={predColumnId ?? ""}
+            onChange={(e) => setPredColumn(board.id, e.target.value || null)}
+            disabled={!canEditStructure}
+            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
+          >
+            <option value="">未設定</option>
+            {textColumns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-500">關聯類型欄位</span>
+          <select
+            value={linkColumnId ?? ""}
+            onChange={(e) => setLinkColumn(board.id, e.target.value || null)}
+            disabled={!canEditStructure}
+            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
+          >
+            <option value="">未設定</option>
+            {statusColumns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
+      {predColumnId && linkColumnId && startColumnId && endColumnId && (
+        <p className="mb-2 text-xs text-neutral-400">
+          已啟用前置依賴自動計算:依前置依賴欄位與日期自動判斷 FS/FF/SS/SF 並寫入關聯類型欄位。
+        </p>
+      )}
       {startColumnId && durationColumnId && endColumnId && (
         <p className="mb-2 text-xs text-neutral-400">
           已啟用自動計算:填寫開始日期+天數會自動算出結束日期,填寫開始日期+結束日期會自動算出天數(以工作日計算)。

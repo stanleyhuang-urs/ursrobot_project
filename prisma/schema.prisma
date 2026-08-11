@@ -57,6 +57,11 @@ model Board {
   ganttEndColumnId      String?
   ganttEndColumn        Column? @relation("BoardGanttEndColumn", fields: [ganttEndColumnId], references: [id], onDelete: SetNull)
 
+  predColumnId String?
+  predColumn   Column? @relation("BoardPredColumn", fields: [predColumnId], references: [id], onDelete: SetNull)
+  linkColumnId String?
+  linkColumn   Column? @relation("BoardLinkColumn", fields: [linkColumnId], references: [id], onDelete: SetNull)
+
   groups  Group[]
   columns Column[] @relation("BoardColumns")
   items   Item[]
@@ -89,6 +94,8 @@ model Column {
   ganttStartForBoards    Board[]     @relation("BoardGanttStartColumn")
   ganttDurationForBoards Board[]     @relation("BoardGanttDurationColumn")
   ganttEndForBoards      Board[]     @relation("BoardGanttEndColumn")
+  predForBoards          Board[]     @relation("BoardPredColumn")
+  linkForBoards          Board[]     @relation("BoardLinkColumn")
   ruleTriggersFor AutomationRule[] @relation("RuleTriggerColumn")
   ruleSetsFor     AutomationRule[] @relation("RuleSetColumn")
 }
