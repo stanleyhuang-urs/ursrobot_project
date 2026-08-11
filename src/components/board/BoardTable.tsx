@@ -22,7 +22,12 @@ import { computeVisibleItemIds, type ActiveFilter } from "@/lib/filter";
 import { GroupSection } from "./GroupSection";
 import { FilterBar } from "./FilterBar";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
-import { gridTemplate } from "./gridTemplate";
+import {
+  gridTemplate,
+  DEFAULT_NAME_COLUMN_WIDTH,
+  MIN_NAME_COLUMN_WIDTH,
+  MAX_NAME_COLUMN_WIDTH,
+} from "./gridTemplate";
 import { createGroup, reorderGroups } from "@/lib/actions/group";
 import { deleteColumn, setProgressColumn } from "@/lib/actions/column";
 
@@ -42,6 +47,7 @@ export function BoardTable({
   const canEditStructure = canManageStructure(userRole);
   const [groupOrder, setGroupOrder] = useState(board.groups.map((g) => g.id));
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const [nameWidth, setNameWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
   const visibleIds = useMemo(
     () => computeVisibleItemIds(board.items, filters),
     [board.items, filters]
@@ -74,16 +80,38 @@ export function BoardTable({
     await createGroup(board.id, "新分組");
   }
 
+  function startNameColumnResize(e: React.PointerEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = nameWidth;
+    function onMove(ev: PointerEvent) {
+      const next = startWidth + (ev.clientX - startX);
+      setNameWidth(Math.min(MAX_NAME_COLUMN_WIDTH, Math.max(MIN_NAME_COLUMN_WIDTH, next)));
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
   return (
     <div>
       <FilterBar columns={board.columns} users={users} filters={filters} onChange={setFilters} />
 
       <div
         className="mb-2 grid w-fit items-center text-xs font-medium text-neutral-500"
-        style={{ gridTemplateColumns: gridTemplate(board.columns.length) }}
+        style={{ gridTemplateColumns: gridTemplate(board.columns.length, nameWidth) }}
       >
         <div className="sticky left-0 z-10 bg-neutral-50" />
-        <div className="sticky left-8 z-10 bg-neutral-50 px-2">項目名稱</div>
+        <div className="sticky left-8 z-10 relative bg-neutral-50 px-2">
+          項目名稱
+          <div
+            onPointerDown={startNameColumnResize}
+            className="absolute right-0 top-0 z-20 h-full w-1 cursor-col-resize hover:bg-blue-400"
+          />
+        </div>
         {board.columns.map((col) => (
           <div key={col.id} className="flex items-center justify-between px-1">
             <span className="truncate">{col.name}</span>
@@ -153,6 +181,7 @@ export function BoardTable({
                   userRole={userRole}
                   currentUserId={currentUserId}
                   visibleIds={visibleIds}
+                  nameWidth={nameWidth}
                 />
               );
             })}

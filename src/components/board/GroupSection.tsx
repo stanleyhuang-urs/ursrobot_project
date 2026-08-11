@@ -23,6 +23,7 @@ export function GroupSection({
   userRole,
   currentUserId,
   visibleIds,
+  nameWidth,
 }: {
   boardId: string;
   group: GroupData;
@@ -33,6 +34,7 @@ export function GroupSection({
   userRole: UserRole;
   currentUserId: string;
   visibleIds: Set<string> | null;
+  nameWidth: number;
 }) {
   const canEditStructure = canManageStructure(userRole);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -134,12 +136,13 @@ export function GroupSection({
                 userRole={userRole}
                 currentUserId={currentUserId}
                 visibleIds={visibleIds}
+                nameWidth={nameWidth}
               />
             ))}
           {canEditStructure && (
             <div
               className="grid w-fit items-center py-1.5"
-              style={{ gridTemplateColumns: gridTemplate(columns.length) }}
+              style={{ gridTemplateColumns: gridTemplate(columns.length, nameWidth) }}
             >
               <div className="sticky left-0 z-10 bg-white" />
               <input

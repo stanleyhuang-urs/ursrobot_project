@@ -34,6 +34,7 @@ export function ItemRow({
   userRole,
   currentUserId,
   visibleIds,
+  nameWidth,
 }: {
   boardId: string;
   groupId: string;
@@ -46,6 +47,7 @@ export function ItemRow({
   userRole: UserRole;
   currentUserId: string;
   visibleIds: Set<string> | null;
+  nameWidth: number;
 }) {
   const canEditStructure = canManageStructure(userRole);
   const [name, setName] = useState(item.name);
@@ -85,7 +87,7 @@ export function ItemRow({
     <>
       <div
         className="group grid w-fit items-center border-b border-neutral-100 hover:bg-neutral-50"
-        style={{ gridTemplateColumns: gridTemplate(columns.length) }}
+        style={{ gridTemplateColumns: gridTemplate(columns.length, nameWidth) }}
       >
         <div className="sticky left-0 z-10 flex items-center justify-center bg-white group-hover:bg-neutral-50">
           {hasChildren && (
@@ -216,6 +218,7 @@ export function ItemRow({
             userRole={userRole}
             currentUserId={currentUserId}
             visibleIds={visibleIds}
+            nameWidth={nameWidth}
           />
         ))}
     </>

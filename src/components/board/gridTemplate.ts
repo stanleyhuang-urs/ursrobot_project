@@ -1,3 +1,7 @@
-export function gridTemplate(columnCount: number) {
-  return `32px minmax(220px, 1fr) repeat(${columnCount}, 160px) 40px`;
+export const DEFAULT_NAME_COLUMN_WIDTH = 220;
+export const MIN_NAME_COLUMN_WIDTH = 120;
+export const MAX_NAME_COLUMN_WIDTH = 600;
+
+export function gridTemplate(columnCount: number, nameWidth: number = DEFAULT_NAME_COLUMN_WIDTH) {
+  return `32px ${nameWidth}px repeat(${columnCount}, 160px) 40px`;
 }
