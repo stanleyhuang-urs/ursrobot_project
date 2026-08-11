@@ -138,6 +138,30 @@ export function ItemRow({
               {item.assignments.length > 0 && <span>{item.assignments.length}</span>}
             </button>
           )}
+          {canEditStructure && (
+            <RowMenu>
+              <RowMenuItem onSelect={handleAddSubitem}>
+                <span className="flex items-center gap-2">
+                  <Plus size={14} /> 新增子項目
+                </span>
+              </RowMenuItem>
+              <RowMenuItem onSelect={() => handleInsert("before")}>
+                <span className="flex items-center gap-2">
+                  <ArrowUpToLine size={14} /> 上方插入項目
+                </span>
+              </RowMenuItem>
+              <RowMenuItem onSelect={() => handleInsert("after")}>
+                <span className="flex items-center gap-2">
+                  <ArrowDownToLine size={14} /> 下方插入項目
+                </span>
+              </RowMenuItem>
+              <RowMenuItem danger onSelect={() => deleteItem(boardId, item.id)}>
+                <span className="flex items-center gap-2">
+                  <Trash2 size={14} /> 刪除
+                </span>
+              </RowMenuItem>
+            </RowMenu>
+          )}
         </div>
         {columns.map((col) => (
           <div key={col.id} className="px-1">
@@ -158,30 +182,6 @@ export function ItemRow({
             )}
           </div>
         ))}
-        {canEditStructure && (
-          <RowMenu>
-            <RowMenuItem onSelect={handleAddSubitem}>
-              <span className="flex items-center gap-2">
-                <Plus size={14} /> 新增子項目
-              </span>
-            </RowMenuItem>
-            <RowMenuItem onSelect={() => handleInsert("before")}>
-              <span className="flex items-center gap-2">
-                <ArrowUpToLine size={14} /> 上方插入項目
-              </span>
-            </RowMenuItem>
-            <RowMenuItem onSelect={() => handleInsert("after")}>
-              <span className="flex items-center gap-2">
-                <ArrowDownToLine size={14} /> 下方插入項目
-              </span>
-            </RowMenuItem>
-            <RowMenuItem danger onSelect={() => deleteItem(boardId, item.id)}>
-              <span className="flex items-center gap-2">
-                <Trash2 size={14} /> 刪除
-              </span>
-            </RowMenuItem>
-          </RowMenu>
-        )}
       </div>
       <ItemDetailModal
         boardId={boardId}
