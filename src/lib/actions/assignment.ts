@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireStructureAccess } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
+import { notifyEmailIfNeeded } from "@/lib/notify";
 
 export async function listAssignments(itemId: string) {
   const session = await requireSession();
@@ -46,15 +47,17 @@ export async function upsertAssignment(
   });
 
   if (!existing && item && userId !== session.userId) {
+    const message = `你被指派到「${item.name}」`;
     await prisma.notification.create({
       data: {
         userId,
         actorId: session.userId,
         type: "ASSIGNED",
         itemId,
-        message: `你被指派到「${item.name}」`,
+        message,
       },
     });
+    await notifyEmailIfNeeded(userId, "ASSIGNED", message);
   }
 
   revalidatePath(`/boards/${boardId}`);

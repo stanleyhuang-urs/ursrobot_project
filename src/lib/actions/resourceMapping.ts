@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireBoardAdmin } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
+import { notifyEmailIfNeeded } from "@/lib/notify";
 
 export async function getDistinctTextValues(boardId: string, columnId: string) {
   const session = await requireSession();
@@ -36,7 +37,15 @@ export async function applyResourceMapping(
   const session = await requireSession();
   requireBoardAdmin(session.role);
 
-  return prisma.$transaction(
+  const notifications: {
+    userId: string;
+    actorId: string;
+    type: "ASSIGNED";
+    itemId: string;
+    message: string;
+  }[] = [];
+
+  const result = await prisma.$transaction(
     async (tx) => {
       let columnId = targetColumnId;
       if (!columnId) {
@@ -70,13 +79,6 @@ export async function applyResourceMapping(
       const userIdByValue = new Map(mapping.map((m) => [m.value, m.userId]));
 
       let updatedCount = 0;
-      const notifications: {
-        userId: string;
-        actorId: string;
-        type: "ASSIGNED";
-        itemId: string;
-        message: string;
-      }[] = [];
 
       for (const cell of sourceCells) {
         if (typeof cell.value !== "string") continue;
@@ -113,4 +115,10 @@ export async function applyResourceMapping(
     },
     { timeout: 30000 }
   );
+
+  for (const n of notifications) {
+    await notifyEmailIfNeeded(n.userId, n.type, n.message);
+  }
+
+  return result;
 }

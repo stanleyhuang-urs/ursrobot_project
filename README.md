@@ -7,6 +7,15 @@
 - Node.js(已安裝於本機:`C:\Program Files\nodejs`)
 - PostgreSQL(已安裝於本機:`C:\Program Files\PostgreSQL\17`,service 名稱 `postgresql-x64-17`)
 - 資料庫:`hrapp_db`,帳號 `hrapp` / 密碼 `hrapp_dev_pw`(僅本機開發用,見 `.env`)
+- Email 通知(選用):在 `.env` 加入以下 SMTP 設定才會實際寄信,沒設定則只會有
+  站內通知:
+  ```
+  SMTP_HOST=smtp.gmail.com
+  SMTP_PORT=587
+  SMTP_USER=you@example.com
+  SMTP_PASSWORD=你的 SMTP 密碼(Gmail 需用「應用程式密碼」,不是登入密碼)
+  SMTP_FROM=you@example.com
+  ```
 
 ## 啟動開發伺服器
 
@@ -91,8 +100,10 @@ npx prisma migrate dev --name <name>   # 修改 schema 後建立新的 migration
   擁有者或管理者可改為「限制」,只有擁有者、管理者與指定成員可看到/進入該看板
   (從側邊欄清單、儀表板到直接輸入網址都會擋下);限制後仍沿用既有的全域角色
   權限決定能做什麼
+- Email 通知:設定 `.env` 的 SMTP 資訊後,「指派」與「自動化規則」通知會額外
+  寄送 Email(狀態更新、留言等站內通知不會寄信);未設定 SMTP 時自動略過,不
+  影響原有站內通知
 
 ## 尚未實作(下一階段)
 
-- Email 通知(目前只有站內通知,需要 SMTP 設定才能加 Email)
 - 正式部署用的 Docker Compose(內部伺服器部署時再補上)

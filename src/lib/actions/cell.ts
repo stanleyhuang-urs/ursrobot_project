@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { notifyItemAssignees } from "@/lib/notify";
+import { notifyItemAssignees, notifyEmailIfNeeded } from "@/lib/notify";
 import { executeAutomationRules } from "@/lib/automation";
 import { syncGanttDates } from "@/lib/ganttSync";
 import { syncPredecessorLink } from "@/lib/predecessorLink";
@@ -51,15 +51,17 @@ export async function upsertCellValue(
       const addedIds = getPersonIds(value).filter((id) => !oldIds.has(id));
       for (const userId of addedIds) {
         if (userId === session.userId) continue;
+        const message = `你被指派到「${item.name}」`;
         await prisma.notification.create({
           data: {
             userId,
             actorId: session.userId,
             type: "ASSIGNED",
             itemId,
-            message: `你被指派到「${item.name}」`,
+            message,
           },
         });
+        await notifyEmailIfNeeded(userId, "ASSIGNED", message);
       }
     } else {
       const changed =
