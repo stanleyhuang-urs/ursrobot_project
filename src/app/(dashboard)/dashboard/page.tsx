@@ -143,6 +143,7 @@ export default async function DashboardPage({
         day={teamWorkloadDay}
         week={teamWorkloadWeek}
         month={teamWorkloadMonth}
+        tasksByUser={tasksByUser}
       />
 
       <WorkloadDetailSection

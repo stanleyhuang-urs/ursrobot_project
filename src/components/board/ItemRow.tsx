@@ -107,7 +107,7 @@ export function ItemRow({
       <div
         ref={rowRef}
         className={`group grid w-fit items-center border-b border-neutral-100 hover:bg-neutral-50 ${
-          flash ? "bg-yellow-100" : ""
+          flash ? "bg-red-200" : ""
         }`}
         style={{
           gridTemplateColumns: gridTemplate(columns.length, nameWidth),
