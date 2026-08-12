@@ -77,6 +77,12 @@ export function AssignmentModal({
     await refresh();
   }
 
+  async function handleUpdatePct(userId: string, nextPct: number) {
+    if (!item) return;
+    await upsertAssignment(boardId, item.id, userId, nextPct);
+    await refresh();
+  }
+
   return (
     <Modal open={open} onOpenChange={onOpenChange} title={`${item.name} — 人員分配`}>
       <div className="mb-4 space-y-2">
@@ -91,7 +97,16 @@ export function AssignmentModal({
           >
             <span className="text-sm text-neutral-800">{a.user.name}</span>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-neutral-500">{a.allocationPct}%</span>
+              <input
+                type="number"
+                min={5}
+                max={100}
+                step={5}
+                value={a.allocationPct}
+                onChange={(e) => handleUpdatePct(a.userId, Number(e.target.value))}
+                className="w-16 rounded-md border border-neutral-300 px-2 py-1 text-right text-sm outline-none focus:border-blue-500"
+              />
+              <span className="text-sm text-neutral-500">%</span>
               <button
                 type="button"
                 onClick={() => handleRemove(a.userId)}

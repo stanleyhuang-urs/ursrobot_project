@@ -19,11 +19,13 @@ export function BoardView({
   users,
   userRole,
   currentUserId,
+  highlightItemId,
 }: {
   board: BoardWithData;
   users: UserOption[];
   userRole: UserRole;
   currentUserId: string;
+  highlightItemId?: string | null;
 }) {
   const [view, setView] = useState<"table" | "kanban" | "gantt">("table");
   const [addColumnOpen, setAddColumnOpen] = useState(false);
@@ -142,6 +144,7 @@ export function BoardView({
             userRole={userRole}
             currentUserId={currentUserId}
             onAddColumn={() => setAddColumnOpen(true)}
+            highlightItemId={highlightItemId}
           />
         )}
         {view === "kanban" && (

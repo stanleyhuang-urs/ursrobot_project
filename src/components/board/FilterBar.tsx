@@ -152,23 +152,32 @@ function FilterValueControl({
 
   if (value.kind === "person") {
     return (
-      <select
-        multiple
-        value={value.selected}
-        onChange={(e) =>
-          onChange({
-            kind: "person",
-            selected: Array.from(e.target.selectedOptions, (o) => o.value),
-          })
-        }
-        className="h-6 w-32 rounded border border-neutral-200 text-xs outline-none focus:border-blue-500"
-      >
-        {users.map((u) => (
-          <option key={u.id} value={u.id}>
-            {u.name}
-          </option>
-        ))}
-      </select>
+      <div className="flex max-w-xs flex-wrap gap-1">
+        {users.map((u) => {
+          const active = value.selected.includes(u.id);
+          return (
+            <button
+              key={u.id}
+              type="button"
+              onClick={() =>
+                onChange({
+                  kind: "person",
+                  selected: active
+                    ? value.selected.filter((id) => id !== u.id)
+                    : [...value.selected, u.id],
+                })
+              }
+              className={`rounded-full px-2 py-0.5 text-[11px] ${
+                active
+                  ? "bg-neutral-800 text-white"
+                  : "border border-neutral-200 text-neutral-500"
+              }`}
+            >
+              {u.name}
+            </button>
+          );
+        })}
+      </div>
     );
   }
 

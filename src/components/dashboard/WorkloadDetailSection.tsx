@@ -162,7 +162,10 @@ export function WorkloadDetailSection({
                                   className="shrink-0 truncate border-r border-neutral-100 px-2 py-1 text-xs text-neutral-600"
                                   title={t.itemName}
                                 >
-                                  <Link href={`/boards/${t.boardId}`} className="hover:text-blue-600">
+                                  <Link
+                                    href={`/boards/${t.boardId}?highlight=${t.itemId}`}
+                                    className="hover:text-blue-600"
+                                  >
                                     {t.itemName}
                                   </Link>
                                 </div>

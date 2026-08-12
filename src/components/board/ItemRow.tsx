@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowUpToLine,
@@ -35,6 +35,9 @@ export function ItemRow({
   currentUserId,
   visibleIds,
   nameWidth,
+  wbsCodes,
+  highlightItemId,
+  expandIds,
 }: {
   boardId: string;
   groupId: string;
@@ -48,12 +51,28 @@ export function ItemRow({
   currentUserId: string;
   visibleIds: Set<string> | null;
   nameWidth: number;
+  wbsCodes?: Map<string, string>;
+  highlightItemId?: string | null;
+  expandIds?: Set<string>;
 }) {
   const canEditStructure = canManageStructure(userRole);
   const [name, setName] = useState(item.name);
-  const [expanded, setExpanded] = useState(true);
+  const isAncestorOfHighlight = expandIds?.has(item.id) ?? false;
+  const [expandedState, setExpanded] = useState(true);
+  const expanded = expandedState || isAncestorOfHighlight;
   const [detailOpen, setDetailOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const isHighlighted = item.id === highlightItemId;
+  const [flash, setFlash] = useState(false);
+
+  useEffect(() => {
+    if (!isHighlighted || !rowRef.current) return;
+    rowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFlash(true);
+    const timer = setTimeout(() => setFlash(false), 2000);
+    return () => clearTimeout(timer);
+  }, [isHighlighted]);
 
   const children = allGroupItems
     .filter((i) => i.parentId === item.id)
@@ -86,14 +105,20 @@ export function ItemRow({
   return (
     <>
       <div
-        className="group grid w-fit items-center border-b border-neutral-100 hover:bg-neutral-50"
-        style={{ gridTemplateColumns: gridTemplate(columns.length, nameWidth) }}
+        ref={rowRef}
+        className={`group grid w-fit items-center border-b border-neutral-100 hover:bg-neutral-50 ${
+          flash ? "bg-yellow-100" : ""
+        }`}
+        style={{
+          gridTemplateColumns: gridTemplate(columns.length, nameWidth),
+          transition: "background-color 1.5s ease",
+        }}
       >
         <div className="sticky left-0 z-10 flex items-center justify-center bg-white group-hover:bg-neutral-50">
           {hasChildren && (
             <button
               type="button"
-              onClick={() => setExpanded((e) => !e)}
+              onClick={() => setExpanded(!expanded)}
               className="text-neutral-400 hover:text-neutral-700"
               aria-label={expanded ? "收合子項目" : "展開子項目"}
             >
@@ -105,6 +130,9 @@ export function ItemRow({
           className="sticky left-8 z-10 flex min-w-0 items-center gap-1 bg-white group-hover:bg-neutral-50"
           style={{ paddingLeft: depth * 20 }}
         >
+          {wbsCodes?.get(item.id) && (
+            <span className="shrink-0 text-xs text-neutral-400">{wbsCodes.get(item.id)}</span>
+          )}
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -219,6 +247,9 @@ export function ItemRow({
             currentUserId={currentUserId}
             visibleIds={visibleIds}
             nameWidth={nameWidth}
+            wbsCodes={wbsCodes}
+            highlightItemId={highlightItemId}
+            expandIds={expandIds}
           />
         ))}
     </>

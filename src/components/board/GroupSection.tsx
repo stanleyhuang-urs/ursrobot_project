@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronDown, ChevronRight, GripVertical, Trash2 } from "lucide-react";
@@ -12,6 +12,7 @@ import { gridTemplate } from "./gridTemplate";
 import { renameGroup, deleteGroup } from "@/lib/actions/group";
 import { createItem } from "@/lib/actions/item";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
+import { computeWbsCodes } from "@/lib/wbs";
 
 export function GroupSection({
   boardId,
@@ -24,6 +25,8 @@ export function GroupSection({
   currentUserId,
   visibleIds,
   nameWidth,
+  highlightItemId,
+  expandIds,
 }: {
   boardId: string;
   group: GroupData;
@@ -35,7 +38,10 @@ export function GroupSection({
   currentUserId: string;
   visibleIds: Set<string> | null;
   nameWidth: number;
+  highlightItemId?: string | null;
+  expandIds?: Set<string>;
 }) {
+  const wbsCodes = useMemo(() => computeWbsCodes(items), [items]);
   const canEditStructure = canManageStructure(userRole);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: group.id, disabled: !canEditStructure });
@@ -137,6 +143,9 @@ export function GroupSection({
                 currentUserId={currentUserId}
                 visibleIds={visibleIds}
                 nameWidth={nameWidth}
+                wbsCodes={wbsCodes}
+                highlightItemId={highlightItemId}
+                expandIds={expandIds}
               />
             ))}
           {canEditStructure && (

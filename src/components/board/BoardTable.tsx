@@ -22,6 +22,7 @@ import type { BoardWithData, ColumnData, ItemData, UserOption } from "@/types/bo
 import type { UserRole } from "@prisma/client";
 import { canManageStructure } from "@/lib/permissions";
 import { computeVisibleItemIds, type ActiveFilter } from "@/lib/filter";
+import { computeAncestorIds } from "@/lib/wbs";
 import { GroupSection } from "./GroupSection";
 import { FilterBar } from "./FilterBar";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
@@ -101,12 +102,14 @@ export function BoardTable({
   userRole,
   currentUserId,
   onAddColumn,
+  highlightItemId,
 }: {
   board: BoardWithData;
   users: UserOption[];
   userRole: UserRole;
   currentUserId: string;
   onAddColumn: () => void;
+  highlightItemId?: string | null;
 }) {
   const canEditStructure = canManageStructure(userRole);
   const [groupOrder, setGroupOrder] = useState(board.groups.map((g) => g.id));
@@ -117,6 +120,10 @@ export function BoardTable({
   const visibleIds = useMemo(
     () => computeVisibleItemIds(board.items, filters),
     [board.items, filters]
+  );
+  const expandIds = useMemo(
+    () => computeAncestorIds(board.items, highlightItemId),
+    [board.items, highlightItemId]
   );
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -282,6 +289,8 @@ export function BoardTable({
                   currentUserId={currentUserId}
                   visibleIds={visibleIds}
                   nameWidth={nameWidth}
+                  highlightItemId={highlightItemId}
+                  expandIds={expandIds}
                 />
               );
             })}
