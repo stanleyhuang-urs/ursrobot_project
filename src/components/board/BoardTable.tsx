@@ -31,6 +31,7 @@ import {
   DEFAULT_NAME_COLUMN_WIDTH,
   MIN_NAME_COLUMN_WIDTH,
   MAX_NAME_COLUMN_WIDTH,
+  AUTO_FIT_MAX_NAME_COLUMN_WIDTH,
 } from "./gridTemplate";
 import { createGroup, reorderGroups } from "@/lib/actions/group";
 import { deleteColumn, setProgressColumn, reorderColumns } from "@/lib/actions/column";
@@ -165,7 +166,7 @@ export function BoardTable({
       }
       if (maxWidth > 0) {
         setNameWidth(
-          Math.min(MAX_NAME_COLUMN_WIDTH, Math.max(DEFAULT_NAME_COLUMN_WIDTH, Math.ceil(maxWidth)))
+          Math.min(AUTO_FIT_MAX_NAME_COLUMN_WIDTH, Math.max(DEFAULT_NAME_COLUMN_WIDTH, Math.ceil(maxWidth)))
         );
       }
     }, 0);
