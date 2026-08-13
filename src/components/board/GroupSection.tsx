@@ -27,6 +27,7 @@ export function GroupSection({
   nameWidth,
   highlightItemId,
   expandIds,
+  levelColors,
 }: {
   boardId: string;
   group: GroupData;
@@ -40,6 +41,7 @@ export function GroupSection({
   nameWidth: number;
   highlightItemId?: string | null;
   expandIds?: Set<string>;
+  levelColors?: string[];
 }) {
   const wbsCodes = useMemo(() => computeWbsCodes(items), [items]);
   const canEditStructure = canManageStructure(userRole);
@@ -146,6 +148,7 @@ export function GroupSection({
                 wbsCodes={wbsCodes}
                 highlightItemId={highlightItemId}
                 expandIds={expandIds}
+                levelColors={levelColors}
               />
             ))}
           {canEditStructure && (

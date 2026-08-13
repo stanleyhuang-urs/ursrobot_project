@@ -38,6 +38,7 @@ export function ItemRow({
   wbsCodes,
   highlightItemId,
   expandIds,
+  levelColors,
 }: {
   boardId: string;
   groupId: string;
@@ -54,6 +55,7 @@ export function ItemRow({
   wbsCodes?: Map<string, string>;
   highlightItemId?: string | null;
   expandIds?: Set<string>;
+  levelColors?: string[];
 }) {
   const canEditStructure = canManageStructure(userRole);
   const [name, setName] = useState(item.name);
@@ -65,6 +67,8 @@ export function ItemRow({
   const rowRef = useRef<HTMLDivElement>(null);
   const isHighlighted = item.id === highlightItemId;
   const [flash, setFlash] = useState(false);
+  const levelColor = levelColors?.[depth]?.trim() || undefined;
+  const rowBackground = flash ? "#fecaca" : levelColor;
 
   useEffect(() => {
     if (!isHighlighted || !rowRef.current) return;
@@ -106,15 +110,17 @@ export function ItemRow({
     <>
       <div
         ref={rowRef}
-        className={`group grid w-fit items-center border-b border-neutral-100 hover:bg-neutral-50 ${
-          flash ? "bg-red-200" : ""
-        }`}
+        className="group grid w-fit items-center border-b border-neutral-100 hover:bg-neutral-50"
         style={{
           gridTemplateColumns: gridTemplate(columns.length, nameWidth),
+          backgroundColor: rowBackground,
           transition: "background-color 1.5s ease",
         }}
       >
-        <div className="sticky left-0 z-10 flex items-center justify-center bg-white group-hover:bg-neutral-50">
+        <div
+          className="sticky left-0 z-10 flex items-center justify-center group-hover:bg-neutral-50"
+          style={{ backgroundColor: rowBackground ?? "white" }}
+        >
           {hasChildren && (
             <button
               type="button"
@@ -127,8 +133,8 @@ export function ItemRow({
           )}
         </div>
         <div
-          className="sticky left-8 z-10 flex min-w-0 items-center gap-1 bg-white group-hover:bg-neutral-50"
-          style={{ paddingLeft: depth * 20 }}
+          className="sticky left-8 z-10 flex min-w-0 items-center gap-1 group-hover:bg-neutral-50"
+          style={{ paddingLeft: depth * 20, backgroundColor: rowBackground ?? "white" }}
         >
           {wbsCodes?.get(item.id) && (
             <span className="shrink-0 text-xs text-neutral-400">{wbsCodes.get(item.id)}</span>
@@ -251,6 +257,7 @@ export function ItemRow({
             wbsCodes={wbsCodes}
             highlightItemId={highlightItemId}
             expandIds={expandIds}
+            levelColors={levelColors}
           />
         ))}
     </>

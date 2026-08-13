@@ -216,3 +216,14 @@ export async function setReportStatusBuckets(
   });
   revalidatePath(`/boards/${boardId}`);
 }
+
+export async function setLevelColors(boardId: string, colors: string[]) {
+  const session = await requireSession();
+  await requireBoardAccess(boardId, session);
+  requireStructureAccess(session.role);
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { levelColors: colors },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}

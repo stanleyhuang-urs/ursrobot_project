@@ -80,6 +80,8 @@ model Board {
   reportStuckOptionIds      String[] @default([])
   reportDoneOptionIds       String[] @default([])
 
+  levelColors String[] @default([])
+
   groups  Group[]
   columns Column[] @relation("BoardColumns")
   items   Item[]

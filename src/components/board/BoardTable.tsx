@@ -221,6 +221,7 @@ export function BoardTable({
     <div>
       <FilterBar columns={orderedColumns} users={users} filters={filters} onChange={setFilters} />
 
+      <div className="w-fit rounded-lg border-2 border-neutral-800">
       <DndContext
         id="board-columns-dnd"
         sensors={sensors}
@@ -292,12 +293,14 @@ export function BoardTable({
                   nameWidth={nameWidth}
                   highlightItemId={highlightItemId}
                   expandIds={expandIds}
+                  levelColors={board.levelColors}
                 />
               );
             })}
           </div>
         </SortableContext>
       </DndContext>
+      </div>
 
       {canEditStructure && (
         <button
