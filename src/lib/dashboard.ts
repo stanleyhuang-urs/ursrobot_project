@@ -71,6 +71,57 @@ export function computeTeamWorkload(
     .sort((a, b) => b.avgPct - a.avgPct);
 }
 
+export type MemberItemWorkloadEntry = {
+  boardId: string;
+  boardName: string;
+  itemId: string;
+  itemName: string;
+  avgPct: number;
+};
+
+/**
+ * For one user, each of their assigned items' average allocation % across the
+ * requested period (day/week/month) — only counting days the item's Gantt
+ * date range actually overlaps the period. Used for the per-person pie
+ * breakdown in the team workload overview.
+ */
+export function computeMemberItemWorkload(
+  boards: BoardWithData[],
+  userId: string,
+  period: WorkloadPeriod = "day"
+): MemberItemWorkloadEntry[] {
+  const dates = new Set(datesForPeriod(period).map(toIsoDate));
+  const entries: MemberItemWorkloadEntry[] = [];
+
+  for (const board of boards) {
+    if (!board.ganttStartColumnId || !board.ganttDurationColumnId) continue;
+    for (const item of board.items) {
+      const assignment = item.assignments.find((a) => a.userId === userId);
+      if (!assignment) continue;
+      const range = getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId);
+      if (!range) continue;
+
+      let activeDays = 0;
+      const cursor = new Date(range.start);
+      while (cursor <= range.end) {
+        if (dates.has(toIsoDate(cursor))) activeDays++;
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      }
+      if (activeDays === 0) continue;
+
+      entries.push({
+        boardId: board.id,
+        boardName: board.name,
+        itemId: item.id,
+        itemName: item.name,
+        avgPct: Math.round((assignment.allocationPct * activeDays) / dates.size),
+      });
+    }
+  }
+
+  return entries.sort((a, b) => b.avgPct - a.avgPct);
+}
+
 export type BoardProgressEntry = {
   boardId: string;
   boardName: string;

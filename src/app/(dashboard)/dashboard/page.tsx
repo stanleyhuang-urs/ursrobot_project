@@ -5,10 +5,13 @@ import { boardWithDataArgs } from "@/types/board";
 import { accessibleBoardWhere } from "@/lib/boardAccess";
 import {
   computeTeamWorkload,
+  computeMemberItemWorkload,
   computeBoardProgressOverview,
   computeOverdueUpcoming,
   computePersonalItems,
   type PersonalItemEntry,
+  type WorkloadPeriod,
+  type MemberItemWorkloadEntry,
 } from "@/lib/dashboard";
 import { TeamWorkloadCard } from "@/components/dashboard/TeamWorkloadCard";
 import { WorkloadDetailSection } from "@/components/dashboard/WorkloadDetailSection";
@@ -111,6 +114,15 @@ export default async function DashboardPage({
     weeklyLoadByUser[id] = weeklyLoadMap.get(id) ?? [];
   }
 
+  const memberItemWorkload: Record<string, Record<WorkloadPeriod, MemberItemWorkloadEntry[]>> = {};
+  for (const id of workloadScopeIds) {
+    memberItemWorkload[id] = {
+      day: computeMemberItemWorkload(boards, id, "day"),
+      week: computeMemberItemWorkload(boards, id, "week"),
+      month: computeMemberItemWorkload(boards, id, "month"),
+    };
+  }
+
   return (
     <div className="mx-auto max-w-5xl space-y-8 p-6">
       <div className="flex items-center justify-between">
@@ -144,6 +156,7 @@ export default async function DashboardPage({
         week={teamWorkloadWeek}
         month={teamWorkloadMonth}
         tasksByUser={tasksByUser}
+        memberItemWorkload={memberItemWorkload}
       />
 
       <WorkloadDetailSection

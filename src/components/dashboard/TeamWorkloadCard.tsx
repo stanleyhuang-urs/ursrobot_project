@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { TeamWorkloadEntry, WorkloadPeriod } from "@/lib/dashboard";
+import type { TeamWorkloadEntry, WorkloadPeriod, MemberItemWorkloadEntry } from "@/lib/dashboard";
 import type { MemberTask } from "@/lib/workload";
 
 const PERIOD_LABELS: Record<WorkloadPeriod, string> = {
@@ -38,19 +38,24 @@ export function TeamWorkloadCard({
   week,
   month,
   tasksByUser,
+  memberItemWorkload,
 }: {
   title: string;
   day: TeamWorkloadEntry[];
   week: TeamWorkloadEntry[];
   month: TeamWorkloadEntry[];
   tasksByUser: Record<string, MemberTask[]>;
+  memberItemWorkload: Record<string, Record<WorkloadPeriod, MemberItemWorkloadEntry[]>>;
 }) {
   const [period, setPeriod] = useState<WorkloadPeriod>("day");
   const [chartType, setChartType] = useState<"bar" | "pie">("bar");
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [pieUserId, setPieUserId] = useState<string | null>(null);
   const data = { day, week, month }[period];
   const isEmpty = data.every((e) => e.avgPct === 0);
-  const total = data.reduce((sum, e) => sum + e.avgPct, 0);
+  const selectedPieUserId = pieUserId ?? data[0]?.userId ?? null;
+  const pieEntries = selectedPieUserId ? memberItemWorkload[selectedPieUserId]?.[period] ?? [] : [];
+  const pieTotal = pieEntries.reduce((sum, e) => sum + e.avgPct, 0);
 
   function toggleExpanded(userId: string) {
     setExpandedUserId((prev) => (prev === userId ? null : userId));
@@ -131,57 +136,71 @@ export function TeamWorkloadCard({
           ))}
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-6 rounded-md border border-neutral-200 bg-white p-4">
-          <svg viewBox="0 0 120 120" width={140} height={140} className="shrink-0">
-            {(() => {
-              let cumulative = 0;
-              return data
-                .filter((e) => e.avgPct > 0)
-                .map((entry, i) => {
-                  const fraction = total > 0 ? entry.avgPct / total : 0;
-                  const startAngle = cumulative * 2 * Math.PI;
-                  cumulative += fraction;
-                  const endAngle = cumulative * 2 * Math.PI;
-                  if (fraction >= 0.999) {
-                    return <circle key={entry.userId} cx={60} cy={60} r={55} fill={PIE_COLORS[i % PIE_COLORS.length]} />;
-                  }
-                  return (
-                    <path
-                      key={entry.userId}
-                      d={pieSlicePath(60, 60, 55, startAngle, endAngle)}
-                      fill={PIE_COLORS[i % PIE_COLORS.length]}
-                    />
-                  );
-                });
-            })()}
-          </svg>
-          <div className="min-w-[180px] flex-1 space-y-1.5">
-            {data
-              .filter((e) => e.avgPct > 0)
-              .map((entry, i) => (
-                <button
-                  key={entry.userId}
-                  type="button"
-                  onClick={() => toggleExpanded(entry.userId)}
-                  className="flex w-full items-center gap-2 rounded px-1 py-0.5 text-left hover:bg-neutral-50"
-                >
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-sm text-neutral-700">
-                    {entry.userName}
-                  </span>
-                  <span className="shrink-0 text-sm text-neutral-500">
-                    {total > 0 ? Math.round((entry.avgPct / total) * 100) : 0}%
-                  </span>
-                </button>
+        <div className="rounded-md border border-neutral-200 bg-white p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-xs text-neutral-500">成員</span>
+            <select
+              value={selectedPieUserId ?? ""}
+              onChange={(e) => setPieUserId(e.target.value)}
+              className="rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-blue-500"
+            >
+              {data.map((entry) => (
+                <option key={entry.userId} value={entry.userId}>
+                  {entry.userName}
+                </option>
               ))}
+            </select>
           </div>
+          {pieEntries.length === 0 ? (
+            <p className="text-sm text-neutral-400">此成員在所選期間沒有任何指派中的任務。</p>
+          ) : (
+            <div className="flex flex-wrap items-center gap-6">
+              <svg viewBox="0 0 120 120" width={140} height={140} className="shrink-0">
+                {(() => {
+                  let cumulative = 0;
+                  return pieEntries.map((entry, i) => {
+                    const fraction = pieTotal > 0 ? entry.avgPct / pieTotal : 0;
+                    const startAngle = cumulative * 2 * Math.PI;
+                    cumulative += fraction;
+                    const endAngle = cumulative * 2 * Math.PI;
+                    if (fraction >= 0.999) {
+                      return (
+                        <circle key={entry.itemId} cx={60} cy={60} r={55} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      );
+                    }
+                    return (
+                      <path
+                        key={entry.itemId}
+                        d={pieSlicePath(60, 60, 55, startAngle, endAngle)}
+                        fill={PIE_COLORS[i % PIE_COLORS.length]}
+                      />
+                    );
+                  });
+                })()}
+              </svg>
+              <div className="min-w-[240px] flex-1 space-y-1.5">
+                {pieEntries.map((entry, i) => (
+                  <div key={entry.itemId} className="flex items-center gap-2 px-1 py-0.5">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+                    />
+                    <span className="shrink-0 text-xs text-neutral-400">{entry.boardName}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-neutral-700">
+                      {entry.itemName}
+                    </span>
+                    <span className="shrink-0 text-sm text-neutral-500">
+                      {pieTotal > 0 ? Math.round((entry.avgPct / pieTotal) * 100) : 0}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {expandedUserId && (
+      {chartType === "bar" && expandedUserId && (
         <div className="mt-2 overflow-hidden rounded-md border border-neutral-200">
           <table className="w-full text-sm">
             <thead className="bg-neutral-50 text-xs text-neutral-500">
