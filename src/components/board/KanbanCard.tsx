@@ -20,6 +20,7 @@ export function KanbanCard({ item }: { item: ItemData }) {
       style={style}
       {...attributes}
       {...listeners}
+      data-kanban-card
       className="cursor-grab rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm hover:border-neutral-300"
     >
       {item.name}

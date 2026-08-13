@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   PointerSensor,
@@ -10,8 +10,10 @@ import {
   type DragEndEvent,
   type DragOverEvent,
 } from "@dnd-kit/core";
-import type { BoardWithData, ColumnData, ItemData } from "@/types/board";
+import type { BoardWithData, ColumnData, ItemData, UserOption } from "@/types/board";
+import type { UserRole } from "@prisma/client";
 import { getStatusOptions } from "@/types/column";
+import { itemOwnerIds } from "@/lib/boardReport";
 import { KanbanLane } from "./KanbanLane";
 import { upsertCellValue } from "@/lib/actions/cell";
 
@@ -22,11 +24,17 @@ export function BoardKanban({
   statusColumns,
   columnId,
   onChangeColumn,
+  users,
+  userRole,
+  currentUserId,
 }: {
   board: BoardWithData;
   statusColumns: ColumnData[];
   columnId: string;
   onChangeColumn: (id: string) => void;
+  users: UserOption[];
+  userRole: UserRole;
+  currentUserId: string;
 }) {
   const column = statusColumns.find((c) => c.id === columnId) ?? statusColumns[0];
   const statuses = useMemo(
@@ -41,9 +49,67 @@ export function BoardKanban({
     setItems(board.items);
   }
 
+  const isSupervisor = userRole === "SUPERVISOR";
+  const teamIds = isSupervisor
+    ? users.filter((u) => u.supervisorId === currentUserId).map((u) => u.id)
+    : null;
+  const [scope, setScope] = useState<"team" | "all">(isSupervisor ? "team" : "all");
+  const effectiveTeamIds = scope === "team" ? teamIds : null;
+  const scopedItems = effectiveTeamIds
+    ? items.filter((item) => itemOwnerIds(item, board).some((id) => effectiveTeamIds.includes(id)))
+    : items;
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef<{ startX: number; startScrollLeft: number } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const [contentWidth, setContentWidth] = useState(0);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const update = () => setContentWidth(el.scrollWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [scopedItems.length]);
+
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if ((e.target as HTMLElement).closest("[data-kanban-card]")) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    dragState.current = { startX: e.clientX, startScrollLeft: container.scrollLeft };
+    setIsPanning(true);
+    container.setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragState.current || !scrollRef.current) return;
+    scrollRef.current.scrollLeft = dragState.current.startScrollLeft - (e.clientX - dragState.current.startX);
+  }
+
+  function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    dragState.current = null;
+    setIsPanning(false);
+    scrollRef.current?.releasePointerCapture(e.pointerId);
+  }
+
+  function syncFromTopScroll() {
+    if (scrollRef.current && topScrollRef.current) {
+      scrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
+  }
+
+  function syncFromMainScroll() {
+    if (scrollRef.current && topScrollRef.current) {
+      topScrollRef.current.scrollLeft = scrollRef.current.scrollLeft;
+    }
+  }
 
   function laneIdForItem(item: ItemData): string {
     if (!column) return UNSET_LANE;
@@ -57,7 +123,7 @@ export function BoardKanban({
     const map = new Map<string, ItemData[]>();
     map.set(UNSET_LANE, []);
     for (const s of statuses) map.set(s.id, []);
-    for (const item of items) {
+    for (const item of scopedItems) {
       const laneId = laneIdForItem(item);
       const list = map.get(laneId) ?? [];
       list.push(item);
@@ -65,7 +131,7 @@ export function BoardKanban({
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, column, statuses]);
+  }, [scopedItems, column, statuses]);
 
   function findLaneOfCard(cardId: string): string | undefined {
     for (const [laneId, laneItems] of lanes) {
@@ -140,19 +206,48 @@ export function BoardKanban({
 
   return (
     <div>
-      <div className="mb-4 flex items-center gap-2">
-        <span className="text-sm text-neutral-500">依欄位分組:</span>
-        <select
-          value={column.id}
-          onChange={(e) => onChangeColumn(e.target.value)}
-          className="rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-blue-500"
-        >
-          {statusColumns.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-neutral-500">依欄位分組:</span>
+          <select
+            value={column.id}
+            onChange={(e) => onChangeColumn(e.target.value)}
+            className="rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-blue-500"
+          >
+            {statusColumns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {isSupervisor && (
+          <div className="flex overflow-hidden rounded-md border border-neutral-200 text-xs">
+            <button
+              type="button"
+              onClick={() => setScope("team")}
+              className={`px-2.5 py-1 ${scope === "team" ? "bg-neutral-900 text-white" : "bg-white text-neutral-600 hover:bg-neutral-50"}`}
+            >
+              我的團隊
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope("all")}
+              className={`px-2.5 py-1 ${scope === "all" ? "bg-neutral-900 text-white" : "bg-white text-neutral-600 hover:bg-neutral-50"}`}
+            >
+              全部
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div
+        ref={topScrollRef}
+        onScroll={syncFromTopScroll}
+        className="mb-1 overflow-x-auto overflow-y-hidden"
+        style={{ height: 14 }}
+      >
+        <div style={{ width: contentWidth, height: 1 }} />
       </div>
 
       <DndContext
@@ -162,7 +257,15 @@ export function BoardKanban({
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div
+          ref={scrollRef}
+          onScroll={syncFromMainScroll}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          className={`flex gap-4 overflow-x-auto pb-4 ${isPanning ? "cursor-grabbing select-none" : "cursor-grab"}`}
+        >
           <KanbanLane
             laneId={UNSET_LANE}
             label="未設定"

@@ -165,6 +165,9 @@ export function BoardView({
             statusColumns={statusColumns}
             columnId={kanbanColumnId || statusColumns[0]?.id || ""}
             onChangeColumn={setKanbanColumnId}
+            users={users}
+            userRole={userRole}
+            currentUserId={currentUserId}
           />
         )}
         {view === "gantt" && (
