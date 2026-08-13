@@ -95,7 +95,10 @@ export default async function DashboardPage({
   const teamWorkloadWeek = computeTeamWorkload(boards, workloadScope, "week");
   const teamWorkloadMonth = computeTeamWorkload(boards, workloadScope, "month");
   const boardProgress = computeBoardProgressOverview(boards);
-  const { overdue, upcoming } = computeOverdueUpcoming(boards);
+  const { overdue, upcoming } = computeOverdueUpcoming(
+    boards,
+    isSupervisor ? teamMembers.map((m) => m.id) : undefined
+  );
   const personalItems = computePersonalItems(boards, [session.userId], userById);
   const teamItems = isSupervisor
     ? computePersonalItems(boards, teamMembers.map((m) => m.id), userById)

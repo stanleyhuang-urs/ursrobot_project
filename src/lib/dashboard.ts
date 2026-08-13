@@ -174,14 +174,22 @@ export type DueItemEntry = {
   end: Date;
 };
 
-/** Items whose Gantt end date has passed (overdue) or falls within the next 7 days (upcoming). */
-export function computeOverdueUpcoming(boards: BoardWithData[]): {
+/**
+ * Items whose Gantt end date has passed (overdue) or falls within the next 7
+ * days (upcoming). Pass `userIds` to only include items whose 負責人
+ * (PERSON column or Gantt Assignment) is one of those users.
+ */
+export function computeOverdueUpcoming(
+  boards: BoardWithData[],
+  userIds?: string[]
+): {
   overdue: DueItemEntry[];
   upcoming: DueItemEntry[];
 } {
   const today = todayUtc();
   const weekAhead = new Date(today);
   weekAhead.setDate(weekAhead.getDate() + 7);
+  const idSet = userIds ? new Set(userIds) : null;
 
   const overdue: DueItemEntry[] = [];
   const upcoming: DueItemEntry[] = [];
@@ -189,6 +197,15 @@ export function computeOverdueUpcoming(boards: BoardWithData[]): {
   for (const board of boards) {
     if (!board.ganttStartColumnId || !board.ganttDurationColumnId) continue;
     for (const item of board.items) {
+      if (idSet) {
+        const personIds = item.cellValues
+          .filter((cv) => board.columns.find((c) => c.id === cv.columnId)?.type === "PERSON")
+          .flatMap((cv) => getPersonIds(cv.value));
+        const isOwnedByScope =
+          personIds.some((id) => idSet.has(id)) || item.assignments.some((a) => idSet.has(a.userId));
+        if (!isOwnedByScope) continue;
+      }
+
       const range = getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId);
       if (!range) continue;
       const entry = { boardId: board.id, boardName: board.name, itemId: item.id, itemName: item.name, end: range.end };
