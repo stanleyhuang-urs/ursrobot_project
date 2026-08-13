@@ -97,9 +97,12 @@ export function BoardReport({
         </p>
       )}
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         <StatCard label="全部任務" value={buckets.total} />
+        <StatCard label="尚未處理" value={buckets.notStarted} color="#c4c4c4" />
+        <StatCard label="計畫中" value={buckets.planned} color="#579bfc" />
         <StatCard label="進行中" value={buckets.inProgress} color="#fdab3d" />
+        <StatCard label="暫停" value={buckets.paused} color="#a25ddc" />
         <StatCard label="卡住" value={buckets.stuck} color="#e2445c" />
         <StatCard label="已完成" value={buckets.done} color="#00c875" />
       </div>

@@ -179,22 +179,40 @@ export async function setReportStatusColumn(
   requireStructureAccess(session.role);
   await prisma.board.update({
     where: { id: boardId },
-    data: { reportStatusColumnId: columnId, reportDoneOptionIds: [], reportStuckOptionIds: [] },
+    data: {
+      reportStatusColumnId: columnId,
+      reportNotStartedOptionIds: [],
+      reportPlannedOptionIds: [],
+      reportPausedOptionIds: [],
+      reportStuckOptionIds: [],
+      reportDoneOptionIds: [],
+    },
   });
   revalidatePath(`/boards/${boardId}`);
 }
 
 export async function setReportStatusBuckets(
   boardId: string,
-  doneOptionIds: string[],
-  stuckOptionIds: string[]
+  buckets: {
+    notStartedOptionIds: string[];
+    plannedOptionIds: string[];
+    pausedOptionIds: string[];
+    stuckOptionIds: string[];
+    doneOptionIds: string[];
+  }
 ) {
   const session = await requireSession();
   await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   await prisma.board.update({
     where: { id: boardId },
-    data: { reportDoneOptionIds: doneOptionIds, reportStuckOptionIds: stuckOptionIds },
+    data: {
+      reportNotStartedOptionIds: buckets.notStartedOptionIds,
+      reportPlannedOptionIds: buckets.plannedOptionIds,
+      reportPausedOptionIds: buckets.pausedOptionIds,
+      reportStuckOptionIds: buckets.stuckOptionIds,
+      reportDoneOptionIds: buckets.doneOptionIds,
+    },
   });
   revalidatePath(`/boards/${boardId}`);
 }

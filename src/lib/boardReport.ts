@@ -17,24 +17,45 @@ export function filterItemsByTeam(board: BoardWithData, userIds: string[] | null
   return board.items.filter((item) => itemOwnerIds(item, board).some((id) => idSet.has(id)));
 }
 
-export type StatusBucketCounts = { total: number; inProgress: number; stuck: number; done: number };
+export type StatusBucketCounts = {
+  total: number;
+  notStarted: number;
+  planned: number;
+  inProgress: number;
+  paused: number;
+  stuck: number;
+  done: number;
+};
 
-/** Splits items into done/stuck/in-progress using the board's designated report status column + option ids. */
+/** Splits items into the board's designated report buckets; anything unassigned counts as in-progress. */
 export function computeStatusBuckets(board: BoardWithData, items: ItemData[]): StatusBucketCounts {
   const total = items.length;
-  if (!board.reportStatusColumnId) return { total, inProgress: total, stuck: 0, done: 0 };
+  if (!board.reportStatusColumnId) {
+    return { total, notStarted: 0, planned: 0, inProgress: total, paused: 0, stuck: 0, done: 0 };
+  }
 
-  const doneSet = new Set(board.reportDoneOptionIds);
+  const notStartedSet = new Set(board.reportNotStartedOptionIds);
+  const plannedSet = new Set(board.reportPlannedOptionIds);
+  const pausedSet = new Set(board.reportPausedOptionIds);
   const stuckSet = new Set(board.reportStuckOptionIds);
-  let done = 0;
+  const doneSet = new Set(board.reportDoneOptionIds);
+
+  let notStarted = 0;
+  let planned = 0;
+  let paused = 0;
   let stuck = 0;
+  let done = 0;
   for (const item of items) {
     const value = item.cellValues.find((cv) => cv.columnId === board.reportStatusColumnId)?.value;
     if (typeof value !== "string") continue;
-    if (doneSet.has(value)) done++;
+    if (notStartedSet.has(value)) notStarted++;
+    else if (plannedSet.has(value)) planned++;
+    else if (pausedSet.has(value)) paused++;
     else if (stuckSet.has(value)) stuck++;
+    else if (doneSet.has(value)) done++;
   }
-  return { total, inProgress: total - done - stuck, stuck, done };
+  const inProgress = total - notStarted - planned - paused - stuck - done;
+  return { total, notStarted, planned, inProgress, paused, stuck, done };
 }
 
 export type StatusSliceCount = { option: StatusOption; count: number };
