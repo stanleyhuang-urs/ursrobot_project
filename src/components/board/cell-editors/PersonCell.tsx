@@ -1,6 +1,7 @@
 "use client";
 
 import { upsertCellValue } from "@/lib/actions/cell";
+import { PersonPicker } from "@/components/ui/PersonPicker";
 import type { UserOption } from "@/types/board";
 
 export function PersonCell({
@@ -17,19 +18,12 @@ export function PersonCell({
   users: UserOption[];
 }) {
   return (
-    <select
-      defaultValue={value ?? ""}
-      onChange={(e) => {
-        upsertCellValue(boardId, itemId, columnId, e.target.value || null);
-      }}
-      className="w-full rounded bg-transparent px-2 py-1 text-sm outline-none hover:bg-neutral-50 focus:bg-white focus:ring-1 focus:ring-blue-400"
-    >
-      <option value="">未指派</option>
-      {users.map((u) => (
-        <option key={u.id} value={u.id}>
-          {u.name}
-        </option>
-      ))}
-    </select>
+    <PersonPicker
+      users={users}
+      selectedId={value}
+      placeholder="未指派"
+      unassignedLabel="未指派"
+      onSelect={(userId) => upsertCellValue(boardId, itemId, columnId, userId)}
+    />
   );
 }

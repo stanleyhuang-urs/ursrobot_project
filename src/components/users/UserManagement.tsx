@@ -1,12 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
-import { createUser, updateUserSupervisor, listUsers } from "@/lib/actions/user";
+import { Avatar } from "@/components/ui/Avatar";
+import { createUser, updateUserSupervisor, updateUserAvatar, listUsers } from "@/lib/actions/user";
 import type { UserRole } from "@prisma/client";
 
 type UserRow = Awaited<ReturnType<typeof listUsers>>[number];
+
+const AVATAR_SIZE = 128;
+
+async function fileToAvatarDataUrl(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, AVATAR_SIZE / Math.max(bitmap.width, bitmap.height));
+  const width = Math.round(bitmap.width * scale);
+  const height = Math.round(bitmap.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("無法處理圖片");
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", 0.85);
+}
 
 export function UserManagement({ users }: { users: UserRow[] }) {
   const [open, setOpen] = useState(false);
@@ -17,8 +34,34 @@ export function UserManagement({ users }: { users: UserRow[] }) {
   const [supervisorId, setSupervisorId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarTargetId, setAvatarTargetId] = useState<string | null>(null);
 
   const supervisors = users.filter((u) => u.role === "SUPERVISOR");
+
+  function handleAvatarClick(userId: string) {
+    setAvatarTargetId(userId);
+    fileInputRef.current?.click();
+  }
+
+  async function handleAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !avatarTargetId) return;
+    setUploadingId(avatarTargetId);
+    setAvatarError(null);
+    try {
+      const dataUrl = await fileToAvatarDataUrl(file);
+      await updateUserAvatar(avatarTargetId, dataUrl);
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : "上傳頭像失敗");
+    } finally {
+      setUploadingId(null);
+      setAvatarTargetId(null);
+    }
+  }
 
   function reset() {
     setName("");
@@ -45,6 +88,20 @@ export function UserManagement({ users }: { users: UserRow[] }) {
 
   return (
     <div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleAvatarFileChange}
+      />
+
+      {avatarError && (
+        <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {avatarError}
+        </div>
+      )}
+
       <div className="mb-4 flex justify-end">
         <button
           type="button"
@@ -56,7 +113,8 @@ export function UserManagement({ users }: { users: UserRow[] }) {
       </div>
 
       <div className="overflow-hidden rounded-md border border-neutral-200 bg-white">
-        <div className="grid grid-cols-[1fr_1fr_90px_140px_160px] gap-2 border-b border-neutral-100 px-4 py-2 text-xs font-medium text-neutral-500">
+        <div className="grid grid-cols-[48px_1fr_1fr_90px_140px_160px] gap-2 border-b border-neutral-100 px-4 py-2 text-xs font-medium text-neutral-500">
+          <span>頭像</span>
           <span>姓名</span>
           <span>Email</span>
           <span>角色</span>
@@ -66,8 +124,18 @@ export function UserManagement({ users }: { users: UserRow[] }) {
         {users.map((u) => (
           <div
             key={u.id}
-            className="grid grid-cols-[1fr_1fr_90px_140px_160px] items-center gap-2 border-b border-neutral-100 px-4 py-2.5 text-sm last:border-b-0"
+            className="grid grid-cols-[48px_1fr_1fr_90px_140px_160px] items-center gap-2 border-b border-neutral-100 px-4 py-2.5 text-sm last:border-b-0"
           >
+            <button
+              type="button"
+              onClick={() => handleAvatarClick(u.id)}
+              disabled={uploadingId === u.id}
+              className="shrink-0 rounded-full outline-none ring-blue-400 hover:ring-2 disabled:opacity-50"
+              aria-label="上傳頭像"
+              title="上傳頭像"
+            >
+              <Avatar name={u.name} avatarUrl={u.avatarUrl} size={32} />
+            </button>
             <span className="truncate text-neutral-800">{u.name}</span>
             <span className="truncate text-neutral-500">{u.email}</span>
             <span className="text-neutral-500">

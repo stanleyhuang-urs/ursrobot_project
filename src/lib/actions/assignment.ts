@@ -13,7 +13,7 @@ export async function listAssignments(itemId: string) {
   if (item) await requireBoardAccess(item.boardId, session);
   return prisma.assignment.findMany({
     where: { itemId },
-    include: { user: { select: { id: true, name: true } } },
+    include: { user: { select: { id: true, name: true, avatarUrl: true } } },
   });
 }
 

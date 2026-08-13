@@ -6,6 +6,8 @@ import { Trash2 } from "lucide-react";
 import type { ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { listAssignments, upsertAssignment, removeAssignment } from "@/lib/actions/assignment";
+import { Avatar } from "@/components/ui/Avatar";
+import { PersonPicker } from "@/components/ui/PersonPicker";
 
 export function AssignmentModal({
   boardId,
@@ -95,7 +97,10 @@ export function AssignmentModal({
             key={a.userId}
             className="flex items-center justify-between rounded-md bg-neutral-50 px-3 py-2"
           >
-            <span className="text-sm text-neutral-800">{a.user.name}</span>
+            <span className="flex min-w-0 items-center gap-2 text-sm text-neutral-800">
+              <Avatar name={a.user.name} avatarUrl={a.user.avatarUrl} size={22} />
+              <span className="truncate">{a.user.name}</span>
+            </span>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -122,18 +127,13 @@ export function AssignmentModal({
 
       {availableUsers.length > 0 ? (
         <div className="flex items-center gap-2">
-          <select
-            value={selectedUserId}
-            onChange={(e) => setSelectedUserId(e.target.value)}
-            className="flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-          >
-            <option value="">選擇人員...</option>
-            {availableUsers.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex-1 rounded-md border border-neutral-300">
+            <PersonPicker
+              users={availableUsers}
+              selectedId={selectedUserId || null}
+              onSelect={(userId) => setSelectedUserId(userId ?? "")}
+            />
+          </div>
           <input
             type="number"
             min={5}

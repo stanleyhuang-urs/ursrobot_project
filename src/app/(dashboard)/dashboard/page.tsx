@@ -77,7 +77,7 @@ export default async function DashboardPage({
       orderBy: { createdAt: "asc" },
     }),
     prisma.user.findMany({
-      select: { id: true, name: true, supervisorId: true },
+      select: { id: true, name: true, supervisorId: true, avatarUrl: true },
       orderBy: { name: "asc" },
     }),
   ]);

@@ -22,4 +22,9 @@ export type ItemData = BoardWithData["items"][number];
 export type CellValueData = ItemData["cellValues"][number];
 export type AssignmentData = ItemData["assignments"][number];
 
-export type UserOption = { id: string; name: string; supervisorId?: string | null };
+export type UserOption = {
+  id: string;
+  name: string;
+  supervisorId?: string | null;
+  avatarUrl?: string | null;
+};

@@ -14,6 +14,7 @@ export async function listUsers() {
       name: true,
       email: true,
       role: true,
+      avatarUrl: true,
       createdAt: true,
       supervisorId: true,
       supervisor: { select: { id: true, name: true } },
@@ -80,4 +81,23 @@ export async function updateUserSupervisor(
   });
 
   revalidatePath("/users");
+}
+
+export async function updateUserAvatar(userId: string, avatarUrl: string | null) {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") {
+    throw new Error("只有管理員可以設定使用者頭像");
+  }
+  if (avatarUrl && avatarUrl.length > 2_000_000) {
+    throw new Error("圖片檔案過大,請使用較小的圖片");
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { avatarUrl },
+  });
+
+  revalidatePath("/users");
+  revalidatePath("/boards");
+  revalidatePath("/dashboard");
 }
