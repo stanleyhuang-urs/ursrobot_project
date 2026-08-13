@@ -169,3 +169,32 @@ export async function setLinkColumn(
   });
   revalidatePath(`/boards/${boardId}`);
 }
+
+export async function setReportStatusColumn(
+  boardId: string,
+  columnId: string | null
+) {
+  const session = await requireSession();
+  await requireBoardAccess(boardId, session);
+  requireStructureAccess(session.role);
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { reportStatusColumnId: columnId, reportDoneOptionIds: [], reportStuckOptionIds: [] },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}
+
+export async function setReportStatusBuckets(
+  boardId: string,
+  doneOptionIds: string[],
+  stuckOptionIds: string[]
+) {
+  const session = await requireSession();
+  await requireBoardAccess(boardId, session);
+  requireStructureAccess(session.role);
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { reportDoneOptionIds: doneOptionIds, reportStuckOptionIds: stuckOptionIds },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}

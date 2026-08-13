@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Table2, LayoutGrid, Upload, GanttChartSquare, Users2, Zap, Share2 } from "lucide-react";
+import { Table2, LayoutGrid, Upload, GanttChartSquare, Users2, Zap, Share2, BarChart3 } from "lucide-react";
 import type { BoardWithData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageBoard, canManageStructure } from "@/lib/permissions";
 import { BoardTable } from "./BoardTable";
 import { BoardKanban } from "./BoardKanban";
 import { BoardGantt } from "./BoardGantt";
+import { BoardReport } from "./BoardReport";
 import { AddColumnDialog } from "./AddColumnDialog";
 import { ImportWizard } from "./ImportWizard";
 import { ResourceMappingModal } from "./ResourceMappingModal";
@@ -27,7 +28,7 @@ export function BoardView({
   currentUserId: string;
   highlightItemId?: string | null;
 }) {
-  const [view, setView] = useState<"table" | "kanban" | "gantt">("table");
+  const [view, setView] = useState<"table" | "kanban" | "gantt" | "report">("table");
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [resourceMappingOpen, setResourceMappingOpen] = useState(false);
@@ -132,6 +133,17 @@ export function BoardView({
             >
               <GanttChartSquare size={14} /> 甘特圖
             </button>
+            <button
+              type="button"
+              onClick={() => setView("report")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${
+                view === "report"
+                  ? "bg-neutral-900 text-white"
+                  : "bg-white text-neutral-600 hover:bg-neutral-50"
+              }`}
+            >
+              <BarChart3 size={14} /> 報表
+            </button>
           </div>
         </div>
       </div>
@@ -157,6 +169,14 @@ export function BoardView({
         )}
         {view === "gantt" && (
           <BoardGantt
+            board={board}
+            users={users}
+            userRole={userRole}
+            currentUserId={currentUserId}
+          />
+        )}
+        {view === "report" && (
+          <BoardReport
             board={board}
             users={users}
             userRole={userRole}
