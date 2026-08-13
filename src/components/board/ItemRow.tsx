@@ -215,8 +215,9 @@ export function ItemRow({
       </div>
       <ItemDetailModal
         boardId={boardId}
-        itemId={item.id}
-        itemName={item.name}
+        item={detailOpen ? item : null}
+        columns={columns}
+        users={users}
         open={detailOpen}
         onOpenChange={setDetailOpen}
       />

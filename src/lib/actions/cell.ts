@@ -10,6 +10,7 @@ import { syncGanttDates } from "@/lib/ganttSync";
 import { syncPredecessorLink } from "@/lib/predecessorLink";
 import { canEditCellValue } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
+import { logActivity } from "@/lib/activityLog";
 import { getPersonIds, type CellValueJson } from "@/types/column";
 
 export async function upsertCellValue(
@@ -50,6 +51,10 @@ export async function upsertCellValue(
       const oldIds = new Set(getPersonIds(existing?.value));
       const addedIds = getPersonIds(value).filter((id) => !oldIds.has(id));
       for (const userId of addedIds) {
+        const assignee = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+        if (assignee) {
+          await logActivity(itemId, session.userId, `「${column.name}」指派給 ${assignee.name}`);
+        }
         if (userId === session.userId) continue;
         const message = `你被指派到「${item.name}」`;
         await prisma.notification.create({
@@ -67,6 +72,7 @@ export async function upsertCellValue(
       const changed =
         JSON.stringify(existing?.value ?? null) !== JSON.stringify(value);
       if (changed) {
+        await logActivity(itemId, session.userId, `「${column.name}」已更新`);
         await notifyItemAssignees(
           prisma,
           itemId,

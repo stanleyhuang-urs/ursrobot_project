@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/session";
 import { requireStructureAccess } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import { notifyEmailIfNeeded } from "@/lib/notify";
+import { logActivity } from "@/lib/activityLog";
 
 export async function listAssignments(itemId: string) {
   const session = await requireSession();
@@ -35,9 +36,10 @@ export async function upsertAssignment(
     }
   }
 
-  const [existing, item] = await Promise.all([
+  const [existing, item, assignee] = await Promise.all([
     prisma.assignment.findUnique({ where: { itemId_userId: { itemId, userId } } }),
     prisma.item.findUnique({ where: { id: itemId } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
   ]);
 
   await prisma.assignment.upsert({
@@ -45,6 +47,16 @@ export async function upsertAssignment(
     create: { itemId, userId, allocationPct: pct },
     update: { allocationPct: pct },
   });
+
+  if (assignee) {
+    await logActivity(
+      itemId,
+      session.userId,
+      existing
+        ? `${assignee.name} 的人員分配調整為 ${pct}%`
+        : `新增人員分配:${assignee.name} ${pct}%`
+    );
+  }
 
   if (!existing && item && userId !== session.userId) {
     const message = `你被指派到「${item.name}」`;
@@ -67,8 +79,12 @@ export async function removeAssignment(boardId: string, itemId: string, userId: 
   const session = await requireSession();
   await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
+  const assignee = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
   await prisma.assignment.delete({
     where: { itemId_userId: { itemId, userId } },
   });
+  if (assignee) {
+    await logActivity(itemId, session.userId, `移除人員分配:${assignee.name}`);
+  }
   revalidatePath(`/boards/${boardId}`);
 }

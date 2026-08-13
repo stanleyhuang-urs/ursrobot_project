@@ -45,6 +45,8 @@ model User {
   assignments   Assignment[]
   automationNotifyFor AutomationRule[] @relation("RuleNotifyUser")
   boardMemberships    BoardMember[]
+  attachments         Attachment[]
+  activityLogEntries  ActivityLogEntry[]
 }
 
 model Board {
@@ -137,6 +139,41 @@ model Item {
   comments      Comment[]
   notifications Notification[]
   assignments   Assignment[]
+  attachments   Attachment[]
+  activityLog   ActivityLogEntry[]
+  todoItems     TodoItem[]
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  fileName   String
+  url        String
+  size       Int
+  uploaderId String
+  uploader   User     @relation(fields: [uploaderId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model ActivityLogEntry {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model TodoItem {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  text      String
+  done      Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
 }
 
 model Assignment {

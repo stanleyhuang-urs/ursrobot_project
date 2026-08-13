@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { notifyItemAssignees } from "@/lib/notify";
 import { requireBoardAccess } from "@/lib/boardAccess";
+import { logActivity } from "@/lib/activityLog";
 
 export async function createComment(
   boardId: string,
@@ -33,6 +34,8 @@ export async function createComment(
     );
   }
 
+  await logActivity(itemId, session.userId, "新增留言");
+
   revalidatePath(`/boards/${boardId}`);
   return comment;
 }
@@ -44,6 +47,6 @@ export async function listComments(itemId: string) {
   return prisma.comment.findMany({
     where: { itemId },
     orderBy: { createdAt: "asc" },
-    include: { author: { select: { id: true, name: true } } },
+    include: { author: { select: { id: true, name: true, avatarUrl: true } } },
   });
 }

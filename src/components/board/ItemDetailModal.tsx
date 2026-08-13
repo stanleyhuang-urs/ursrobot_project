@@ -1,94 +1,67 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
-import { createComment, listComments } from "@/lib/actions/comment";
+import type { ColumnData, ItemData, UserOption } from "@/types/board";
+import { UpdatesTab } from "./item-detail/UpdatesTab";
+import { FilesTab } from "./item-detail/FilesTab";
+import { ActivityLogTab } from "./item-detail/ActivityLogTab";
+import { ItemCardTab } from "./item-detail/ItemCardTab";
+import { ChecklistTab } from "./item-detail/ChecklistTab";
+
+const TABS = [
+  { id: "updates", label: "更新" },
+  { id: "files", label: "檔案" },
+  { id: "activity", label: "活動紀錄" },
+  { id: "card", label: "項目卡片" },
+  { id: "checklist", label: "待辦事項" },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
 
 export function ItemDetailModal({
   boardId,
-  itemId,
-  itemName,
+  item,
+  columns,
+  users,
   open,
   onOpenChange,
 }: {
   boardId: string;
-  itemId: string;
-  itemName: string;
+  item: ItemData | null;
+  columns: ColumnData[];
+  users: UserOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [comments, setComments] = useState<
-    Awaited<ReturnType<typeof listComments>>
-  >([]);
-  const [loading, setLoading] = useState(false);
-  const [body, setBody] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [tab, setTab] = useState<TabId>("updates");
 
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const result = await listComments(itemId);
-        if (!cancelled) setComments(result);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, itemId]);
-
-  async function handleSubmit() {
-    if (!body.trim()) return;
-    setSubmitting(true);
-    try {
-      await createComment(boardId, itemId, body.trim());
-      setComments(await listComments(itemId));
-      setBody("");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  if (!item) return null;
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title={itemName} size="lg">
-      <div className="mb-4 max-h-80 space-y-3 overflow-auto">
-        {loading && <p className="text-sm text-neutral-400">載入中...</p>}
-        {!loading && comments.length === 0 && (
-          <p className="text-sm text-neutral-400">還沒有留言</p>
-        )}
-        {comments.map((c) => (
-          <div key={c.id} className="rounded-md bg-neutral-50 p-2">
-            <div className="mb-1 flex items-center justify-between text-xs text-neutral-500">
-              <span className="font-medium text-neutral-700">
-                {c.author.name}
-              </span>
-              <span>{new Date(c.createdAt).toLocaleString("zh-TW")}</span>
-            </div>
-            <p className="whitespace-pre-wrap text-sm text-neutral-800">
-              {c.body}
-            </p>
-          </div>
+    <Modal open={open} onOpenChange={onOpenChange} title={item.name} size="xl">
+      <div className="mb-4 flex gap-1 border-b border-neutral-200">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`px-3 py-2 text-sm ${
+              tab === t.id
+                ? "border-b-2 border-blue-600 font-medium text-blue-600"
+                : "text-neutral-500 hover:text-neutral-800"
+            }`}
+          >
+            {t.label}
+          </button>
         ))}
       </div>
-      <textarea
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        placeholder="新增留言..."
-        rows={3}
-        className="mb-2 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-      />
-      <button
-        type="button"
-        disabled={submitting || !body.trim()}
-        onClick={handleSubmit}
-        className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-      >
-        {submitting ? "送出中..." : "送出留言"}
-      </button>
+
+      {tab === "updates" && <UpdatesTab boardId={boardId} itemId={item.id} />}
+      {tab === "files" && <FilesTab boardId={boardId} itemId={item.id} />}
+      {tab === "activity" && <ActivityLogTab itemId={item.id} />}
+      {tab === "card" && <ItemCardTab item={item} columns={columns} users={users} />}
+      {tab === "checklist" && <ChecklistTab boardId={boardId} itemId={item.id} />}
     </Modal>
   );
 }

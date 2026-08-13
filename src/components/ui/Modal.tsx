@@ -9,10 +9,10 @@ type ModalProps = {
   onOpenChange: (open: boolean) => void;
   title: string;
   children: ReactNode;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "xl";
 };
 
-const MAX_WIDTH = { md: "max-w-md", lg: "max-w-2xl" };
+const MAX_WIDTH = { md: "max-w-md", lg: "max-w-2xl", xl: "max-w-4xl" };
 
 export function Modal({ open, onOpenChange, title, children, size = "md" }: ModalProps) {
   return (
@@ -20,7 +20,7 @@ export function Modal({ open, onOpenChange, title, children, size = "md" }: Moda
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/30" />
         <Dialog.Content
-          className={`fixed left-1/2 top-1/2 z-50 w-full ${MAX_WIDTH[size]} -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg`}
+          className={`fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full ${MAX_WIDTH[size]} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-6 shadow-lg`}
         >
           <div className="mb-4 flex items-center justify-between">
             <Dialog.Title className="text-lg font-semibold text-neutral-900">

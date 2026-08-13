@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireStructureAccess } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
+import { logActivity } from "@/lib/activityLog";
 
 export async function createItem(
   boardId: string,
@@ -74,7 +75,12 @@ export async function renameItem(
   await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
   const trimmed = name.trim() || "未命名項目";
+
+  const existing = await prisma.item.findUnique({ where: { id: itemId }, select: { name: true } });
   await prisma.item.update({ where: { id: itemId }, data: { name: trimmed } });
+  if (existing && existing.name !== trimmed) {
+    await logActivity(itemId, session.userId, `項目名稱從「${existing.name}」改為「${trimmed}」`);
+  }
   revalidatePath(`/boards/${boardId}`);
 }
 
