@@ -21,6 +21,8 @@ const PIE_COLORS = [
   "#66ccff",
 ];
 
+const FREE_TIME_COLOR = "#d1d5db";
+
 function polarToCartesian(cx: number, cy: number, r: number, angle: number) {
   return { x: cx + r * Math.sin(angle), y: cy - r * Math.cos(angle) };
 }
@@ -55,7 +57,9 @@ export function TeamWorkloadCard({
   const isEmpty = data.every((e) => e.avgPct === 0);
   const selectedPieUserId = pieUserId ?? data[0]?.userId ?? null;
   const pieEntries = selectedPieUserId ? memberItemWorkload[selectedPieUserId]?.[period] ?? [] : [];
-  const pieTotal = pieEntries.reduce((sum, e) => sum + e.avgPct, 0);
+  const pieAllocatedPct = pieEntries.reduce((sum, e) => sum + e.avgPct, 0);
+  const pieFreePct = Math.max(0, 100 - pieAllocatedPct);
+  const pieDenominator = pieAllocatedPct + pieFreePct;
 
   function toggleExpanded(userId: string) {
     setExpandedUserId((prev) => (prev === userId ? null : userId));
@@ -158,21 +162,23 @@ export function TeamWorkloadCard({
               <svg viewBox="0 0 120 120" width={140} height={140} className="shrink-0">
                 {(() => {
                   let cumulative = 0;
-                  return pieEntries.map((entry, i) => {
-                    const fraction = pieTotal > 0 ? entry.avgPct / pieTotal : 0;
+                  const slices = pieFreePct > 0
+                    ? [...pieEntries, { itemId: "__free__", avgPct: pieFreePct, free: true }]
+                    : pieEntries;
+                  return slices.map((entry, i) => {
+                    const fraction = pieDenominator > 0 ? entry.avgPct / pieDenominator : 0;
                     const startAngle = cumulative * 2 * Math.PI;
                     cumulative += fraction;
                     const endAngle = cumulative * 2 * Math.PI;
+                    const color = "free" in entry ? FREE_TIME_COLOR : PIE_COLORS[i % PIE_COLORS.length];
                     if (fraction >= 0.999) {
-                      return (
-                        <circle key={entry.itemId} cx={60} cy={60} r={55} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      );
+                      return <circle key={entry.itemId} cx={60} cy={60} r={55} fill={color} />;
                     }
                     return (
                       <path
                         key={entry.itemId}
                         d={pieSlicePath(60, 60, 55, startAngle, endAngle)}
-                        fill={PIE_COLORS[i % PIE_COLORS.length]}
+                        fill={color}
                       />
                     );
                   });
@@ -189,11 +195,19 @@ export function TeamWorkloadCard({
                     <span className="min-w-0 flex-1 truncate text-sm text-neutral-700">
                       {entry.itemName}
                     </span>
-                    <span className="shrink-0 text-sm text-neutral-500">
-                      {pieTotal > 0 ? Math.round((entry.avgPct / pieTotal) * 100) : 0}%
-                    </span>
+                    <span className="shrink-0 text-sm text-neutral-500">{entry.avgPct}%</span>
                   </div>
                 ))}
+                {pieFreePct > 0 && (
+                  <div className="flex items-center gap-2 px-1 py-0.5">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: FREE_TIME_COLOR }}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm text-neutral-500">空閒時間</span>
+                    <span className="shrink-0 text-sm text-neutral-500">{pieFreePct}%</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
