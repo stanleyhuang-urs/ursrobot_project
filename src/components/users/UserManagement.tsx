@@ -1,15 +1,39 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Plus } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
-import { createUser, updateUserSupervisor, updateUserAvatar, listUsers } from "@/lib/actions/user";
+import {
+  createUser,
+  updateUser,
+  updateUserSupervisor,
+  updateUserAvatar,
+  deleteUser,
+  reorderUsers,
+  listUsers,
+} from "@/lib/actions/user";
 import type { UserRole } from "@prisma/client";
 
 type UserRow = Awaited<ReturnType<typeof listUsers>>[number];
 
 const AVATAR_SIZE = 128;
+const ROW_GRID = "grid-cols-[24px_48px_1fr_1fr_90px_140px_160px_64px]";
 
 async function fileToAvatarDataUrl(file: File): Promise<string> {
   const bitmap = await createImageBitmap(file);
@@ -25,7 +49,123 @@ async function fileToAvatarDataUrl(file: File): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.85);
 }
 
-export function UserManagement({ users }: { users: UserRow[] }) {
+function roleLabel(role: UserRole) {
+  return role === "ADMIN" ? "管理者" : role === "SUPERVISOR" ? "主管" : "團隊成員";
+}
+
+function SortableUserRow({
+  user,
+  supervisors,
+  uploading,
+  onAvatarClick,
+  onEdit,
+  onDelete,
+}: {
+  user: UserRow;
+  supervisors: UserRow[];
+  uploading: boolean;
+  onAvatarClick: (userId: string) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: user.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`grid ${ROW_GRID} items-center gap-2 border-b border-neutral-100 px-4 py-2.5 text-sm last:border-b-0`}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="cursor-grab text-neutral-300 hover:text-neutral-500"
+        aria-label="拖曳排序"
+      >
+        <GripVertical size={14} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onAvatarClick(user.id)}
+        disabled={uploading}
+        className="shrink-0 rounded-full outline-none ring-blue-400 hover:ring-2 disabled:opacity-50"
+        aria-label="上傳頭像"
+        title="上傳頭像"
+      >
+        <Avatar name={user.name} avatarUrl={user.avatarUrl} size={32} />
+      </button>
+      <span className="truncate text-neutral-800">{user.name}</span>
+      <span className="truncate text-neutral-500">{user.email}</span>
+      <span className="text-neutral-500">{roleLabel(user.role)}</span>
+      <span className="text-neutral-400">
+        {new Date(user.createdAt).toLocaleDateString("zh-TW")}
+      </span>
+      {user.role === "MEMBER" ? (
+        <select
+          value={user.supervisorId ?? ""}
+          onChange={(e) => updateUserSupervisor(user.id, e.target.value || null)}
+          className="rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+        >
+          <option value="">未設定</option>
+          {supervisors.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <span className="text-neutral-300">—</span>
+      )}
+      <span className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onEdit}
+          className="text-neutral-400 hover:text-blue-600"
+          aria-label="編輯使用者"
+          title="編輯"
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="text-neutral-400 hover:text-red-600"
+          aria-label="刪除使用者"
+          title="刪除"
+        >
+          <Trash2 size={14} />
+        </button>
+      </span>
+    </div>
+  );
+}
+
+export function UserManagement({
+  users,
+  currentUserId,
+}: {
+  users: UserRow[];
+  currentUserId: string;
+}) {
+  const [prevUsers, setPrevUsers] = useState(users);
+  const [order, setOrder] = useState(() => users.map((u) => u.id));
+  if (users !== prevUsers) {
+    setPrevUsers(users);
+    setOrder(users.map((u) => u.id));
+  }
+  const usersById = new Map(users.map((u) => [u.id, u]));
+  const orderedUsers = order
+    .map((id) => usersById.get(id))
+    .filter((u): u is UserRow => u !== undefined);
+
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -38,6 +178,20 @@ export function UserManagement({ users }: { users: UserRow[] }) {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarTargetId, setAvatarTargetId] = useState<string | null>(null);
+
+  const [editTarget, setEditTarget] = useState<UserRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editRole, setEditRole] = useState<UserRole>("MEMBER");
+  const [editSupervisorId, setEditSupervisorId] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
 
   const supervisors = users.filter((u) => u.role === "SUPERVISOR");
 
@@ -86,6 +240,51 @@ export function UserManagement({ users }: { users: UserRow[] }) {
     }
   }
 
+  function openEdit(user: UserRow) {
+    setEditTarget(user);
+    setEditName(user.name);
+    setEditEmail(user.email);
+    setEditRole(user.role);
+    setEditSupervisorId(user.supervisorId ?? "");
+    setEditError(null);
+  }
+
+  async function handleEditSave() {
+    if (!editTarget) return;
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      await updateUser(editTarget.id, editName, editEmail, editRole, editSupervisorId || null);
+      setEditTarget(null);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "修改失敗");
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  async function handleDelete(user: UserRow) {
+    if (!window.confirm(`確定要刪除使用者「${user.name}」嗎?此操作無法復原。`)) return;
+    setDeleteError(null);
+    try {
+      await deleteUser(user.id);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "刪除失敗");
+    }
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setOrder((ids) => {
+      const oldIndex = ids.indexOf(String(active.id));
+      const newIndex = ids.indexOf(String(over.id));
+      const next = arrayMove(ids, oldIndex, newIndex);
+      reorderUsers(next);
+      return next;
+    });
+  }
+
   return (
     <div>
       <input
@@ -101,6 +300,11 @@ export function UserManagement({ users }: { users: UserRow[] }) {
           {avatarError}
         </div>
       )}
+      {deleteError && (
+        <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {deleteError}
+        </div>
+      )}
 
       <div className="mb-4 flex justify-end">
         <button
@@ -112,56 +316,38 @@ export function UserManagement({ users }: { users: UserRow[] }) {
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-md border border-neutral-200 bg-white">
-        <div className="grid grid-cols-[48px_1fr_1fr_90px_140px_160px] gap-2 border-b border-neutral-100 px-4 py-2 text-xs font-medium text-neutral-500">
+      <div className="overflow-x-auto rounded-md border border-neutral-200 bg-white">
+        <div
+          className={`grid ${ROW_GRID} gap-2 border-b border-neutral-100 px-4 py-2 text-xs font-medium text-neutral-500`}
+        >
+          <span />
           <span>頭像</span>
           <span>姓名</span>
           <span>Email</span>
           <span>角色</span>
           <span>建立時間</span>
           <span>所屬主管</span>
+          <span />
         </div>
-        {users.map((u) => (
-          <div
-            key={u.id}
-            className="grid grid-cols-[48px_1fr_1fr_90px_140px_160px] items-center gap-2 border-b border-neutral-100 px-4 py-2.5 text-sm last:border-b-0"
-          >
-            <button
-              type="button"
-              onClick={() => handleAvatarClick(u.id)}
-              disabled={uploadingId === u.id}
-              className="shrink-0 rounded-full outline-none ring-blue-400 hover:ring-2 disabled:opacity-50"
-              aria-label="上傳頭像"
-              title="上傳頭像"
-            >
-              <Avatar name={u.name} avatarUrl={u.avatarUrl} size={32} />
-            </button>
-            <span className="truncate text-neutral-800">{u.name}</span>
-            <span className="truncate text-neutral-500">{u.email}</span>
-            <span className="text-neutral-500">
-              {u.role === "ADMIN" ? "管理者" : u.role === "SUPERVISOR" ? "主管" : "團隊成員"}
-            </span>
-            <span className="text-neutral-400">
-              {new Date(u.createdAt).toLocaleDateString("zh-TW")}
-            </span>
-            {u.role === "MEMBER" ? (
-              <select
-                value={u.supervisorId ?? ""}
-                onChange={(e) => updateUserSupervisor(u.id, e.target.value || null)}
-                className="rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
-              >
-                <option value="">未設定</option>
-                {supervisors.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="text-neutral-300">—</span>
-            )}
-          </div>
-        ))}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={order} strategy={verticalListSortingStrategy}>
+            {orderedUsers.map((u) => (
+              <SortableUserRow
+                key={u.id}
+                user={u}
+                supervisors={supervisors}
+                uploading={uploadingId === u.id}
+                onAvatarClick={handleAvatarClick}
+                onEdit={() => openEdit(u)}
+                onDelete={() => handleDelete(u)}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
       </div>
 
       <Modal
@@ -228,6 +414,69 @@ export function UserManagement({ users }: { users: UserRow[] }) {
             className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {submitting ? "新增中..." : "新增"}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={editTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setEditTarget(null);
+        }}
+        title="編輯使用者"
+      >
+        {editError && (
+          <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            {editError}
+          </div>
+        )}
+        <div className="space-y-3">
+          <input
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="姓名"
+            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          />
+          <input
+            value={editEmail}
+            onChange={(e) => setEditEmail(e.target.value)}
+            placeholder="Email"
+            type="email"
+            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          />
+          <select
+            value={editRole}
+            disabled={editTarget?.id === currentUserId}
+            onChange={(e) => setEditRole(e.target.value as UserRole)}
+            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:bg-neutral-100"
+          >
+            <option value="MEMBER">團隊成員</option>
+            <option value="SUPERVISOR">主管</option>
+            <option value="ADMIN">管理者</option>
+          </select>
+          {editRole === "MEMBER" && (
+            <select
+              value={editSupervisorId}
+              onChange={(e) => setEditSupervisorId(e.target.value)}
+              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            >
+              <option value="">所屬主管(未設定)</option>
+              {supervisors
+                .filter((s) => s.id !== editTarget?.id)
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+            </select>
+          )}
+          <button
+            type="button"
+            disabled={editSubmitting || !editName.trim() || !editEmail.trim()}
+            onClick={handleEditSave}
+            className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {editSubmitting ? "儲存中..." : "儲存"}
           </button>
         </div>
       </Modal>

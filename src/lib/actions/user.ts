@@ -19,7 +19,7 @@ export async function listUsers() {
       supervisorId: true,
       supervisor: { select: { id: true, name: true } },
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: { order: "asc" },
   });
 }
 
@@ -50,6 +50,7 @@ export async function createUser(
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
+  const maxOrder = await prisma.user.aggregate({ _max: { order: true } });
   await prisma.user.create({
     data: {
       name: trimmedName,
@@ -57,8 +58,121 @@ export async function createUser(
       passwordHash,
       role,
       supervisorId: role === "MEMBER" ? supervisorId : null,
+      order: (maxOrder._max.order ?? -1) + 1,
     },
   });
+
+  revalidatePath("/users");
+}
+
+export async function updateUser(
+  userId: string,
+  name: string,
+  email: string,
+  role: UserRole,
+  supervisorId: string | null
+) {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") {
+    throw new Error("只有管理員可以修改使用者");
+  }
+
+  const trimmedName = name.trim();
+  const trimmedEmail = email.trim().toLowerCase();
+  if (!trimmedName || !trimmedEmail) {
+    throw new Error("姓名、Email 皆為必填");
+  }
+  if (userId === supervisorId) {
+    throw new Error("不可指定自己為主管");
+  }
+
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target) {
+    throw new Error("找不到使用者");
+  }
+
+  const emailOwner = await prisma.user.findUnique({ where: { email: trimmedEmail } });
+  if (emailOwner && emailOwner.id !== userId) {
+    throw new Error("此 Email 已被使用");
+  }
+
+  if (target.role === "ADMIN" && role !== "ADMIN") {
+    const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+    if (adminCount <= 1) {
+      throw new Error("至少需保留一位管理者");
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        name: trimmedName,
+        email: trimmedEmail,
+        role,
+        supervisorId: role === "MEMBER" ? supervisorId : null,
+      },
+    });
+    if (target.role === "SUPERVISOR" && role !== "SUPERVISOR") {
+      await tx.user.updateMany({
+        where: { supervisorId: userId },
+        data: { supervisorId: null },
+      });
+    }
+  });
+
+  revalidatePath("/users");
+}
+
+export async function deleteUser(userId: string) {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") {
+    throw new Error("只有管理員可以刪除使用者");
+  }
+  if (session.userId === userId) {
+    throw new Error("不可刪除自己的帳號");
+  }
+
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target) {
+    throw new Error("找不到使用者");
+  }
+
+  if (target.role === "ADMIN") {
+    const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+    if (adminCount <= 1) {
+      throw new Error("至少需保留一位管理者");
+    }
+  }
+
+  const [boardCount, commentCount, attachmentCount] = await Promise.all([
+    prisma.board.count({ where: { ownerId: userId } }),
+    prisma.comment.count({ where: { authorId: userId } }),
+    prisma.attachment.count({ where: { uploaderId: userId } }),
+  ]);
+  if (boardCount > 0) {
+    throw new Error(`此使用者擁有 ${boardCount} 個看板,請先轉移看板擁有者或刪除該看板後再刪除使用者`);
+  }
+  if (commentCount > 0 || attachmentCount > 0) {
+    throw new Error("此使用者仍有留言或上傳檔案紀錄,無法刪除");
+  }
+
+  await prisma.user.delete({ where: { id: userId } });
+
+  revalidatePath("/users");
+}
+
+export async function reorderUsers(orderedUserIds: string[]) {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") {
+    throw new Error("只有管理員可以調整使用者順序");
+  }
+
+  await prisma.$transaction(
+    orderedUserIds.map((id, index) =>
+      prisma.user.update({ where: { id }, data: { order: index } })
+    )
+  );
 
   revalidatePath("/users");
 }
