@@ -156,14 +156,14 @@ export function GroupSection({
               className="grid w-fit items-center py-1.5"
               style={{ gridTemplateColumns: gridTemplate(columns.length, nameWidth) }}
             >
-              <div className="sticky left-0 z-10 bg-white" />
+              <div className="sticky left-0 z-10 bg-white will-change-transform" />
               <input
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
                 onBlur={handleAddItem}
                 placeholder="+ 新增項目"
-                className="sticky left-8 z-10 rounded bg-white px-2 py-1 text-sm text-neutral-500 outline-none hover:bg-neutral-50 focus:bg-white focus:text-neutral-900 focus:ring-1 focus:ring-blue-400"
+                className="sticky left-8 z-10 rounded bg-white px-2 py-1 text-sm text-neutral-500 outline-none hover:bg-neutral-50 focus:bg-white focus:text-neutral-900 focus:ring-1 focus:ring-blue-400 will-change-transform"
               />
             </div>
           )}

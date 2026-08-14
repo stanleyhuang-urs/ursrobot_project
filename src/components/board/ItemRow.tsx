@@ -119,7 +119,7 @@ export function ItemRow({
       >
         <div
           className="sticky left-0 z-10 flex items-center justify-center border-r border-neutral-100 group-hover:bg-neutral-50"
-          style={{ backgroundColor: rowBackground ?? "white" }}
+          style={{ backgroundColor: rowBackground ?? "white", willChange: "transform" }}
         >
           {hasChildren && (
             <button
@@ -134,7 +134,11 @@ export function ItemRow({
         </div>
         <div
           className="sticky left-8 z-10 flex min-w-0 items-center gap-1 border-r border-neutral-100 group-hover:bg-neutral-50"
-          style={{ paddingLeft: depth * 20, backgroundColor: rowBackground ?? "white" }}
+          style={{
+            paddingLeft: depth * 20,
+            backgroundColor: rowBackground ?? "white",
+            willChange: "transform",
+          }}
         >
           {wbsCodes?.get(item.id) && (
             <span className="shrink-0 text-xs font-bold text-black">{wbsCodes.get(item.id)}</span>
