@@ -236,8 +236,14 @@ export function BoardTable({
           className="mb-2 grid w-fit items-center text-xs font-medium text-neutral-500"
           style={{ gridTemplateColumns: gridTemplate(orderedColumns.length, nameWidth) }}
         >
-          <div className="sticky left-0 z-10 border-r border-neutral-200 bg-neutral-50 will-change-transform" />
-          <div className="sticky left-8 z-10 relative border-r border-neutral-200 bg-neutral-50 px-2 will-change-transform">
+          <div
+            className="sticky left-0 z-10 border-r border-neutral-200 bg-neutral-50"
+            style={{ transform: "translateZ(0)", willChange: "transform" }}
+          />
+          <div
+            className="sticky left-8 z-10 relative border-r border-neutral-200 bg-neutral-50 px-2"
+            style={{ transform: "translateZ(0)", willChange: "transform" }}
+          >
             項目名稱
             <div
               onPointerDown={startNameColumnResize}

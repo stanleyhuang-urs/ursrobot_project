@@ -119,7 +119,11 @@ export function ItemRow({
       >
         <div
           className="sticky left-0 z-10 flex items-center justify-center border-r border-neutral-100 group-hover:bg-neutral-50"
-          style={{ backgroundColor: rowBackground ?? "white", willChange: "transform" }}
+          style={{
+            backgroundColor: rowBackground ?? "white",
+            transform: "translateZ(0)",
+            willChange: "transform",
+          }}
         >
           {hasChildren && (
             <button
@@ -137,6 +141,7 @@ export function ItemRow({
           style={{
             paddingLeft: depth * 20,
             backgroundColor: rowBackground ?? "white",
+            transform: "translateZ(0)",
             willChange: "transform",
           }}
         >
