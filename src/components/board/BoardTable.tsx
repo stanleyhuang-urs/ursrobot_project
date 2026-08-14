@@ -62,7 +62,11 @@ function SortableColumnHeader({
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center justify-between px-1">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between border-r border-neutral-200 px-1"
+    >
       <span className="flex min-w-0 items-center gap-1">
         {canEditStructure && (
           <button
@@ -232,8 +236,8 @@ export function BoardTable({
           className="mb-2 grid w-fit items-center text-xs font-medium text-neutral-500"
           style={{ gridTemplateColumns: gridTemplate(orderedColumns.length, nameWidth) }}
         >
-          <div className="sticky left-0 z-10 bg-neutral-50" />
-          <div className="sticky left-8 z-10 relative bg-neutral-50 px-2">
+          <div className="sticky left-0 z-10 border-r border-neutral-200 bg-neutral-50" />
+          <div className="sticky left-8 z-10 relative border-r border-neutral-200 bg-neutral-50 px-2">
             項目名稱
             <div
               onPointerDown={startNameColumnResize}

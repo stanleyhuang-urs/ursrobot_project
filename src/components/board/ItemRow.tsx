@@ -118,7 +118,7 @@ export function ItemRow({
         }}
       >
         <div
-          className="sticky left-0 z-10 flex items-center justify-center group-hover:bg-neutral-50"
+          className="sticky left-0 z-10 flex items-center justify-center border-r border-neutral-100 group-hover:bg-neutral-50"
           style={{ backgroundColor: rowBackground ?? "white" }}
         >
           {hasChildren && (
@@ -133,7 +133,7 @@ export function ItemRow({
           )}
         </div>
         <div
-          className="sticky left-8 z-10 flex min-w-0 items-center gap-1 group-hover:bg-neutral-50"
+          className="sticky left-8 z-10 flex min-w-0 items-center gap-1 border-r border-neutral-100 group-hover:bg-neutral-50"
           style={{ paddingLeft: depth * 20, backgroundColor: rowBackground ?? "white" }}
         >
           {wbsCodes?.get(item.id) && (
@@ -200,7 +200,7 @@ export function ItemRow({
           )}
         </div>
         {columns.map((col) => (
-          <div key={col.id} className="px-1">
+          <div key={col.id} className="border-r border-neutral-100 px-1">
             {hasChildren && col.id === progressColumnId ? (
               <RollupProgress
                 value={computeItemProgress(item, allGroupItems, col.id)}
