@@ -137,7 +137,7 @@ export function ItemRow({
           style={{ paddingLeft: depth * 20, backgroundColor: rowBackground ?? "white" }}
         >
           {wbsCodes?.get(item.id) && (
-            <span className="shrink-0 text-xs text-neutral-400">{wbsCodes.get(item.id)}</span>
+            <span className="shrink-0 text-xs text-black">{wbsCodes.get(item.id)}</span>
           )}
           <input
             value={name}
