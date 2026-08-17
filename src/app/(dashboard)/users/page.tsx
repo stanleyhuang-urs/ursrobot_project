@@ -12,7 +12,7 @@ export default async function UsersPage() {
   const users = await listUsers();
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="p-6">
       <h1 className="mb-4 text-lg font-semibold text-neutral-900">使用者管理</h1>
       <UserManagement users={users} currentUserId={session.userId} />
     </div>
