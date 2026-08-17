@@ -125,6 +125,11 @@ npx prisma migrate dev --name <name>   # 修改 schema 後建立新的 migration
   長條圖、逾期任務清單;可在「報表設定」指定要統計的狀態欄位、以及每個狀態
   選項屬於哪個分類(未指定的算進行中);主管檢視時預設只看自己團隊的資料,
   可切換看全部
+- 匯出 Google Sheet(Gantt):看板工具列「匯出」按鈕,選擇一個分組即可下載
+  .xlsx,欄位/列位對齊既有「Gantt (Day)」範本(第 6 列標題、第 7 列起資料),
+  可直接複製貼上到既有 Google Sheet 的 Gantt (Day) 分頁,Week/Month 分頁、
+  甘特條/階層顏色的條件式格式化、Apps Script 選單都不受影響,會自動同步
+  新資料
 
 ## 尚未實作(下一階段)
 

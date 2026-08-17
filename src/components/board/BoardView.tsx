@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Table2, LayoutGrid, Upload, GanttChartSquare, Users2, Zap, Share2, BarChart3, Palette } from "lucide-react";
+import { Table2, LayoutGrid, Upload, Download, GanttChartSquare, Users2, Zap, Share2, BarChart3, Palette } from "lucide-react";
 import type { BoardWithData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageBoard, canManageStructure } from "@/lib/permissions";
@@ -15,6 +15,7 @@ import { ResourceMappingModal } from "./ResourceMappingModal";
 import { AutomationRulesModal } from "./AutomationRulesModal";
 import { BoardSharingModal } from "./BoardSharingModal";
 import { LevelColorSettingsModal } from "./LevelColorSettingsModal";
+import { ExportGanttModal } from "./ExportGanttModal";
 
 export function BoardView({
   board,
@@ -36,6 +37,7 @@ export function BoardView({
   const [automationOpen, setAutomationOpen] = useState(false);
   const [sharingOpen, setSharingOpen] = useState(false);
   const [levelColorOpen, setLevelColorOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const canManageSharing = canManageBoard(userRole) || board.ownerId === currentUserId;
 
   const statusColumns = board.columns.filter((c) => c.type === "STATUS");
@@ -72,6 +74,15 @@ export function BoardView({
               className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
             >
               <Upload size={14} /> 匯入
+            </button>
+          )}
+          {canManageBoard(userRole) && (
+            <button
+              type="button"
+              onClick={() => setExportOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+            >
+              <Download size={14} /> 匯出
             </button>
           )}
           {canManageBoard(userRole) && (
@@ -204,6 +215,15 @@ export function BoardView({
           boardId={board.id}
           open={addColumnOpen}
           onOpenChange={setAddColumnOpen}
+        />
+      )}
+
+      {canManageBoard(userRole) && (
+        <ExportGanttModal
+          boardId={board.id}
+          groups={board.groups}
+          open={exportOpen}
+          onOpenChange={setExportOpen}
         />
       )}
 
