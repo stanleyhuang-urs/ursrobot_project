@@ -1,0 +1,580 @@
+import ExcelJS from "exceljs";
+import type { BoardWithData, ColumnData, GroupData, ItemData } from "@/types/board";
+import { computeWbsCodes } from "@/lib/wbs";
+import { getStatusOptions } from "@/types/column";
+
+const DETAIL_HEADERS = [
+  "Lvl",
+  "WBS",
+  "Task Name",
+  "Type",
+  "Priority",
+  "Status",
+  "Resource",
+  "Pred",
+  "Link",
+  "Lag",
+  "Comment",
+  "Start (set)",
+  "Start",
+  "Dur",
+  "Days",
+  "Finish",
+  "% Done",
+];
+const DETAIL_COL_COUNT = DETAIL_HEADERS.length; // 17 — timeline starts at column 18
+const COLUMN_WIDTHS = [6, 12, 40, 12, 10, 12, 24, 10, 8, 8, 30, 12, 12, 8, 8, 12, 10];
+
+// Colours reverse-engineered from the reference sheet's conditional-format
+// rules (Excel's Interior.Color is BGR-packed, not RGB — converted here).
+const BAR_COLORS = {
+  milestone: "FFC0392B",
+  completed: "FF27AE60",
+  summary: "FF2E5395",
+  task: "FF4C86C6",
+};
+const TODAY_COLOR = "FFFDEBD8";
+const DEFAULT_LEVEL_COLORS = ["#4F81BD", "#9BBB59", "#EAF1DD", "#E5DFEC", "#E6D3B3", "#CFE2F3"];
+
+const DEFAULT_TYPE_OPTIONS = ["Task", "Summary", "Milestone"];
+const DEFAULT_PRIORITY_OPTIONS = ["LOW", "NORMAL", "HIGH", "CRITICAL"];
+const DEFAULT_STATUS_OPTIONS = ["Planned", "In Progress", "Completed", "On Hold"];
+
+function findColumn(columns: ColumnData[], name: string): ColumnData | undefined {
+  const target = name.trim().toLowerCase();
+  return columns.find((c) => c.name.trim().toLowerCase() === target);
+}
+
+function getRawValue(item: ItemData, column: ColumnData | undefined): string | number | null {
+  if (!column) return null;
+  const value = item.cellValues.find((cv) => cv.columnId === column.id)?.value;
+  return value === undefined ? null : (value as string | number | null);
+}
+
+function getRawValueByColumnId(item: ItemData, columnId: string | null): string | number | null {
+  if (!columnId) return null;
+  const value = item.cellValues.find((cv) => cv.columnId === columnId)?.value;
+  return value === undefined ? null : (value as string | number | null);
+}
+
+function getStatusLabel(item: ItemData, column: ColumnData | undefined): string {
+  if (!column) return "";
+  const value = getRawValue(item, column);
+  if (value == null) return "";
+  const options = getStatusOptions(column.options);
+  return options.find((o) => o.id === value)?.label ?? "";
+}
+
+function getStatusOptionLabels(column: ColumnData | undefined, fallback: string[]): string[] {
+  if (!column) return fallback;
+  const labels = getStatusOptions(column.options).map((o) => o.label);
+  return labels.length > 0 ? labels : fallback;
+}
+
+/** The board's "% Done" values mix a 0-1 fraction and a raw 0-100 number —
+ *  the same ambiguity the reference .gs script's own norm() works around. */
+function normalizePercent(raw: number): number {
+  return raw > 1 ? raw / 100 : raw;
+}
+
+function parseDate(raw: string | number | null): Date | null {
+  if (typeof raw !== "string") return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function orderedItems(items: ItemData[]): {
+  ordered: ItemData[];
+  childrenOf: Map<string | null, ItemData[]>;
+} {
+  const byParent = new Map<string | null, ItemData[]>();
+  for (const item of items) {
+    const list = byParent.get(item.parentId) ?? [];
+    list.push(item);
+    byParent.set(item.parentId, list);
+  }
+  for (const list of byParent.values()) list.sort((a, b) => a.order - b.order);
+
+  const ordered: ItemData[] = [];
+  function walk(parentId: string | null) {
+    for (const child of byParent.get(parentId) ?? []) {
+      ordered.push(child);
+      walk(child.id);
+    }
+  }
+  walk(null);
+
+  return { ordered, childrenOf: byParent };
+}
+
+function colLetter(col: number): string {
+  let s = "";
+  let n = col;
+  while (n > 0) {
+    const m = (n - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
+type RowMeta = {
+  item: ItemData;
+  wbs: string;
+  lvl: number;
+  hasChildren: boolean;
+  type: string;
+  priority: string;
+  status: string;
+  resource: string;
+  pred: string;
+  link: string;
+  lag: number | null;
+  comment: string;
+  start: Date | null;
+  dur: number | null;
+  finish: Date | null;
+  pctDone: number | null;
+};
+
+function buildRowMeta(board: BoardWithData, group: GroupData): RowMeta[] {
+  const items = board.items.filter((i) => i.groupId === group.id);
+  const wbsCodes = computeWbsCodes(items);
+  const { ordered, childrenOf } = orderedItems(items);
+
+  const typeColumn = findColumn(board.columns, "Type");
+  const priorityColumn = findColumn(board.columns, "Priority");
+  const statusColumn = findColumn(board.columns, "Status");
+  const resourceColumn = findColumn(board.columns, "Resource");
+  const predColumn = findColumn(board.columns, "Pred");
+  const linkColumn = findColumn(board.columns, "Link");
+  const lagColumn = findColumn(board.columns, "Lag");
+  const commentColumn = findColumn(board.columns, "Comment");
+
+  const basics = ordered.map((item) => {
+    const wbs = wbsCodes.get(item.id) ?? "";
+    const hasChildren = (childrenOf.get(item.id) ?? []).length > 0;
+    const type = getStatusLabel(item, typeColumn) || (hasChildren ? "Summary" : "Task");
+    return { item, wbs, hasChildren, type };
+  });
+
+  function leafPercent(item: ItemData): number | null {
+    if (!board.progressColumnId) return null;
+    const cv = item.cellValues.find((c) => c.columnId === board.progressColumnId);
+    return typeof cv?.value === "number" ? normalizePercent(cv.value) : null;
+  }
+
+  /** Flat average of every descendant leaf's % Done, matching the reference
+   *  sheet's own RollupSummaries() (excludes nested Summary rows). */
+  function rollupPercent(wbs: string): number | null {
+    if (!board.progressColumnId) return null;
+    const prefix = `${wbs}.`;
+    let sum = 0;
+    let count = 0;
+    for (const b of basics) {
+      if (!b.wbs.startsWith(prefix) || b.type === "Summary") continue;
+      sum += leafPercent(b.item) ?? 0;
+      count++;
+    }
+    return count > 0 ? sum / count : null;
+  }
+
+  return basics.map(({ item, wbs, hasChildren, type }) => {
+    const startRaw = getRawValueByColumnId(item, board.ganttStartColumnId);
+    const finishRaw = getRawValueByColumnId(item, board.ganttEndColumnId);
+    const durRaw = getRawValueByColumnId(item, board.ganttDurationColumnId);
+    const lagRaw = getRawValue(item, lagColumn);
+
+    return {
+      item,
+      wbs,
+      lvl: wbs ? wbs.split(".").length : 1,
+      hasChildren,
+      type,
+      priority: getStatusLabel(item, priorityColumn),
+      status: getStatusLabel(item, statusColumn),
+      resource: (getRawValue(item, resourceColumn) as string | null) ?? "",
+      pred: (getRawValue(item, predColumn) as string | null) ?? "",
+      link: getStatusLabel(item, linkColumn),
+      lag: typeof lagRaw === "number" ? lagRaw : null,
+      comment: (getRawValue(item, commentColumn) as string | null) ?? "",
+      start: parseDate(startRaw),
+      dur: typeof durRaw === "number" ? durRaw : null,
+      finish: parseDate(finishRaw),
+      pctDone: hasChildren ? rollupPercent(wbs) : leafPercent(item),
+    };
+  });
+}
+
+// All timeline date math below uses UTC components exclusively. DATE
+// columns are stored as "yyyy-mm-dd" strings, which `new Date(...)` parses
+// as UTC midnight per the ECMAScript date-only string spec — mixing that
+// with local getDate()/setDate() (as this file briefly did) can shift the
+// displayed calendar day depending on the server's timezone.
+function utcMidnight(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month, day));
+}
+
+function addUtcDays(d: Date, days: number): Date {
+  return new Date(d.getTime() + days * 86_400_000);
+}
+
+function addUtcMonths(d: Date, months: number): Date {
+  return utcMidnight(d.getUTCFullYear(), d.getUTCMonth() + months, 1);
+}
+
+function firstOfUtcMonth(d: Date): Date {
+  return utcMidnight(d.getUTCFullYear(), d.getUTCMonth(), 1);
+}
+
+function lastOfUtcMonth(d: Date): Date {
+  return utcMidnight(d.getUTCFullYear(), d.getUTCMonth() + 1, 0);
+}
+
+function mondayOf(d: Date): Date {
+  const day = d.getUTCDay(); // 0 = Sunday .. 6 = Saturday
+  const diff = day === 0 ? -6 : 1 - day;
+  return addUtcDays(d, diff);
+}
+
+/** [start, end] the timeline needs to cover: the data's own date range,
+ *  padded so near-term slippage and "today" both stay visible. */
+function computeDateRange(rows: RowMeta[]): { start: Date; end: Date } {
+  const now = new Date();
+  const today = utcMidnight(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  let start = today;
+  let end = today;
+  for (const r of rows) {
+    if (r.start && r.start < start) start = r.start;
+    if (r.finish && r.finish > end) end = r.finish;
+  }
+  return { start: addUtcDays(start, -7), end: addUtcDays(end, 60) };
+}
+
+function writeBanner(sheet: ExcelJS.Worksheet, title: string, instructions: string) {
+  sheet.getCell("A1").value = title;
+  sheet.getCell("A1").font = { bold: true, size: 14 };
+  sheet.getCell("A3").value = instructions;
+  sheet.getCell("A3").font = { italic: true, color: { argb: "FF666666" } };
+  sheet.mergeCells("A5:Q5");
+  sheet.getCell("A5").value = "TASK DETAILS";
+  sheet.getCell("A5").font = { bold: true };
+  sheet.getCell("A5").fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFDDEBF7" },
+  };
+
+  const headerRow = sheet.getRow(6);
+  DETAIL_HEADERS.forEach((h, i) => {
+    headerRow.getCell(i + 1).value = h;
+  });
+  headerRow.font = { bold: true };
+  COLUMN_WIDTHS.forEach((w, i) => {
+    sheet.getColumn(i + 1).width = w;
+  });
+}
+
+function applyDetailValidation(sheet: ExcelJS.Worksheet, lastRow: number, board: BoardWithData) {
+  const typeOptions = getStatusOptionLabels(findColumn(board.columns, "Type"), DEFAULT_TYPE_OPTIONS);
+  const priorityOptions = getStatusOptionLabels(
+    findColumn(board.columns, "Priority"),
+    DEFAULT_PRIORITY_OPTIONS
+  );
+  const statusOptions = getStatusOptionLabels(
+    findColumn(board.columns, "Status"),
+    DEFAULT_STATUS_OPTIONS
+  );
+
+  const lists: [number, string[]][] = [
+    [4, typeOptions],
+    [5, priorityOptions],
+    [6, statusOptions],
+  ];
+  for (const [col, options] of lists) {
+    for (let row = 7; row <= lastRow; row++) {
+      sheet.getCell(row, col).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: [`"${options.join(",")}"`],
+      };
+    }
+  }
+}
+
+function writeDetailRow(sheet: ExcelJS.Worksheet, rowIndex: number, m: RowMeta) {
+  const row = sheet.getRow(rowIndex);
+  row.getCell(1).value = m.lvl;
+  row.getCell(2).value = m.wbs;
+  row.getCell(3).value = m.item.name;
+  row.getCell(4).value = m.type;
+  row.getCell(5).value = m.priority;
+  row.getCell(6).value = m.status;
+  row.getCell(7).value = m.resource;
+  row.getCell(8).value = m.pred;
+  row.getCell(9).value = m.link;
+  row.getCell(10).value = m.lag ?? "";
+  row.getCell(11).value = m.comment;
+  // column 12 "Start (set)" intentionally left blank — this app always
+  // stores the effective/resolved start, not a manual override.
+  if (m.start) {
+    row.getCell(13).value = m.start;
+    row.getCell(13).numFmt = "yyyy-mm-dd";
+  }
+  if (m.dur !== null) {
+    row.getCell(14).value = m.dur;
+    row.getCell(15).value = m.dur;
+  }
+  if (m.finish) {
+    row.getCell(16).value = m.finish;
+    row.getCell(16).numFmt = "yyyy-mm-dd";
+  }
+  if (m.pctDone !== null) {
+    row.getCell(17).value = m.pctDone;
+    row.getCell(17).numFmt = "0%";
+  }
+}
+
+function writeMirrorRow(sheet: ExcelJS.Worksheet, rowIndex: number) {
+  const row = sheet.getRow(rowIndex);
+  for (let col = 1; col <= DETAIL_COL_COUNT; col++) {
+    const c = colLetter(col);
+    row.getCell(col).value = {
+      formula: `IF(INDEX('Gantt (Day)'!$${c}:$${c},ROW())="","",INDEX('Gantt (Day)'!$${c}:$${c},ROW()))`,
+    };
+  }
+  row.getCell(13).numFmt = "yyyy-mm-dd";
+  row.getCell(16).numFmt = "yyyy-mm-dd";
+  row.getCell(17).numFmt = "0%";
+}
+
+/** Bar/level-colour/today-marker conditional formatting, identical formulas
+ *  across Day/Week/Month since all three share the same A-Q column layout —
+ *  Week/Month's cells resolve through their own INDEX-formula mirrors. */
+function applyConditionalFormatting(
+  sheet: ExcelJS.Worksheet,
+  tlStartCol: number,
+  tlEndCol: number,
+  lastDataRow: number,
+  levelColors: string[],
+  isDaySheet: boolean
+) {
+  const startLetter = colLetter(tlStartCol);
+  const endLetter = colLetter(tlEndCol);
+  const barRef = `${startLetter}7:${endLetter}${lastDataRow}`;
+
+  sheet.addConditionalFormatting({
+    ref: barRef,
+    rules: [
+      {
+        type: "expression",
+        priority: 1,
+        formulae: [`AND($M7<=${startLetter}$4,$P7>=${startLetter}$6,$D7="Milestone")`],
+        style: { fill: { type: "pattern", pattern: "solid", fgColor: { argb: BAR_COLORS.milestone } } },
+      },
+      {
+        type: "expression",
+        priority: 2,
+        formulae: [
+          `AND($M7<=${startLetter}$4,$P7>=${startLetter}$6,$D7<>"Milestone",$Q7>0,${startLetter}$6<=$M7+$Q7*($P7-$M7))`,
+        ],
+        style: { fill: { type: "pattern", pattern: "solid", fgColor: { argb: BAR_COLORS.completed } } },
+      },
+      {
+        type: "expression",
+        priority: 3,
+        formulae: [`AND($M7<=${startLetter}$4,$P7>=${startLetter}$6,$D7="Summary")`],
+        style: { fill: { type: "pattern", pattern: "solid", fgColor: { argb: BAR_COLORS.summary } } },
+      },
+      {
+        type: "expression",
+        priority: 4,
+        formulae: [`AND($M7<=${startLetter}$4,$P7>=${startLetter}$6,$D7="Task")`],
+        style: { fill: { type: "pattern", pattern: "solid", fgColor: { argb: BAR_COLORS.task } } },
+      },
+    ],
+  });
+
+  // Today marker + level-colour row highlighting reuse the same $A7=N
+  // pattern the reference sheet's ApplyLevelColours() rewrites in place.
+  const todayFormula = isDaySheet
+    ? `${startLetter}$6=TODAY()`
+    : `AND(${startLetter}$6<=TODAY(),${startLetter}$4>=TODAY())`;
+  sheet.addConditionalFormatting({
+    ref: barRef,
+    rules: [
+      {
+        type: "expression",
+        priority: 5,
+        formulae: [todayFormula],
+        style: { fill: { type: "pattern", pattern: "solid", fgColor: { argb: TODAY_COLOR } } },
+      },
+    ],
+  });
+
+  const detailRef = `A7:Q${lastDataRow}`;
+  sheet.addConditionalFormatting({
+    ref: detailRef,
+    rules: levelColors.slice(0, 6).map((color, i) => ({
+      type: "expression" as const,
+      priority: 10 + i,
+      formulae: [`$A7=${i + 1}`],
+      style: { fill: { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: `FF${color.replace("#", "").toUpperCase()}` } } },
+    })),
+  });
+}
+
+function buildDaySheet(
+  workbook: ExcelJS.Workbook,
+  board: BoardWithData,
+  group: GroupData,
+  rows: RowMeta[],
+  range: { start: Date; end: Date },
+  levelColors: string[]
+): number {
+  const sheet = workbook.addWorksheet("Gantt (Day)");
+  writeBanner(
+    sheet,
+    `${board.name} - ${group.name}`,
+    "EDIT blue cells. Type dropdown: Summary rolls up its children. No Start set -> today."
+  );
+
+  rows.forEach((m, i) => writeDetailRow(sheet, 7 + i, m));
+  const lastDataRow = Math.max(7, 6 + rows.length);
+  applyDetailValidation(sheet, lastDataRow, board);
+
+  const tl0 = DETAIL_COL_COUNT + 1;
+  let col = tl0;
+  let cursor = range.start;
+  while (cursor <= range.end) {
+    sheet.getCell(4, col).value = cursor;
+    sheet.getCell(4, col).numFmt = "yyyy-mm-dd";
+    sheet.getRow(4).hidden = true;
+    sheet.getCell(6, col).value = cursor;
+    sheet.getCell(6, col).numFmt = "d";
+    sheet.getColumn(col).width = 3;
+    cursor = addUtcDays(cursor, 1);
+    col++;
+  }
+  const tlEnd = col - 1;
+
+  applyConditionalFormatting(sheet, tl0, tlEnd, lastDataRow, levelColors, true);
+  sheet.views = [{ state: "frozen", xSplit: DETAIL_COL_COUNT, ySplit: 6 }];
+
+  return lastDataRow;
+}
+
+function buildMirrorSheet(
+  workbook: ExcelJS.Workbook,
+  name: string,
+  board: BoardWithData,
+  group: GroupData,
+  rowCount: number,
+  range: { start: Date; end: Date },
+  levelColors: string[],
+  granularity: "week" | "month"
+) {
+  const sheet = workbook.addWorksheet(name);
+  writeBanner(sheet, `${board.name} - ${group.name}`, `View only - edit on 'Gantt (Day)'. Scale: ${granularity === "week" ? "Week" : "Month"}.`);
+
+  const lastDataRow = Math.max(7, 6 + rowCount);
+  for (let r = 7; r <= lastDataRow; r++) writeMirrorRow(sheet, r);
+
+  const tl0 = DETAIL_COL_COUNT + 1;
+  let col = tl0;
+  if (granularity === "week") {
+    let cursor = mondayOf(range.start);
+    while (cursor <= range.end) {
+      const periodEnd = addUtcDays(cursor, 6);
+      sheet.getCell(4, col).value = periodEnd;
+      sheet.getCell(4, col).numFmt = "yyyy-mm-dd";
+      sheet.getRow(4).hidden = true;
+      sheet.getCell(6, col).value = cursor;
+      sheet.getCell(6, col).numFmt = "m/d";
+      sheet.getColumn(col).width = 6;
+      cursor = addUtcDays(cursor, 7);
+      col++;
+    }
+  } else {
+    let cursor = addUtcMonths(firstOfUtcMonth(range.start), -1);
+    while (cursor <= range.end) {
+      const periodEnd = lastOfUtcMonth(cursor);
+      sheet.getCell(4, col).value = periodEnd;
+      sheet.getCell(4, col).numFmt = "yyyy-mm-dd";
+      sheet.getRow(4).hidden = true;
+      sheet.getCell(6, col).value = cursor;
+      sheet.getCell(6, col).numFmt = "mmm";
+      sheet.getColumn(col).width = 6;
+      cursor = addUtcMonths(cursor, 1);
+      col++;
+    }
+  }
+  const tlEnd = Math.max(tl0, col - 1);
+
+  applyConditionalFormatting(sheet, tl0, tlEnd, lastDataRow, levelColors, false);
+  sheet.views = [{ state: "frozen", xSplit: DETAIL_COL_COUNT, ySplit: 6 }];
+}
+
+function buildSettingsSheet(workbook: ExcelJS.Workbook, levelColors: string[]) {
+  const sheet = workbook.addWorksheet("Settings");
+  sheet.getColumn(1).width = 14;
+  sheet.getColumn(2).width = 12;
+  sheet.getCell("A1").value = "Level colours";
+  sheet.getCell("A1").font = { bold: true };
+  sheet.getCell("A3").value = "Level";
+  sheet.getCell("B3").value = "Colour";
+  sheet.getRow(3).font = { bold: true };
+
+  const colors = levelColors.length === 6 ? levelColors : DEFAULT_LEVEL_COLORS;
+  for (let i = 0; i < 6; i++) {
+    sheet.getCell(4 + i, 1).value = `Level ${i + 1}`;
+    sheet.getCell(4 + i, 2).fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: `FF${colors[i].replace("#", "").toUpperCase()}` },
+    };
+  }
+  sheet.getCell("A11").value =
+    "顏色來自看板的「階層顏色」設定；要調整請改用看板工具列的階層顏色,或直接編輯上方 Conditional Format 規則。";
+  sheet.getCell("A11").font = { italic: true, color: { argb: "FF999999" } };
+}
+
+function buildListsSheet(workbook: ExcelJS.Workbook, rows: RowMeta[]) {
+  const sheet = workbook.addWorksheet("Lists");
+  sheet.getColumn(1).width = 28;
+  sheet.getCell("A1").value = "Members (add rows below; appear in Resource dropdown)";
+  sheet.getCell("A1").font = { bold: true };
+
+  const names = new Set<string>();
+  for (const r of rows) {
+    for (const part of r.resource.split(",")) {
+      const trimmed = part.trim();
+      if (trimmed) names.add(trimmed);
+    }
+  }
+  [...names].sort().forEach((name, i) => {
+    sheet.getCell(2 + i, 1).value = name;
+  });
+}
+
+/**
+ * Builds a full 5-sheet workbook (Settings / Lists / Gantt Day / Week /
+ * Month) matching the reference Google Sheet's own layout and conditional
+ * formatting, so it can be opened directly as a Google Sheet ("Open with
+ * Google Sheets") rather than pasted piecemeal into an existing one.
+ */
+export async function buildGanttWorkbook(board: BoardWithData, group: GroupData): Promise<Buffer> {
+  const rows = buildRowMeta(board, group);
+  const range = computeDateRange(rows);
+  const levelColors = board.levelColors.length === 6 ? board.levelColors : DEFAULT_LEVEL_COLORS;
+
+  const workbook = new ExcelJS.Workbook();
+  buildSettingsSheet(workbook, levelColors);
+  buildListsSheet(workbook, rows);
+  buildDaySheet(workbook, board, group, rows, range, levelColors);
+  buildMirrorSheet(workbook, "Gantt (Week)", board, group, rows.length, range, levelColors, "week");
+  buildMirrorSheet(workbook, "Gantt (Month)", board, group, rows.length, range, levelColors, "month");
+
+  const arrayBuffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(arrayBuffer);
+}

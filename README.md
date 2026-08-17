@@ -126,10 +126,12 @@ npx prisma migrate dev --name <name>   # 修改 schema 後建立新的 migration
   選項屬於哪個分類(未指定的算進行中);主管檢視時預設只看自己團隊的資料,
   可切換看全部
 - 匯出 Google Sheet(Gantt):看板工具列「匯出」按鈕,選擇一個分組即可下載
-  .xlsx,欄位/列位對齊既有「Gantt (Day)」範本(第 6 列標題、第 7 列起資料),
-  可直接複製貼上到既有 Google Sheet 的 Gantt (Day) 分頁,Week/Month 分頁、
-  甘特條/階層顏色的條件式格式化、Apps Script 選單都不受影響,會自動同步
-  新資料
+  完整的 .xlsx 範本(Settings/Lists/Gantt Day·Week·Month 五個分頁,含甘特
+  條、階層顏色、下拉選單、Week/Month 皆為參照 Day 的公式),以及一份 Apps
+  Script(.gs)範本檔;上傳 .xlsx 到 Google 雲端硬碟並以「Google 試算表」開啟
+  即可直接使用,第一次需在該試算表的「擴充功能 → Apps Script」貼上下載的
+  .gs 內容並儲存,即可使用「Gantt」選單的所有功能(此功能無法直接建立雲端上
+  的 Google 試算表檔案,因為那需要 Google API 授權,目前尚未串接)
 
 ## 尚未實作(下一階段)
 

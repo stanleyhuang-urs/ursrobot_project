@@ -4,16 +4,17 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireBoardAdmin } from "@/lib/permissions";
 import { boardWithDataArgs } from "@/types/board";
-import { buildGanttDayWorkbook } from "@/lib/export/ganttDayExport";
+import { buildGanttWorkbook } from "@/lib/export/ganttWorkbookExport";
+import { GANTT_APPS_SCRIPT } from "@/lib/export/ganttAppsScript";
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, "_");
 }
 
-export async function exportGanttDay(
+export async function exportGanttWorkbook(
   boardId: string,
   groupId: string
-): Promise<{ filename: string; base64: string }> {
+): Promise<{ xlsxFilename: string; xlsxBase64: string; gsFilename: string; gsContent: string }> {
   const session = await requireSession();
   requireBoardAdmin(session.role);
 
@@ -26,8 +27,13 @@ export async function exportGanttDay(
   const group = board.groups.find((g) => g.id === groupId);
   if (!group) throw new Error("找不到分組");
 
-  const buffer = await buildGanttDayWorkbook(board, group);
-  const filename = sanitizeFilename(`${board.name}-${group.name}-GanttDay.xlsx`);
+  const buffer = await buildGanttWorkbook(board, group);
+  const baseName = sanitizeFilename(`${board.name}-${group.name}-Gantt`);
 
-  return { filename, base64: buffer.toString("base64") };
+  return {
+    xlsxFilename: `${baseName}.xlsx`,
+    xlsxBase64: buffer.toString("base64"),
+    gsFilename: `${baseName}-AppsScript.gs`,
+    gsContent: GANTT_APPS_SCRIPT,
+  };
 }

@@ -2,8 +2,24 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
-import { exportGanttDay } from "@/lib/actions/export";
+import { exportGanttWorkbook } from "@/lib/actions/export";
 import type { GroupData } from "@/types/board";
+
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function base64ToBytes(base64: string): ArrayBuffer {
+  const byteChars = atob(base64);
+  const bytes = new Uint8Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+  return bytes.buffer;
+}
 
 export function ExportGanttModal({
   boardId,
@@ -19,26 +35,25 @@ export function ExportGanttModal({
   const [groupId, setGroupId] = useState(groups[0]?.id ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
 
   async function handleExport() {
     if (!groupId) return;
     setSubmitting(true);
     setError(null);
     try {
-      const { filename, base64 } = await exportGanttDay(boardId, groupId);
-      const byteChars = atob(base64);
-      const bytes = new Uint8Array(byteChars.length);
-      for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
-      const blob = new Blob([bytes], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-      onOpenChange(false);
+      const { xlsxFilename, xlsxBase64, gsFilename, gsContent } = await exportGanttWorkbook(
+        boardId,
+        groupId
+      );
+      downloadBlob(
+        xlsxFilename,
+        new Blob([base64ToBytes(xlsxBase64)], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        })
+      );
+      downloadBlob(gsFilename, new Blob([gsContent], { type: "text/plain" }));
+      setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "匯出失敗");
     } finally {
@@ -46,39 +61,75 @@ export function ExportGanttModal({
     }
   }
 
+  function reset(o: boolean) {
+    onOpenChange(o);
+    if (!o) {
+      setDone(false);
+      setError(null);
+    }
+  }
+
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="匯出 Google Sheet(Gantt)">
+    <Modal open={open} onOpenChange={reset} title="匯出 Google Sheet(Gantt)">
       {error && (
         <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </div>
       )}
-      <div className="space-y-3">
-        <p className="text-sm text-neutral-500">
-          匯出選定分組的工作事項為 .xlsx,欄位對應「Gantt (Day)」分頁格式(第 6
-          列標題、第 7 列起資料),可直接複製貼上到既有 Google Sheet 的 Gantt
-          (Day) 分頁,Week/Month 分頁與甘特條會自動同步更新。
-        </p>
-        <select
-          value={groupId}
-          onChange={(e) => setGroupId(e.target.value)}
-          className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-        >
-          {groups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          disabled={submitting || !groupId}
-          onClick={handleExport}
-          className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {submitting ? "匯出中..." : "匯出"}
-        </button>
-      </div>
+      {!done ? (
+        <div className="space-y-3">
+          <p className="text-sm text-neutral-500">
+            會下載兩個檔案:一個完整的 .xlsx(Settings/Lists/Gantt Day·Week·
+            Month 五個分頁,含甘特條、階層顏色、下拉選單),以及一份 Apps
+            Script(.gs)範本。上傳 .xlsx 到 Google 雲端硬碟並以「Google
+            試算表」開啟,即可直接使用;第一次使用需在該試算表的「擴充功能 →
+            Apps Script」貼上下載的 .gs 內容並儲存,之後重新整理頁面即可看到
+            「Gantt」選單(甘特條/階層顏色/彙總%等會自動套用)。
+          </p>
+          <select
+            value={groupId}
+            onChange={(e) => setGroupId(e.target.value)}
+            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          >
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={submitting || !groupId}
+            onClick={handleExport}
+            className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? "匯出中..." : "匯出"}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-sm text-neutral-700">
+            已下載 .xlsx 與 .gs 兩個檔案。
+          </p>
+          <ol className="list-decimal space-y-1 pl-4 text-sm text-neutral-500">
+            <li>將 .xlsx 上傳到 Google 雲端硬碟,以「Google 試算表」開啟</li>
+            <li>擴充功能 → Apps Script,貼上 .gs 檔內容並儲存</li>
+            <li>重新整理試算表頁面,即可使用「Gantt」選單的所有功能</li>
+          </ol>
+          <p className="text-xs text-neutral-400">
+            此功能無法直接產生雲端上的 Google 試算表檔案(.gsheet
+            只是雲端硬碟裡的捷徑,需要 Google API 授權才能建立),因此仍需要這
+            一次性的上傳與貼上腳本步驟。
+          </p>
+          <button
+            type="button"
+            onClick={() => reset(false)}
+            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
+          >
+            關閉
+          </button>
+        </div>
+      )}
     </Modal>
   );
 }
