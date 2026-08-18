@@ -348,6 +348,36 @@ function writeMirrorRow(sheet: ExcelJS.Worksheet, rowIndex: number) {
   row.getCell(17).numFmt = "0%";
 }
 
+/** Merged month/year label blocks on row 5 above the timeline, matching the
+ *  reference sheet's own header banner (e.g. "May 2026" spanning that
+ *  month's day columns on Day/Week, "2026" spanning a year's columns on
+ *  Month). */
+function writePeriodLabels(
+  sheet: ExcelJS.Worksheet,
+  colDates: { col: number; date: Date }[],
+  groupBy: "month" | "year"
+) {
+  if (colDates.length === 0) return;
+  const keyOf = (d: Date) =>
+    groupBy === "year" ? d.getUTCFullYear() : d.getUTCFullYear() * 12 + d.getUTCMonth();
+
+  let blockStart = 0;
+  for (let i = 1; i <= colDates.length; i++) {
+    const atEnd = i === colDates.length;
+    if (atEnd || keyOf(colDates[i].date) !== keyOf(colDates[blockStart].date)) {
+      const startCol = colDates[blockStart].col;
+      const endCol = colDates[i - 1].col;
+      const cell = sheet.getCell(5, startCol);
+      cell.value = colDates[blockStart].date;
+      cell.numFmt = groupBy === "year" ? "yyyy" : "mmm yyyy";
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: "center" };
+      if (endCol > startCol) sheet.mergeCells(5, startCol, 5, endCol);
+      blockStart = i;
+    }
+  }
+}
+
 /** Bar/level-colour/today-marker conditional formatting, identical formulas
  *  across Day/Week/Month since all three share the same A-Q column layout —
  *  Week/Month's cells resolve through their own INDEX-formula mirrors. */
@@ -446,6 +476,7 @@ function buildDaySheet(
   const tl0 = DETAIL_COL_COUNT + 1;
   let col = tl0;
   let cursor = range.start;
+  const colDates: { col: number; date: Date }[] = [];
   while (cursor <= range.end) {
     sheet.getCell(4, col).value = cursor;
     sheet.getCell(4, col).numFmt = "yyyy-mm-dd";
@@ -453,12 +484,15 @@ function buildDaySheet(
     sheet.getCell(6, col).value = cursor;
     sheet.getCell(6, col).numFmt = "d";
     sheet.getColumn(col).width = 3;
+    colDates.push({ col, date: cursor });
     cursor = addUtcDays(cursor, 1);
     col++;
   }
   const tlEnd = col - 1;
+  writePeriodLabels(sheet, colDates, "month");
 
   applyConditionalFormatting(sheet, tl0, tlEnd, lastDataRow, levelColors, true);
+  sheet.autoFilter = `A6:${colLetter(tlEnd)}6`;
   sheet.views = [{ state: "frozen", xSplit: DETAIL_COL_COUNT, ySplit: 6 }];
 
   return lastDataRow;
@@ -482,6 +516,7 @@ function buildMirrorSheet(
 
   const tl0 = DETAIL_COL_COUNT + 1;
   let col = tl0;
+  const colDates: { col: number; date: Date }[] = [];
   if (granularity === "week") {
     let cursor = mondayOf(range.start);
     while (cursor <= range.end) {
@@ -492,6 +527,7 @@ function buildMirrorSheet(
       sheet.getCell(6, col).value = cursor;
       sheet.getCell(6, col).numFmt = "m/d";
       sheet.getColumn(col).width = 6;
+      colDates.push({ col, date: cursor });
       cursor = addUtcDays(cursor, 7);
       col++;
     }
@@ -505,13 +541,16 @@ function buildMirrorSheet(
       sheet.getCell(6, col).value = cursor;
       sheet.getCell(6, col).numFmt = "mmm";
       sheet.getColumn(col).width = 6;
+      colDates.push({ col, date: cursor });
       cursor = addUtcMonths(cursor, 1);
       col++;
     }
   }
   const tlEnd = Math.max(tl0, col - 1);
+  writePeriodLabels(sheet, colDates, granularity === "week" ? "month" : "year");
 
   applyConditionalFormatting(sheet, tl0, tlEnd, lastDataRow, levelColors, false);
+  sheet.autoFilter = `A6:${colLetter(tlEnd)}6`;
   sheet.views = [{ state: "frozen", xSplit: DETAIL_COL_COUNT, ySplit: 6 }];
 }
 
