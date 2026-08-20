@@ -16,6 +16,8 @@ import { WorkloadThresholdModal } from "./WorkloadThresholdModal";
 const LABEL_WIDTH = 140;
 const WEEK_WIDTH = 26;
 
+type ParentTaskOption = { boardId: string; boardName: string; itemId: string; itemName: string };
+
 function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -28,7 +30,7 @@ export function WorkloadDetailSection({
   threshold,
   canManageThreshold,
   canCreateSubtask,
-  myOwnTasks,
+  parentTaskOptions,
 }: {
   users: { id: string; name: string }[];
   tasksByUser: Record<string, MemberTask[]>;
@@ -37,7 +39,7 @@ export function WorkloadDetailSection({
   threshold: WorkloadThresholdSettings;
   canManageThreshold: boolean;
   canCreateSubtask: boolean;
-  myOwnTasks: MemberTask[];
+  parentTaskOptions: ParentTaskOption[];
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -75,7 +77,7 @@ export function WorkloadDetailSection({
     setPendingEnd(null);
     setHoverIdx(null);
     setFormName("");
-    setFormParentId(myOwnTasks[0]?.itemId ?? "");
+    setFormParentId(parentTaskOptions[0]?.itemId ?? "");
     setFormError(null);
   }
 
@@ -108,17 +110,13 @@ export function WorkloadDetailSection({
       setFormError("請選擇父任務");
       return;
     }
-    if (!formName.trim()) {
-      setFormError("請輸入任務名稱");
-      return;
-    }
     setSubmitting(true);
     setFormError(null);
     try {
       await createTeamSubtask({
         parentItemId: formParentId,
         assigneeUserId: userId,
-        name: formName,
+        name: formName.trim() || "新任務",
         startDate: toIsoDate(weeks[pendingStart].start),
         days: (pendingEnd - pendingStart + 1) * 7,
       });
@@ -270,7 +268,7 @@ export function WorkloadDetailSection({
                           })
                         )}
 
-                        {canCreateSubtask && myOwnTasks.length > 0 && (
+                        {canCreateSubtask && parentTaskOptions.length > 0 && (
                           isCreating ? (
                             <>
                               <div className="flex items-center">
@@ -324,7 +322,7 @@ export function WorkloadDetailSection({
                                     <input
                                       value={formName}
                                       onChange={(e) => setFormName(e.target.value)}
-                                      placeholder="任務名稱"
+                                      placeholder="任務名稱(留空預設為「新任務」)"
                                       autoFocus
                                       className="min-w-[140px] flex-1 rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
                                     />
@@ -333,7 +331,7 @@ export function WorkloadDetailSection({
                                       onChange={(e) => setFormParentId(e.target.value)}
                                       className="max-w-[220px] rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
                                     >
-                                      {myOwnTasks.map((t) => (
+                                      {parentTaskOptions.map((t) => (
                                         <option key={`${t.boardId}-${t.itemId}`} value={t.itemId}>
                                           {t.boardName} / {t.itemName}
                                         </option>

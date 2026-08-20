@@ -109,6 +109,19 @@ export default async function DashboardPage({
   const workloadScopeIds = workloadScope.map((u) => u.id);
   const memberTasksMap = computeMemberTaskBreakdown(boards, workloadScopeIds);
   const myOwnTasks = computeMemberTaskBreakdown(boards, [session.userId]).get(session.userId) ?? [];
+  // Admins aren't limited to delegating their own work — they can split a
+  // subtask off any task. Supervisors stay scoped to tasks assigned to them.
+  const parentTaskOptions =
+    session.role === "ADMIN"
+      ? allBoards.flatMap((b) =>
+          b.items.map((i) => ({
+            boardId: b.id,
+            boardName: b.name,
+            itemId: i.id,
+            itemName: i.name,
+          }))
+        )
+      : myOwnTasks;
   const weekColumns = computeWeekColumns(boards);
   const weeklyLoadMap = computeMemberWeeklyLoad(boards, workloadScopeIds, weekColumns);
 
@@ -172,7 +185,7 @@ export default async function DashboardPage({
         threshold={workloadThreshold}
         canManageThreshold={session.role === "ADMIN"}
         canCreateSubtask={canManageStructure(session.role)}
-        myOwnTasks={myOwnTasks}
+        parentTaskOptions={parentTaskOptions}
       />
 
       <section>

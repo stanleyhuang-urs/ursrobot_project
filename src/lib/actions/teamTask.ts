@@ -7,11 +7,11 @@ import { canManageStructure } from "@/lib/permissions";
 import { upsertAssignment } from "./assignment";
 
 /**
- * Lets a supervisor/admin split a subtask off one of their own assigned
- * tasks and hand it to a team member, directly from the dashboard's weekly
- * workload timeline. The parent must currently be assigned to the caller —
- * this is a "delegate part of my own work" action, not general item
- * creation, so it doesn't accept an arbitrary parent.
+ * Lets a supervisor split a subtask off one of their own assigned tasks, or
+ * an admin split a subtask off any task, and hand it to a team member —
+ * directly from the dashboard's weekly workload timeline. For a supervisor
+ * this is a "delegate part of my own work" action, so the parent must
+ * currently be assigned to them; admins aren't limited to their own tasks.
  */
 export async function createTeamSubtask(input: {
   parentItemId: string;
@@ -25,8 +25,7 @@ export async function createTeamSubtask(input: {
     throw new Error("權限不足:僅管理者與主管可以新增任務");
   }
 
-  const trimmedName = input.name.trim();
-  if (!trimmedName) throw new Error("請輸入任務名稱");
+  const trimmedName = input.name.trim() || "新任務";
   if (!Number.isFinite(input.days) || input.days < 1) throw new Error("天數需大於 0");
 
   const parent = await prisma.item.findUnique({
@@ -35,11 +34,13 @@ export async function createTeamSubtask(input: {
   });
   if (!parent) throw new Error("找不到父任務");
 
-  const ownAssignment = await prisma.assignment.findUnique({
-    where: { itemId_userId: { itemId: parent.id, userId: session.userId } },
-  });
-  if (!ownAssignment) {
-    throw new Error("只能在自己被指派的任務下新增子任務");
+  if (session.role === "SUPERVISOR") {
+    const ownAssignment = await prisma.assignment.findUnique({
+      where: { itemId_userId: { itemId: parent.id, userId: session.userId } },
+    });
+    if (!ownAssignment) {
+      throw new Error("只能在自己被指派的任務下新增子任務");
+    }
   }
 
   const { board } = parent;
