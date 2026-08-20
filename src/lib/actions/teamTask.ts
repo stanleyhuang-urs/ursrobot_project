@@ -6,10 +6,8 @@ import { requireSession } from "@/lib/session";
 import { canManageStructure } from "@/lib/permissions";
 import { upsertAssignment } from "./assignment";
 
-/** A supervisor may pick an ancestor of one of their assigned tasks as the
- *  new subtask's parent (per the dashboard's expandable tree picker), not
- *  just the exact item assigned to them — so check the whole subtree. */
-async function isItemAssignedOrAncestorOfAssigned(itemId: string, userId: string): Promise<boolean> {
+/** Is this item, or any item in its descendant subtree, assigned to userId? */
+async function hasAssignedDescendant(itemId: string, userId: string): Promise<boolean> {
   const item = await prisma.item.findUnique({
     where: { id: itemId },
     include: { assignments: true, subitems: { select: { id: true } } },
@@ -17,9 +15,31 @@ async function isItemAssignedOrAncestorOfAssigned(itemId: string, userId: string
   if (!item) return false;
   if (item.assignments.some((a) => a.userId === userId)) return true;
   for (const child of item.subitems) {
-    if (await isItemAssignedOrAncestorOfAssigned(child.id, userId)) return true;
+    if (await hasAssignedDescendant(child.id, userId)) return true;
   }
   return false;
+}
+
+/** Does any ancestor of this item have an assignment to userId? */
+async function hasAssignedAncestor(itemId: string, userId: string): Promise<boolean> {
+  const item = await prisma.item.findUnique({ where: { id: itemId }, select: { parentId: true } });
+  if (!item?.parentId) return false;
+  const parent = await prisma.item.findUnique({
+    where: { id: item.parentId },
+    include: { assignments: true },
+  });
+  if (!parent) return false;
+  if (parent.assignments.some((a) => a.userId === userId)) return true;
+  return hasAssignedAncestor(parent.id, userId);
+}
+
+/** A supervisor may pick any level of their own work as the new subtask's
+ *  parent (per the dashboard's expandable tree picker) — an ancestor of an
+ *  assigned item, the assigned item itself, or anywhere already nested under
+ *  it — not just the exact item assigned to them. */
+async function isRelatedToAssignedItem(itemId: string, userId: string): Promise<boolean> {
+  if (await hasAssignedDescendant(itemId, userId)) return true;
+  return hasAssignedAncestor(itemId, userId);
 }
 
 /**
@@ -55,9 +75,9 @@ export async function createTeamSubtask(input: {
   if (!parent) throw new Error("找不到父任務");
 
   if (session.role === "SUPERVISOR") {
-    const isAssignedOrAncestor = await isItemAssignedOrAncestorOfAssigned(parent.id, session.userId);
-    if (!isAssignedOrAncestor) {
-      throw new Error("只能在自己被指派的任務(或其上層任務)下新增子任務");
+    const isRelated = await isRelatedToAssignedItem(parent.id, session.userId);
+    if (!isRelated) {
+      throw new Error("只能在自己被指派的任務(或其上層/下層任務)下新增子任務");
     }
   }
 

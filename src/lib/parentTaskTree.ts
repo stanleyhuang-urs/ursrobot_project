@@ -10,9 +10,11 @@ export type ParentTreeNode = {
 
 /**
  * For a supervisor: the ancestor path (root → ... → assigned item) of every
- * item they're personally assigned to, merged into one tree. Lets them pick
- * any level of their own work as the new subtask's parent, not just the
- * exact leaf they happen to be assigned to.
+ * item they're personally assigned to, PLUS the full existing descendant
+ * subtree under each assigned item, merged into one tree. Lets them pick any
+ * level of their own work as the new subtask's parent — an ancestor of what
+ * they're assigned to, the assigned item itself, or anywhere already nested
+ * under it — not just the exact leaf they happen to be assigned to.
  */
 export function buildSupervisorParentTree(boards: BoardWithData[], userId: string): ParentTreeNode[] {
   const roots: ParentTreeNode[] = [];
@@ -20,6 +22,35 @@ export function buildSupervisorParentTree(boards: BoardWithData[], userId: strin
 
   for (const board of boards) {
     const itemsById = new Map(board.items.map((i) => [i.id, i]));
+    const childrenOf = new Map<string | null, ItemData[]>();
+    for (const item of board.items) {
+      const list = childrenOf.get(item.parentId) ?? [];
+      list.push(item);
+      childrenOf.set(item.parentId, list);
+    }
+    for (const list of childrenOf.values()) list.sort((a, b) => a.order - b.order);
+
+    function ensureNode(item: ItemData): ParentTreeNode {
+      let node = nodeById.get(item.id);
+      if (!node) {
+        node = { itemId: item.id, itemName: item.name, boardId: board.id, boardName: board.name, children: [] };
+        nodeById.set(item.id, node);
+      }
+      return node;
+    }
+
+    function attachChild(parentNode: ParentTreeNode, childNode: ParentTreeNode) {
+      if (!parentNode.children.includes(childNode)) parentNode.children.push(childNode);
+    }
+
+    function attachDescendants(item: ItemData) {
+      const node = ensureNode(item);
+      for (const child of childrenOf.get(item.id) ?? []) {
+        attachChild(node, ensureNode(child));
+        attachDescendants(child);
+      }
+    }
+
     const assignedItems = board.items.filter((i) => i.assignments.some((a) => a.userId === userId));
 
     for (const item of assignedItems) {
@@ -30,22 +61,15 @@ export function buildSupervisorParentTree(boards: BoardWithData[], userId: strin
         current = current.parentId ? itemsById.get(current.parentId) : undefined;
       }
 
-      let siblings = roots;
+      let parentNode: ParentTreeNode | null = null;
       for (const node of chain) {
-        let existing = nodeById.get(node.id);
-        if (!existing) {
-          existing = {
-            itemId: node.id,
-            itemName: node.name,
-            boardId: board.id,
-            boardName: board.name,
-            children: [],
-          };
-          nodeById.set(node.id, existing);
-          siblings.push(existing);
-        }
-        siblings = existing.children;
+        const treeNode = ensureNode(node);
+        if (parentNode) attachChild(parentNode, treeNode);
+        else if (!roots.includes(treeNode)) roots.push(treeNode);
+        parentNode = treeNode;
       }
+
+      attachDescendants(item);
     }
   }
 

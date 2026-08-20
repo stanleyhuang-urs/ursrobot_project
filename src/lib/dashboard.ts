@@ -226,6 +226,8 @@ export type PersonalItemEntry = {
   boardName: string;
   itemId: string;
   itemName: string;
+  groupId: string;
+  createdById: string | null;
   status: StatusOption | null;
   startDate: Date | null;
   dueDate: Date | null;
@@ -277,6 +279,8 @@ export function computePersonalItems(
         boardName: board.name,
         itemId: item.id,
         itemName: item.name,
+        groupId: item.groupId,
+        createdById: item.createdById,
         status,
         startDate: range?.start ?? null,
         dueDate: range?.end ?? null,

@@ -10,12 +10,12 @@ import {
   computeBoardProgressOverview,
   computeOverdueUpcoming,
   computePersonalItems,
-  type PersonalItemEntry,
   type WorkloadPeriod,
   type MemberItemWorkloadEntry,
 } from "@/lib/dashboard";
 import { TeamWorkloadCard } from "@/components/dashboard/TeamWorkloadCard";
 import { WorkloadDetailSection } from "@/components/dashboard/WorkloadDetailSection";
+import { PersonalItemRow } from "@/components/dashboard/PersonalItemRow";
 import { getWorkloadThreshold } from "@/lib/actions/workloadThreshold";
 import {
   computeMemberTaskBreakdown,
@@ -27,41 +27,6 @@ import { buildSupervisorParentTree, buildFullParentTree } from "@/lib/parentTask
 
 function formatDate(date: Date) {
   return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
-}
-
-function AssignedItemRow({ item, showAssignees }: { item: PersonalItemEntry; showAssignees: boolean }) {
-  return (
-    <li className="flex items-center gap-3 px-4 py-2.5">
-      <Link
-        href={`/boards/${item.boardId}`}
-        className="min-w-0 flex-1 truncate text-sm text-neutral-800 hover:text-blue-600"
-      >
-        {item.itemName}
-      </Link>
-      {showAssignees && (
-        <span className="shrink-0 text-xs text-neutral-500">
-          {item.assignees
-            .map((a) => (a.allocationPct !== null ? `${a.name} ${a.allocationPct}%` : a.name))
-            .join(", ")}
-        </span>
-      )}
-      <span className="shrink-0 text-xs text-neutral-400">{item.boardName}</span>
-      {item.status && (
-        <span
-          className="shrink-0 rounded-full px-2 py-0.5 text-xs text-white"
-          style={{ backgroundColor: item.status.color }}
-        >
-          {item.status.label}
-        </span>
-      )}
-      {item.dueDate && (
-        <span className="shrink-0 text-xs text-neutral-500">
-          {item.startDate && `${formatDate(item.startDate)} ~ `}
-          {formatDate(item.dueDate)}
-        </span>
-      )}
-    </li>
-  );
 }
 
 export default async function DashboardPage({
@@ -245,7 +210,10 @@ export default async function DashboardPage({
               <ul className="space-y-1.5">
                 {overdue.map((e) => (
                   <li key={`${e.boardId}-${e.itemId}`} className="flex items-center justify-between text-sm">
-                    <Link href={`/boards/${e.boardId}`} className="truncate text-neutral-700 hover:text-blue-600">
+                    <Link
+                      href={`/boards/${e.boardId}?highlight=${e.itemId}`}
+                      className="truncate text-neutral-700 hover:text-blue-600"
+                    >
                       {e.itemName}
                     </Link>
                     <span className="shrink-0 text-xs text-red-600">{formatDate(e.end)}</span>
@@ -262,7 +230,10 @@ export default async function DashboardPage({
               <ul className="space-y-1.5">
                 {upcoming.map((e) => (
                   <li key={`${e.boardId}-${e.itemId}`} className="flex items-center justify-between text-sm">
-                    <Link href={`/boards/${e.boardId}`} className="truncate text-neutral-700 hover:text-blue-600">
+                    <Link
+                      href={`/boards/${e.boardId}?highlight=${e.itemId}`}
+                      className="truncate text-neutral-700 hover:text-blue-600"
+                    >
                       {e.itemName}
                     </Link>
                     <span className="shrink-0 text-xs text-neutral-500">{formatDate(e.end)}</span>
@@ -285,7 +256,13 @@ export default async function DashboardPage({
             ) : (
               <ul className="divide-y divide-neutral-100">
                 {teamItems.map((item) => (
-                  <AssignedItemRow key={`${item.boardId}-${item.itemId}`} item={item} showAssignees />
+                  <PersonalItemRow
+                    key={`${item.boardId}-${item.itemId}`}
+                    item={item}
+                    showAssignees
+                    userRole={session.role}
+                    currentUserId={session.userId}
+                  />
                 ))}
               </ul>
             )}
@@ -303,7 +280,13 @@ export default async function DashboardPage({
           ) : (
             <ul className="divide-y divide-neutral-100">
               {personalItems.map((item) => (
-                <AssignedItemRow key={`${item.boardId}-${item.itemId}`} item={item} showAssignees={false} />
+                <PersonalItemRow
+                  key={`${item.boardId}-${item.itemId}`}
+                  item={item}
+                  showAssignees={false}
+                  userRole={session.role}
+                  currentUserId={session.userId}
+                />
               ))}
             </ul>
           )}
