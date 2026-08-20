@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { boardWithDataArgs } from "@/types/board";
 import { accessibleBoardWhere } from "@/lib/boardAccess";
+import { canManageStructure } from "@/lib/permissions";
 import {
   computeTeamWorkload,
   computeMemberItemWorkload,
@@ -107,6 +108,7 @@ export default async function DashboardPage({
   const workloadThreshold = await getWorkloadThreshold();
   const workloadScopeIds = workloadScope.map((u) => u.id);
   const memberTasksMap = computeMemberTaskBreakdown(boards, workloadScopeIds);
+  const myOwnTasks = computeMemberTaskBreakdown(boards, [session.userId]).get(session.userId) ?? [];
   const weekColumns = computeWeekColumns(boards);
   const weeklyLoadMap = computeMemberWeeklyLoad(boards, workloadScopeIds, weekColumns);
 
@@ -169,6 +171,8 @@ export default async function DashboardPage({
         weeklyLoadByUser={weeklyLoadByUser}
         threshold={workloadThreshold}
         canManageThreshold={session.role === "ADMIN"}
+        canCreateSubtask={canManageStructure(session.role)}
+        myOwnTasks={myOwnTasks}
       />
 
       <section>
