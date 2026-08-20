@@ -45,6 +45,7 @@ export function WorkloadDetailSection({
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [creatingForUserId, setCreatingForUserId] = useState<string | null>(null);
+  const [anchorIdx, setAnchorIdx] = useState<number | null>(null);
   const [pendingStart, setPendingStart] = useState<number | null>(null);
   const [pendingEnd, setPendingEnd] = useState<number | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -73,6 +74,7 @@ export function WorkloadDetailSection({
 
   function startCreating(userId: string) {
     setCreatingForUserId(userId);
+    setAnchorIdx(null);
     setPendingStart(null);
     setPendingEnd(null);
     setHoverIdx(null);
@@ -83,6 +85,7 @@ export function WorkloadDetailSection({
 
   function resetCreating() {
     setCreatingForUserId(null);
+    setAnchorIdx(null);
     setPendingStart(null);
     setPendingEnd(null);
     setHoverIdx(null);
@@ -91,17 +94,20 @@ export function WorkloadDetailSection({
     setFormError(null);
   }
 
+  /** First click sets a fixed anchor week; every click after that redraws
+   *  the range between the anchor and the new click — so overshooting the
+   *  end (or start) can be fixed with one more click instead of a full
+   *  restart. */
   function handleWeekClick(userId: string, weekIdx: number) {
     if (creatingForUserId !== userId) return;
-    if (pendingStart === null) {
-      setPendingStart(weekIdx);
-    } else if (pendingEnd === null) {
-      setPendingStart(Math.min(pendingStart, weekIdx));
-      setPendingEnd(Math.max(pendingStart, weekIdx));
-    } else {
+    if (anchorIdx === null) {
+      setAnchorIdx(weekIdx);
       setPendingStart(weekIdx);
       setPendingEnd(null);
+      return;
     }
+    setPendingStart(Math.min(anchorIdx, weekIdx));
+    setPendingEnd(Math.max(anchorIdx, weekIdx));
   }
 
   async function handleCreate(userId: string) {
@@ -286,14 +292,12 @@ export function WorkloadDetailSection({
                                   {weeks.map((w, i) => {
                                     const inFinalRange =
                                       pendingStart !== null && pendingEnd !== null && i >= pendingStart && i <= pendingEnd;
-                                    const previewEnd = hoverIdx ?? pendingStart;
-                                    const inPreview =
-                                      pendingStart !== null &&
-                                      pendingEnd === null &&
-                                      previewEnd !== null &&
-                                      i >= Math.min(pendingStart, previewEnd) &&
-                                      i <= Math.max(pendingStart, previewEnd);
-                                    const highlighted = inFinalRange || inPreview;
+                                    const inHoverPreview =
+                                      anchorIdx !== null &&
+                                      hoverIdx !== null &&
+                                      i >= Math.min(anchorIdx, hoverIdx) &&
+                                      i <= Math.max(anchorIdx, hoverIdx);
+                                    const highlighted = inFinalRange || inHoverPreview;
                                     return (
                                       <button
                                         key={i}
