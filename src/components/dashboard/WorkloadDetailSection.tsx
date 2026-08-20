@@ -288,7 +288,10 @@ export function WorkloadDetailSection({
                                       : "點選結束週"
                                     : "已選取範圍"}
                                 </div>
-                                <div className="flex" onMouseLeave={() => setHoverIdx(null)}>
+                                <div
+                                  className="relative flex"
+                                  onMouseLeave={() => setHoverIdx(null)}
+                                >
                                   {weeks.map((w, i) => {
                                     const inFinalRange =
                                       pendingStart !== null && pendingEnd !== null && i >= pendingStart && i <= pendingEnd;
@@ -314,53 +317,79 @@ export function WorkloadDetailSection({
                                       />
                                     );
                                   })}
+                                  {pendingStart !== null && pendingEnd !== null && (
+                                    <div
+                                      className="pointer-events-none absolute top-0 flex items-center justify-center overflow-hidden whitespace-nowrap px-1 text-[9px] font-medium text-white"
+                                      style={{
+                                        left: pendingStart * WEEK_WIDTH,
+                                        width: (pendingEnd - pendingStart + 1) * WEEK_WIDTH,
+                                        height: 20,
+                                      }}
+                                    >
+                                      {weeks[pendingStart].label}~{weeks[pendingEnd].label}・
+                                      {(pendingEnd - pendingStart + 1) * 7}天・100%
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
                               {pendingEnd !== null ? (
-                                <div className="border-t border-neutral-100 bg-blue-50/40 px-2 py-2">
-                                  {formError && (
-                                    <p className="mb-1.5 text-xs text-red-600">{formError}</p>
-                                  )}
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <input
-                                      value={formName}
-                                      onChange={(e) => setFormName(e.target.value)}
-                                      placeholder="任務名稱(留空預設為「新任務」)"
-                                      autoFocus
-                                      className="min-w-[140px] flex-1 rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
-                                    />
-                                    <select
-                                      value={formParentId}
-                                      onChange={(e) => setFormParentId(e.target.value)}
-                                      className="max-w-[220px] rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
-                                    >
-                                      {parentTaskOptions.map((t) => (
-                                        <option key={`${t.boardId}-${t.itemId}`} value={t.itemId}>
-                                          {t.boardName} / {t.itemName}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <span className="shrink-0 text-[10px] text-neutral-500">
-                                      {weeks[pendingStart!].label} ~ {weeks[pendingEnd].label}(+6天)・100%
-                                    </span>
-                                    <button
-                                      type="button"
-                                      disabled={submitting}
-                                      onClick={() => handleCreate(user.id)}
-                                      className="rounded-md bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                                    >
-                                      {submitting ? "建立中..." : "建立"}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={resetCreating}
-                                      className="rounded-md border border-neutral-300 px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-50"
-                                    >
-                                      取消
-                                    </button>
-                                  </div>
-                                </div>
+                                (() => {
+                                  const existingLoad = Math.max(
+                                    0,
+                                    ...(weeklyLoadByUser[user.id] ?? []).slice(pendingStart! , pendingEnd + 1)
+                                  );
+                                  const projectedMax = existingLoad + 100;
+                                  return (
+                                    <div className="border-t border-neutral-100 bg-blue-50/40 px-2 py-2">
+                                      {formError && (
+                                        <p className="mb-1.5 text-xs text-red-600">{formError}</p>
+                                      )}
+                                      {projectedMax > 100 && (
+                                        <p className="mb-1.5 text-xs text-amber-600">
+                                          ⚠ 此區間 {user.name} 已有 {existingLoad}% 負載,加上此任務 100%
+                                          後最高將達 {projectedMax}%(超過 100%)
+                                        </p>
+                                      )}
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <select
+                                          value={formParentId}
+                                          onChange={(e) => setFormParentId(e.target.value)}
+                                          className="max-w-[220px] rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+                                        >
+                                          {parentTaskOptions.map((t) => (
+                                            <option key={`${t.boardId}-${t.itemId}`} value={t.itemId}>
+                                              {t.boardName} / {t.itemName}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <input
+                                          value={formName}
+                                          onChange={(e) => setFormName(e.target.value)}
+                                          placeholder="任務名稱(留空預設為「新任務」)"
+                                          maxLength={20}
+                                          autoFocus
+                                          className="w-40 rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+                                        />
+                                        <button
+                                          type="button"
+                                          disabled={submitting}
+                                          onClick={() => handleCreate(user.id)}
+                                          className="rounded-md bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                        >
+                                          {submitting ? "建立中..." : "建立"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={resetCreating}
+                                          className="rounded-md border border-neutral-300 px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-50"
+                                        >
+                                          取消
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })()
                               ) : (
                                 <div className="px-2 py-1">
                                   <button
