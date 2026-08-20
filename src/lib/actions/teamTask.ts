@@ -19,6 +19,7 @@ export async function createTeamSubtask(input: {
   name: string;
   startDate: string;
   days: number;
+  allocationPct: number;
 }) {
   const session = await requireSession();
   if (!canManageStructure(session.role)) {
@@ -27,6 +28,9 @@ export async function createTeamSubtask(input: {
 
   const trimmedName = input.name.trim() || "新任務";
   if (!Number.isFinite(input.days) || input.days < 1) throw new Error("天數需大於 0");
+  if (!Number.isFinite(input.allocationPct) || input.allocationPct < 1 || input.allocationPct > 100) {
+    throw new Error("百分比需介於 1 到 100 之間");
+  }
 
   const parent = await prisma.item.findUnique({
     where: { id: input.parentItemId },
@@ -75,7 +79,7 @@ export async function createTeamSubtask(input: {
   }
   await prisma.cellValue.createMany({ data: cellValues });
 
-  await upsertAssignment(parent.boardId, item.id, input.assigneeUserId, 100);
+  await upsertAssignment(parent.boardId, item.id, input.assigneeUserId, input.allocationPct);
 
   revalidatePath("/dashboard");
   revalidatePath(`/boards/${parent.boardId}`);

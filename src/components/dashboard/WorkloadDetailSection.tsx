@@ -15,11 +15,20 @@ import { WorkloadThresholdModal } from "./WorkloadThresholdModal";
 
 const LABEL_WIDTH = 140;
 const WEEK_WIDTH = 26;
+const DAY_MS = 86_400_000;
 
 type ParentTaskOption = { boardId: string; boardName: string; itemId: string; itemName: string };
 
 function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function addDaysIso(iso: string, days: number): string {
+  return toIsoDate(new Date(new Date(iso).getTime() + days * DAY_MS));
+}
+
+function daysBetweenIso(startIso: string, endIso: string): number {
+  return Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / DAY_MS) + 1;
 }
 
 export function WorkloadDetailSection({
@@ -46,15 +55,16 @@ export function WorkloadDetailSection({
 
   const [creatingForUserId, setCreatingForUserId] = useState<string | null>(null);
   const [anchorIdx, setAnchorIdx] = useState<number | null>(null);
-  const [pendingStart, setPendingStart] = useState<number | null>(null);
-  const [pendingEnd, setPendingEnd] = useState<number | null>(null);
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [formStartDate, setFormStartDate] = useState("");
+  const [formDays, setFormDays] = useState(7);
+  const [formPct, setFormPct] = useState(100);
   const [formName, setFormName] = useState("");
   const [formParentId, setFormParentId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const timelineWidth = weeks.length * WEEK_WIDTH;
+  const timelineOrigin = weeks[0]?.start ?? null;
 
   const monthGroups: { label: string; count: number }[] = [];
   for (const week of weeks) {
@@ -75,9 +85,9 @@ export function WorkloadDetailSection({
   function startCreating(userId: string) {
     setCreatingForUserId(userId);
     setAnchorIdx(null);
-    setPendingStart(null);
-    setPendingEnd(null);
-    setHoverIdx(null);
+    setFormStartDate(toIsoDate(new Date()));
+    setFormDays(7);
+    setFormPct(100);
     setFormName("");
     setFormParentId(parentTaskOptions[0]?.itemId ?? "");
     setFormError(null);
@@ -86,34 +96,57 @@ export function WorkloadDetailSection({
   function resetCreating() {
     setCreatingForUserId(null);
     setAnchorIdx(null);
-    setPendingStart(null);
-    setPendingEnd(null);
-    setHoverIdx(null);
+    setFormStartDate("");
+    setFormDays(7);
+    setFormPct(100);
     setFormName("");
     setFormParentId("");
     setFormError(null);
   }
 
-  /** First click sets a fixed anchor week; every click after that redraws
-   *  the range between the anchor and the new click — so overshooting the
-   *  end (or start) can be fixed with one more click instead of a full
-   *  restart. */
+  /** Clicking the timeline is a rough quick-pick: first click sets a fixed
+   *  anchor week, every click after that redraws [anchor, click] as whole
+   *  weeks into the Start/Days fields below — which stay freely editable
+   *  for day-level precision afterward. */
   function handleWeekClick(userId: string, weekIdx: number) {
     if (creatingForUserId !== userId) return;
     if (anchorIdx === null) {
       setAnchorIdx(weekIdx);
-      setPendingStart(weekIdx);
-      setPendingEnd(null);
+      setFormStartDate(toIsoDate(weeks[weekIdx].start));
+      setFormDays(7);
       return;
     }
-    setPendingStart(Math.min(anchorIdx, weekIdx));
-    setPendingEnd(Math.max(anchorIdx, weekIdx));
+    const start = Math.min(anchorIdx, weekIdx);
+    const end = Math.max(anchorIdx, weekIdx);
+    setFormStartDate(toIsoDate(weeks[start].start));
+    setFormDays((end - start + 1) * 7);
+  }
+
+  function handleEndDateChange(value: string) {
+    if (!formStartDate || !value) return;
+    const days = daysBetweenIso(formStartDate, value);
+    if (days >= 1) setFormDays(days);
+  }
+
+  function handleDaysChange(value: number) {
+    if (Number.isFinite(value) && value >= 1) setFormDays(Math.round(value));
   }
 
   async function handleCreate(userId: string) {
-    if (pendingStart === null || pendingEnd === null) return;
     if (!formParentId) {
       setFormError("請選擇父任務");
+      return;
+    }
+    if (!formStartDate) {
+      setFormError("請輸入起始日期");
+      return;
+    }
+    if (!Number.isFinite(formDays) || formDays < 1) {
+      setFormError("天數需大於 0");
+      return;
+    }
+    if (!Number.isFinite(formPct) || formPct < 1 || formPct > 100) {
+      setFormError("百分比需介於 1 到 100 之間");
       return;
     }
     setSubmitting(true);
@@ -123,8 +156,9 @@ export function WorkloadDetailSection({
         parentItemId: formParentId,
         assigneeUserId: userId,
         name: formName.trim() || "新任務",
-        startDate: toIsoDate(weeks[pendingStart].start),
-        days: (pendingEnd - pendingStart + 1) * 7,
+        startDate: formStartDate,
+        days: formDays,
+        allocationPct: formPct,
       });
       resetCreating();
     } catch (err) {
@@ -193,6 +227,27 @@ export function WorkloadDetailSection({
                 const weekly = weeklyLoadByUser[user.id] ?? [];
                 const isOpen = expanded.has(user.id);
                 const isCreating = creatingForUserId === user.id;
+
+                // Day-precise range for this user's in-progress pick, expressed
+                // as an offset in days from the timeline's first week — used to
+                // draw both the fractional overlay bar and the week highlight.
+                const rangeStartDays =
+                  isCreating && formStartDate && timelineOrigin
+                    ? (new Date(formStartDate).getTime() - timelineOrigin.getTime()) / DAY_MS
+                    : null;
+                const rangeEndDays = rangeStartDays !== null ? rangeStartDays + formDays - 1 : null;
+                const rangeLeftPx = rangeStartDays !== null ? (rangeStartDays / 7) * WEEK_WIDTH : 0;
+                const formEndDate = formStartDate ? addDaysIso(formStartDate, formDays - 1) : "";
+
+                const overlappingWeekLoad =
+                  rangeStartDays !== null && rangeEndDays !== null
+                    ? weeks
+                        .map((_, i) => i)
+                        .filter((i) => i * 7 + 6 >= rangeStartDays && i * 7 <= rangeEndDays)
+                        .map((i) => weekly[i] ?? 0)
+                    : [];
+                const existingLoad = Math.max(0, ...overlappingWeekLoad);
+                const projectedMax = existingLoad + formPct;
 
                 return (
                   <div
@@ -282,125 +337,133 @@ export function WorkloadDetailSection({
                                   style={{ width: LABEL_WIDTH }}
                                   className="shrink-0 border-r border-neutral-100 px-2 py-1 text-[10px] text-neutral-500"
                                 >
-                                  {pendingEnd === null
-                                    ? pendingStart === null
-                                      ? "點選起始週"
-                                      : "點選結束週"
-                                    : "已選取範圍"}
+                                  點選或於下方輸入
                                 </div>
-                                <div
-                                  className="relative flex"
-                                  onMouseLeave={() => setHoverIdx(null)}
-                                >
+                                <div className="relative flex">
                                   {weeks.map((w, i) => {
-                                    const inFinalRange =
-                                      pendingStart !== null && pendingEnd !== null && i >= pendingStart && i <= pendingEnd;
-                                    const inHoverPreview =
-                                      anchorIdx !== null &&
-                                      hoverIdx !== null &&
-                                      i >= Math.min(anchorIdx, hoverIdx) &&
-                                      i <= Math.max(anchorIdx, hoverIdx);
-                                    const highlighted = inFinalRange || inHoverPreview;
+                                    const inRange =
+                                      rangeStartDays !== null &&
+                                      rangeEndDays !== null &&
+                                      i * 7 + 6 >= rangeStartDays &&
+                                      i * 7 <= rangeEndDays;
                                     return (
                                       <button
                                         key={i}
                                         type="button"
-                                        onMouseEnter={() => setHoverIdx(i)}
                                         onClick={() => handleWeekClick(user.id, i)}
                                         className={w.isMonthStart ? "border-l border-neutral-200" : ""}
                                         style={{
                                           width: WEEK_WIDTH,
                                           height: 20,
-                                          backgroundColor: highlighted ? "#579bfc" : "#f3f4f6",
+                                          backgroundColor: inRange ? "#579bfc" : "#f3f4f6",
                                           cursor: "pointer",
                                         }}
                                       />
                                     );
                                   })}
-                                  {pendingStart !== null && pendingEnd !== null && (
+                                  {rangeStartDays !== null && (
                                     <div
-                                      className="pointer-events-none absolute top-0 flex items-center justify-center overflow-hidden whitespace-nowrap px-1 text-[9px] font-medium text-white"
+                                      className="pointer-events-none absolute top-0 whitespace-nowrap text-[10px] font-medium text-neutral-700"
                                       style={{
-                                        left: pendingStart * WEEK_WIDTH,
-                                        width: (pendingEnd - pendingStart + 1) * WEEK_WIDTH,
+                                        left: rangeLeftPx - 6,
+                                        transform: "translateX(-100%)",
                                         height: 20,
+                                        lineHeight: "20px",
                                       }}
                                     >
-                                      {weeks[pendingStart].label}~{weeks[pendingEnd].label}・
-                                      {(pendingEnd - pendingStart + 1) * 7}天・100%
+                                      {formStartDate}~{formEndDate}・{formDays}天・{formPct}%
                                     </div>
                                   )}
                                 </div>
                               </div>
 
-                              {pendingEnd !== null ? (
-                                (() => {
-                                  const existingLoad = Math.max(
-                                    0,
-                                    ...(weeklyLoadByUser[user.id] ?? []).slice(pendingStart! , pendingEnd + 1)
-                                  );
-                                  const projectedMax = existingLoad + 100;
-                                  return (
-                                    <div className="border-t border-neutral-100 bg-blue-50/40 px-2 py-2">
-                                      {formError && (
-                                        <p className="mb-1.5 text-xs text-red-600">{formError}</p>
-                                      )}
-                                      {projectedMax > 100 && (
-                                        <p className="mb-1.5 text-xs text-amber-600">
-                                          ⚠ 此區間 {user.name} 已有 {existingLoad}% 負載,加上此任務 100%
-                                          後最高將達 {projectedMax}%(超過 100%)
-                                        </p>
-                                      )}
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <select
-                                          value={formParentId}
-                                          onChange={(e) => setFormParentId(e.target.value)}
-                                          className="max-w-[220px] rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
-                                        >
-                                          {parentTaskOptions.map((t) => (
-                                            <option key={`${t.boardId}-${t.itemId}`} value={t.itemId}>
-                                              {t.boardName} / {t.itemName}
-                                            </option>
-                                          ))}
-                                        </select>
-                                        <input
-                                          value={formName}
-                                          onChange={(e) => setFormName(e.target.value)}
-                                          placeholder="任務名稱(留空預設為「新任務」)"
-                                          maxLength={20}
-                                          autoFocus
-                                          className="w-40 rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
-                                        />
-                                        <button
-                                          type="button"
-                                          disabled={submitting}
-                                          onClick={() => handleCreate(user.id)}
-                                          className="rounded-md bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                                        >
-                                          {submitting ? "建立中..." : "建立"}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={resetCreating}
-                                          className="rounded-md border border-neutral-300 px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-50"
-                                        >
-                                          取消
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                })()
-                              ) : (
-                                <div className="px-2 py-1">
+                              <div className="border-t border-neutral-100 bg-blue-50/40 px-2 py-2">
+                                {formError && (
+                                  <p className="mb-1.5 text-xs text-red-600">{formError}</p>
+                                )}
+                                {projectedMax > 100 && (
+                                  <p className="mb-1.5 text-xs text-amber-600">
+                                    ⚠ 此區間 {user.name} 已有 {existingLoad}% 負載,加上此任務 {formPct}%
+                                    後最高將達 {projectedMax}%(超過 100%)
+                                  </p>
+                                )}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <select
+                                    value={formParentId}
+                                    onChange={(e) => setFormParentId(e.target.value)}
+                                    className="max-w-[220px] rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+                                  >
+                                    {parentTaskOptions.map((t) => (
+                                      <option key={`${t.boardId}-${t.itemId}`} value={t.itemId}>
+                                        {t.boardName} / {t.itemName}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input
+                                    value={formName}
+                                    onChange={(e) => setFormName(e.target.value)}
+                                    placeholder="任務名稱(留空預設為「新任務」)"
+                                    maxLength={20}
+                                    className="w-40 rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+                                  />
+                                </div>
+                                <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                                  <label className="flex items-center gap-1 text-[10px] text-neutral-500">
+                                    起始
+                                    <input
+                                      type="date"
+                                      value={formStartDate}
+                                      onChange={(e) => setFormStartDate(e.target.value)}
+                                      className="rounded-md border border-neutral-300 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
+                                    />
+                                  </label>
+                                  <label className="flex items-center gap-1 text-[10px] text-neutral-500">
+                                    結束
+                                    <input
+                                      type="date"
+                                      value={formEndDate}
+                                      onChange={(e) => handleEndDateChange(e.target.value)}
+                                      className="rounded-md border border-neutral-300 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
+                                    />
+                                  </label>
+                                  <label className="flex items-center gap-1 text-[10px] text-neutral-500">
+                                    天數
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      value={formDays}
+                                      onChange={(e) => handleDaysChange(Number(e.target.value))}
+                                      className="w-14 rounded-md border border-neutral-300 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
+                                    />
+                                  </label>
+                                  <label className="flex items-center gap-1 text-[10px] text-neutral-500">
+                                    百分比
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={100}
+                                      value={formPct}
+                                      onChange={(e) => setFormPct(Number(e.target.value))}
+                                      className="w-14 rounded-md border border-neutral-300 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
+                                    />
+                                  </label>
+                                  <button
+                                    type="button"
+                                    disabled={submitting}
+                                    onClick={() => handleCreate(user.id)}
+                                    className="rounded-md bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                  >
+                                    {submitting ? "建立中..." : "建立"}
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={resetCreating}
-                                    className="text-[10px] text-neutral-400 hover:text-neutral-600"
+                                    className="rounded-md border border-neutral-300 px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-50"
                                   >
                                     取消
                                   </button>
                                 </div>
-                              )}
+                              </div>
                             </>
                           ) : (
                             <button
