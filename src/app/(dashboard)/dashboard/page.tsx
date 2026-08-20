@@ -88,10 +88,17 @@ export default async function DashboardPage({
 
   const userById = new Map(users.map((u) => [u.id, u.name]));
   const isSupervisor = session.role === "SUPERVISOR";
+  const isAdmin = session.role === "ADMIN";
   const teamMembers = isSupervisor
     ? users.filter((u) => u.supervisorId === session.userId)
     : [];
-  const workloadScope = isSupervisor ? teamMembers : users;
+  // Admins see the whole org's workload; supervisors see their team's;
+  // plain members only see their own — not everyone else's.
+  const workloadScope = isSupervisor
+    ? teamMembers
+    : isAdmin
+      ? users
+      : users.filter((u) => u.id === session.userId);
 
   const teamWorkloadDay = computeTeamWorkload(boards, workloadScope, "day");
   const teamWorkloadWeek = computeTeamWorkload(boards, workloadScope, "week");
@@ -99,7 +106,7 @@ export default async function DashboardPage({
   const boardProgress = computeBoardProgressOverview(boards);
   const { overdue, upcoming } = computeOverdueUpcoming(
     boards,
-    isSupervisor ? teamMembers.map((m) => m.id) : undefined
+    isSupervisor ? teamMembers.map((m) => m.id) : isAdmin ? undefined : [session.userId]
   );
   const personalItems = computePersonalItems(boards, [session.userId], userById);
   const teamItems = isSupervisor
@@ -164,7 +171,7 @@ export default async function DashboardPage({
       </div>
 
       <TeamWorkloadCard
-        title={isSupervisor ? "我的團隊工作量總覽" : "團隊工作量總覽"}
+        title={isSupervisor ? "我的團隊工作量總覽" : isAdmin ? "團隊工作量總覽" : "我的工作量總覽"}
         day={teamWorkloadDay}
         week={teamWorkloadWeek}
         month={teamWorkloadMonth}
