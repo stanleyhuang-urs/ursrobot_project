@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { ItemData, ColumnData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
-import { canManageStructure, canEditCellValue } from "@/lib/permissions";
+import { canManageStructure, canEditCellValue, canModifyItemSchedule } from "@/lib/permissions";
 import { CellEditor } from "./cell-editors/CellEditor";
 import { ItemDetailModal } from "./ItemDetailModal";
 import { AssignmentModal } from "./AssignmentModal";
@@ -31,6 +31,9 @@ export function ItemRow({
   columns,
   users,
   progressColumnId,
+  ganttStartColumnId,
+  ganttDurationColumnId,
+  ganttEndColumnId,
   userRole,
   currentUserId,
   visibleIds,
@@ -48,6 +51,9 @@ export function ItemRow({
   columns: ColumnData[];
   users: UserOption[];
   progressColumnId: string | null;
+  ganttStartColumnId: string | null;
+  ganttDurationColumnId: string | null;
+  ganttEndColumnId: string | null;
   userRole: UserRole;
   currentUserId: string;
   visibleIds: Set<string> | null;
@@ -58,6 +64,7 @@ export function ItemRow({
   levelColors?: string[];
 }) {
   const canEditStructure = canManageStructure(userRole);
+  const canModifySchedule = canModifyItemSchedule(userRole, item.createdById, currentUserId);
   const [name, setName] = useState(item.name);
   const isAncestorOfHighlight = expandIds?.has(item.id) ?? false;
   const [expandedState, setExpanded] = useState(true);
@@ -200,33 +207,44 @@ export function ItemRow({
                   <ArrowDownToLine size={14} /> 下方插入項目
                 </span>
               </RowMenuItem>
-              <RowMenuItem danger onSelect={() => deleteItem(boardId, item.id)}>
-                <span className="flex items-center gap-2">
-                  <Trash2 size={14} /> 刪除
-                </span>
-              </RowMenuItem>
+              {canModifySchedule && (
+                <RowMenuItem danger onSelect={() => deleteItem(boardId, item.id)}>
+                  <span className="flex items-center gap-2">
+                    <Trash2 size={14} /> 刪除
+                  </span>
+                </RowMenuItem>
+              )}
             </RowMenu>
           )}
         </div>
-        {columns.map((col) => (
-          <div key={col.id} className="border-r border-neutral-100 px-1">
-            {hasChildren && col.id === progressColumnId ? (
-              <RollupProgress
-                value={computeItemProgress(item, allGroupItems, col.id)}
-                childCount={children.length}
-              />
-            ) : (
-              <CellEditor
-                boardId={boardId}
-                itemId={item.id}
-                column={col}
-                value={valuesByColumn.get(col.id) ?? null}
-                users={users}
-                canEdit={canEditCellValue(userRole, col.type, col.id === progressColumnId)}
-              />
-            )}
-          </div>
-        ))}
+        {columns.map((col) => {
+          const isScheduleColumn =
+            col.id === ganttStartColumnId ||
+            col.id === ganttDurationColumnId ||
+            col.id === ganttEndColumnId;
+          return (
+            <div key={col.id} className="border-r border-neutral-100 px-1">
+              {hasChildren && col.id === progressColumnId ? (
+                <RollupProgress
+                  value={computeItemProgress(item, allGroupItems, col.id)}
+                  childCount={children.length}
+                />
+              ) : (
+                <CellEditor
+                  boardId={boardId}
+                  itemId={item.id}
+                  column={col}
+                  value={valuesByColumn.get(col.id) ?? null}
+                  users={users}
+                  canEdit={
+                    canEditCellValue(userRole, col.type, col.id === progressColumnId) &&
+                    (!isScheduleColumn || canModifySchedule)
+                  }
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
       <ItemDetailModal
         boardId={boardId}
@@ -259,6 +277,9 @@ export function ItemRow({
             columns={columns}
             users={users}
             progressColumnId={progressColumnId}
+            ganttStartColumnId={ganttStartColumnId}
+            ganttDurationColumnId={ganttDurationColumnId}
+            ganttEndColumnId={ganttEndColumnId}
             userRole={userRole}
             currentUserId={currentUserId}
             visibleIds={visibleIds}

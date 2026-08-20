@@ -297,6 +297,9 @@ export function BoardTable({
                   columns={orderedColumns}
                   users={users}
                   progressColumnId={board.progressColumnId}
+                  ganttStartColumnId={board.ganttStartColumnId}
+                  ganttDurationColumnId={board.ganttDurationColumnId}
+                  ganttEndColumnId={board.ganttEndColumnId}
                   userRole={userRole}
                   currentUserId={currentUserId}
                   visibleIds={visibleIds}

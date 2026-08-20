@@ -75,6 +75,7 @@ export async function createTeamSubtask(input: {
       parentId: parent.id,
       name: trimmedName,
       order: siblingCount,
+      createdById: session.userId,
     },
   });
 

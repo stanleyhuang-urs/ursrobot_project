@@ -21,6 +21,9 @@ export function GroupSection({
   columns,
   users,
   progressColumnId,
+  ganttStartColumnId,
+  ganttDurationColumnId,
+  ganttEndColumnId,
   userRole,
   currentUserId,
   visibleIds,
@@ -35,6 +38,9 @@ export function GroupSection({
   columns: ColumnData[];
   users: UserOption[];
   progressColumnId: string | null;
+  ganttStartColumnId: string | null;
+  ganttDurationColumnId: string | null;
+  ganttEndColumnId: string | null;
   userRole: UserRole;
   currentUserId: string;
   visibleIds: Set<string> | null;
@@ -141,6 +147,9 @@ export function GroupSection({
                 columns={columns}
                 users={users}
                 progressColumnId={progressColumnId}
+                ganttStartColumnId={ganttStartColumnId}
+                ganttDurationColumnId={ganttDurationColumnId}
+                ganttEndColumnId={ganttEndColumnId}
                 userRole={userRole}
                 currentUserId={currentUserId}
                 visibleIds={visibleIds}

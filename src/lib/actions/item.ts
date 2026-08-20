@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { requireStructureAccess } from "@/lib/permissions";
+import { requireStructureAccess, canModifyItemSchedule } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
 
@@ -22,7 +22,7 @@ export async function createItem(
     where: parentId ? { parentId } : { groupId, parentId: null },
   });
   const item = await prisma.item.create({
-    data: { boardId, groupId, name: trimmed, order: count, parentId },
+    data: { boardId, groupId, name: trimmed, order: count, parentId, createdById: session.userId },
   });
 
   revalidatePath(`/boards/${boardId}`);
@@ -59,6 +59,7 @@ export async function insertItem(
         parentId,
         name: "新項目",
         order: targetOrder,
+        createdById: session.userId,
       },
     }),
   ]);
@@ -88,6 +89,13 @@ export async function deleteItem(boardId: string, itemId: string) {
   const session = await requireSession();
   await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
+
+  const item = await prisma.item.findUnique({ where: { id: itemId }, select: { createdById: true } });
+  if (!item) throw new Error("找不到項目");
+  if (!canModifyItemSchedule(session.role, item.createdById, session.userId)) {
+    throw new Error("權限不足:僅建立者或管理者可以刪除此項目");
+  }
+
   await prisma.item.delete({ where: { id: itemId } });
   revalidatePath(`/boards/${boardId}`);
 }

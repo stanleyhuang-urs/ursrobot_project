@@ -8,7 +8,7 @@ import { notifyItemAssignees, notifyEmailIfNeeded } from "@/lib/notify";
 import { executeAutomationRules } from "@/lib/automation";
 import { syncGanttDates } from "@/lib/ganttSync";
 import { syncPredecessorLink } from "@/lib/predecessorLink";
-import { canEditCellValue } from "@/lib/permissions";
+import { canEditCellValue, canModifyItemSchedule } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
 import { getPersonIds, type CellValueJson } from "@/types/column";
@@ -28,7 +28,15 @@ export async function upsertCellValue(
     }),
     prisma.column.findUnique({ where: { id: columnId } }),
     prisma.item.findUnique({ where: { id: itemId } }),
-    prisma.board.findUnique({ where: { id: boardId }, select: { progressColumnId: true } }),
+    prisma.board.findUnique({
+      where: { id: boardId },
+      select: {
+        progressColumnId: true,
+        ganttStartColumnId: true,
+        ganttDurationColumnId: true,
+        ganttEndColumnId: true,
+      },
+    }),
   ]);
 
   if (
@@ -36,6 +44,16 @@ export async function upsertCellValue(
     !canEditCellValue(session.role, column.type, column.id === board?.progressColumnId)
   ) {
     throw new Error("權限不足:你只能編輯狀態與進度欄位");
+  }
+
+  const isScheduleColumn =
+    column &&
+    board &&
+    (column.id === board.ganttStartColumnId ||
+      column.id === board.ganttDurationColumnId ||
+      column.id === board.ganttEndColumnId);
+  if (isScheduleColumn && item && !canModifyItemSchedule(session.role, item.createdById, session.userId)) {
+    throw new Error("權限不足:僅建立者或管理者可以修改此項目的時程");
   }
 
   const jsonValue = value === null ? Prisma.JsonNull : value;

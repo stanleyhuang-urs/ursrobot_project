@@ -48,6 +48,7 @@ model User {
   boardMemberships    BoardMember[]
   attachments         Attachment[]
   activityLogEntries  ActivityLogEntry[]
+  createdItems        Item[]              @relation("ItemCreatedBy")
 }
 
 model Board {
@@ -146,6 +147,9 @@ model Item {
   name      String
   order     Int      @default(0)
   createdAt DateTime @default(now())
+
+  createdById String?
+  createdBy   User?   @relation("ItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   cellValues    CellValue[]
   comments      Comment[]

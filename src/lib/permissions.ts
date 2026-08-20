@@ -33,3 +33,17 @@ export function canEditCellValue(
   if (canManageStructure(role)) return true;
   return columnType === "STATUS" || isProgressColumn;
 }
+
+/**
+ * Deleting an item and editing its schedule (start date / duration) is
+ * restricted to whoever created it, or an ADMIN. Items with no creator
+ * (e.g. from an Excel import) can only be touched by an ADMIN.
+ */
+export function canModifyItemSchedule(
+  role: UserRole,
+  itemCreatedById: string | null,
+  currentUserId: string
+): boolean {
+  if (role === "ADMIN") return true;
+  return itemCreatedById !== null && itemCreatedById === currentUserId;
+}
