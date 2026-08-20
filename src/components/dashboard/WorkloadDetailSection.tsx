@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Settings, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import {
@@ -11,13 +11,13 @@ import {
   type WeekColumn,
 } from "@/lib/workload";
 import { createTeamSubtask } from "@/lib/actions/teamTask";
+import { firstTreeItemId, type ParentTreeNode } from "@/lib/parentTaskTree";
+import { ParentTaskPicker } from "./ParentTaskPicker";
 import { WorkloadThresholdModal } from "./WorkloadThresholdModal";
 
 const LABEL_WIDTH = 140;
 const WEEK_WIDTH = 26;
 const DAY_MS = 86_400_000;
-
-type ParentTaskOption = { boardId: string; boardName: string; itemId: string; itemName: string };
 
 function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -39,7 +39,7 @@ export function WorkloadDetailSection({
   threshold,
   canManageThreshold,
   canCreateSubtask,
-  parentTaskOptions,
+  parentTaskTree,
 }: {
   users: { id: string; name: string }[];
   tasksByUser: Record<string, MemberTask[]>;
@@ -48,13 +48,14 @@ export function WorkloadDetailSection({
   threshold: WorkloadThresholdSettings;
   canManageThreshold: boolean;
   canCreateSubtask: boolean;
-  parentTaskOptions: ParentTaskOption[];
+  parentTaskTree: ParentTreeNode[];
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [creatingForUserId, setCreatingForUserId] = useState<string | null>(null);
   const [anchorIdx, setAnchorIdx] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [formStartDate, setFormStartDate] = useState("");
   const [formDays, setFormDays] = useState(7);
   const [formPct, setFormPct] = useState(100);
@@ -89,7 +90,7 @@ export function WorkloadDetailSection({
     setFormDays(7);
     setFormPct(100);
     setFormName("");
-    setFormParentId(parentTaskOptions[0]?.itemId ?? "");
+    setFormParentId(firstTreeItemId(parentTaskTree));
     setFormError(null);
   }
 
@@ -104,18 +105,29 @@ export function WorkloadDetailSection({
     setFormError(null);
   }
 
-  /** Clicking the timeline is a rough quick-pick: first click sets a fixed
-   *  anchor week, every click after that redraws [anchor, click] as whole
-   *  weeks into the Start/Days fields below — which stay freely editable
-   *  for day-level precision afterward. */
-  function handleWeekClick(userId: string, weekIdx: number) {
+  // Ends a drag no matter where the pointer is released, even outside the timeline.
+  useEffect(() => {
+    if (!isDragging) return;
+    const onPointerUp = () => setIsDragging(false);
+    window.addEventListener("pointerup", onPointerUp);
+    return () => window.removeEventListener("pointerup", onPointerUp);
+  }, [isDragging]);
+
+  /** Dragging the timeline is a rough quick-pick: pointer-down sets a fresh
+   *  anchor week, dragging over other weeks redraws [anchor, current] as
+   *  whole weeks into the Start/Days fields below — which stay freely
+   *  editable for day-level precision afterward. A plain click (no drag)
+   *  just picks that single week. */
+  function handleWeekPointerDown(userId: string, weekIdx: number) {
     if (creatingForUserId !== userId) return;
-    if (anchorIdx === null) {
-      setAnchorIdx(weekIdx);
-      setFormStartDate(toIsoDate(weeks[weekIdx].start));
-      setFormDays(7);
-      return;
-    }
+    setAnchorIdx(weekIdx);
+    setFormStartDate(toIsoDate(weeks[weekIdx].start));
+    setFormDays(7);
+    setIsDragging(true);
+  }
+
+  function handleWeekPointerEnter(userId: string, weekIdx: number) {
+    if (creatingForUserId !== userId || !isDragging || anchorIdx === null) return;
     const start = Math.min(anchorIdx, weekIdx);
     const end = Math.max(anchorIdx, weekIdx);
     setFormStartDate(toIsoDate(weeks[start].start));
@@ -329,7 +341,7 @@ export function WorkloadDetailSection({
                           })
                         )}
 
-                        {canCreateSubtask && parentTaskOptions.length > 0 && (
+                        {canCreateSubtask && parentTaskTree.length > 0 && (
                           isCreating ? (
                             <>
                               <div className="flex items-center">
@@ -337,7 +349,7 @@ export function WorkloadDetailSection({
                                   style={{ width: LABEL_WIDTH }}
                                   className="shrink-0 border-r border-neutral-100 px-2 py-1 text-[10px] text-neutral-500"
                                 >
-                                  點選或於下方輸入
+                                  拖曳或點選,亦可於下方輸入
                                 </div>
                                 <div className="relative flex">
                                   {weeks.map((w, i) => {
@@ -350,13 +362,15 @@ export function WorkloadDetailSection({
                                       <button
                                         key={i}
                                         type="button"
-                                        onClick={() => handleWeekClick(user.id, i)}
+                                        onPointerDown={() => handleWeekPointerDown(user.id, i)}
+                                        onPointerEnter={() => handleWeekPointerEnter(user.id, i)}
                                         className={w.isMonthStart ? "border-l border-neutral-200" : ""}
                                         style={{
                                           width: WEEK_WIDTH,
                                           height: 20,
                                           backgroundColor: inRange ? "#579bfc" : "#f3f4f6",
                                           cursor: "pointer",
+                                          touchAction: "none",
                                         }}
                                       />
                                     );
@@ -388,17 +402,11 @@ export function WorkloadDetailSection({
                                   </p>
                                 )}
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <select
+                                  <ParentTaskPicker
+                                    tree={parentTaskTree}
                                     value={formParentId}
-                                    onChange={(e) => setFormParentId(e.target.value)}
-                                    className="max-w-[220px] rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
-                                  >
-                                    {parentTaskOptions.map((t) => (
-                                      <option key={`${t.boardId}-${t.itemId}`} value={t.itemId}>
-                                        {t.boardName} / {t.itemName}
-                                      </option>
-                                    ))}
-                                  </select>
+                                    onChange={setFormParentId}
+                                  />
                                   <input
                                     value={formName}
                                     onChange={(e) => setFormName(e.target.value)}

@@ -23,6 +23,7 @@ import {
   computeMemberWeeklyLoad,
   type MemberTask,
 } from "@/lib/workload";
+import { buildSupervisorParentTree, buildFullParentTree } from "@/lib/parentTaskTree";
 
 function formatDate(date: Date) {
   return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
@@ -108,20 +109,14 @@ export default async function DashboardPage({
   const workloadThreshold = await getWorkloadThreshold();
   const workloadScopeIds = workloadScope.map((u) => u.id);
   const memberTasksMap = computeMemberTaskBreakdown(boards, workloadScopeIds);
-  const myOwnTasks = computeMemberTaskBreakdown(boards, [session.userId]).get(session.userId) ?? [];
   // Admins aren't limited to delegating their own work — they can split a
-  // subtask off any task. Supervisors stay scoped to tasks assigned to them.
-  const parentTaskOptions =
+  // subtask off any task in the full hierarchy. Supervisors get a tree of
+  // just the ancestor paths of tasks assigned to them, so they can pick any
+  // level of their own work as the new subtask's parent.
+  const parentTaskTree =
     session.role === "ADMIN"
-      ? allBoards.flatMap((b) =>
-          b.items.map((i) => ({
-            boardId: b.id,
-            boardName: b.name,
-            itemId: i.id,
-            itemName: i.name,
-          }))
-        )
-      : myOwnTasks;
+      ? buildFullParentTree(allBoards)
+      : buildSupervisorParentTree(boards, session.userId);
   const weekColumns = computeWeekColumns(boards);
   const weeklyLoadMap = computeMemberWeeklyLoad(boards, workloadScopeIds, weekColumns);
 
@@ -185,7 +180,7 @@ export default async function DashboardPage({
         threshold={workloadThreshold}
         canManageThreshold={session.role === "ADMIN"}
         canCreateSubtask={canManageStructure(session.role)}
-        parentTaskOptions={parentTaskOptions}
+        parentTaskTree={parentTaskTree}
       />
 
       <section>

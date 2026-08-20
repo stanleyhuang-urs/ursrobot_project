@@ -6,6 +6,22 @@ import { requireSession } from "@/lib/session";
 import { canManageStructure } from "@/lib/permissions";
 import { upsertAssignment } from "./assignment";
 
+/** A supervisor may pick an ancestor of one of their assigned tasks as the
+ *  new subtask's parent (per the dashboard's expandable tree picker), not
+ *  just the exact item assigned to them — so check the whole subtree. */
+async function isItemAssignedOrAncestorOfAssigned(itemId: string, userId: string): Promise<boolean> {
+  const item = await prisma.item.findUnique({
+    where: { id: itemId },
+    include: { assignments: true, subitems: { select: { id: true } } },
+  });
+  if (!item) return false;
+  if (item.assignments.some((a) => a.userId === userId)) return true;
+  for (const child of item.subitems) {
+    if (await isItemAssignedOrAncestorOfAssigned(child.id, userId)) return true;
+  }
+  return false;
+}
+
 /**
  * Lets a supervisor split a subtask off one of their own assigned tasks, or
  * an admin split a subtask off any task, and hand it to a team member —
@@ -39,11 +55,9 @@ export async function createTeamSubtask(input: {
   if (!parent) throw new Error("找不到父任務");
 
   if (session.role === "SUPERVISOR") {
-    const ownAssignment = await prisma.assignment.findUnique({
-      where: { itemId_userId: { itemId: parent.id, userId: session.userId } },
-    });
-    if (!ownAssignment) {
-      throw new Error("只能在自己被指派的任務下新增子任務");
+    const isAssignedOrAncestor = await isItemAssignedOrAncestorOfAssigned(parent.id, session.userId);
+    if (!isAssignedOrAncestor) {
+      throw new Error("只能在自己被指派的任務(或其上層任務)下新增子任務");
     }
   }
 
