@@ -55,11 +55,14 @@ export function BoardKanban({
   }
 
   const isSupervisor = userRole === "SUPERVISOR";
+  const isMember = userRole === "MEMBER";
   const teamIds = isSupervisor
     ? users.filter((u) => u.supervisorId === currentUserId).map((u) => u.id)
     : null;
   const [scope, setScope] = useState<"team" | "all">(isSupervisor ? "team" : "all");
-  const effectiveTeamIds = scope === "team" ? teamIds : null;
+  // Members only ever see their own items — there's no "all" toggle for them,
+  // unlike supervisors who can widen to the whole board.
+  const effectiveTeamIds = isMember ? [currentUserId] : scope === "team" ? teamIds : null;
   const scopedItems = effectiveTeamIds
     ? items.filter((item) => itemOwnerIds(item, board).some((id) => effectiveTeamIds.includes(id)))
     : items;
