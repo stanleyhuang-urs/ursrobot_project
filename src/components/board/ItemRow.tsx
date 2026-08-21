@@ -14,6 +14,7 @@ import {
 import type { ItemData, ColumnData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageStructure, canEditCellValue, canModifyItemSchedule } from "@/lib/permissions";
+import { isItemAssignedToUser } from "@/lib/itemAssignment";
 import { CellEditor } from "./cell-editors/CellEditor";
 import { ItemDetailModal } from "./ItemDetailModal";
 import { AssignmentModal } from "./AssignmentModal";
@@ -65,6 +66,8 @@ export function ItemRow({
 }) {
   const canEditStructure = canManageStructure(userRole);
   const canModifySchedule = canModifyItemSchedule(userRole, item.createdById, currentUserId);
+  const personColumnIds = columns.filter((c) => c.type === "PERSON").map((c) => c.id);
+  const isAssignedToCurrentUser = isItemAssignedToUser(item, personColumnIds, currentUserId);
   const [name, setName] = useState(item.name);
   const isAncestorOfHighlight = expandIds?.has(item.id) ?? false;
   const [expandedState, setExpanded] = useState(true);
@@ -237,7 +240,7 @@ export function ItemRow({
                   value={valuesByColumn.get(col.id) ?? null}
                   users={users}
                   canEdit={
-                    canEditCellValue(userRole, col.type, col.id === progressColumnId) &&
+                    canEditCellValue(userRole, col.type, col.id === progressColumnId, isAssignedToCurrentUser) &&
                     (!isScheduleColumn || canModifySchedule)
                   }
                 />

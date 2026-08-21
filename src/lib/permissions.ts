@@ -22,16 +22,19 @@ export function requireStructureAccess(role: UserRole) {
 
 /**
  * MEMBER may only edit STATUS-type columns and the board's designated
- * progress column; everything else (structural columns aside) is read-only
- * for them. ADMIN and SUPERVISOR can edit any cell.
+ * progress column, and only on items assigned to them (via a Gantt
+ * Assignment or a PERSON-column value naming them) — not any item on the
+ * board. ADMIN and SUPERVISOR can edit any cell.
  */
 export function canEditCellValue(
   role: UserRole,
   columnType: ColumnType,
-  isProgressColumn: boolean
+  isProgressColumn: boolean,
+  isAssignedToUser: boolean
 ): boolean {
   if (canManageStructure(role)) return true;
-  return columnType === "STATUS" || isProgressColumn;
+  if (columnType !== "STATUS" && !isProgressColumn) return false;
+  return isAssignedToUser;
 }
 
 /**

@@ -3,6 +3,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { ItemData } from "@/types/board";
+import type { UserRole } from "@prisma/client";
 import { KanbanCard } from "./KanbanCard";
 
 export function KanbanLane({
@@ -10,11 +11,17 @@ export function KanbanLane({
   label,
   color,
   items,
+  userRole,
+  currentUserId,
+  personColumnIds,
 }: {
   laneId: string;
   label: string;
   color: string;
   items: ItemData[];
+  userRole: UserRole;
+  currentUserId: string;
+  personColumnIds: string[];
 }) {
   const { setNodeRef } = useDroppable({ id: laneId, data: { type: "lane" } });
 
@@ -33,7 +40,13 @@ export function KanbanLane({
       >
         <div ref={setNodeRef} className="flex min-h-[60px] flex-col gap-2 p-2">
           {items.map((item) => (
-            <KanbanCard key={item.id} item={item} />
+            <KanbanCard
+              key={item.id}
+              item={item}
+              userRole={userRole}
+              currentUserId={currentUserId}
+              personColumnIds={personColumnIds}
+            />
           ))}
         </div>
       </SortableContext>

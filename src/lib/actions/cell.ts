@@ -11,6 +11,7 @@ import { syncPredecessorLink } from "@/lib/predecessorLink";
 import { canEditCellValue, canModifyItemSchedule } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
+import { isItemAssignedToUser } from "@/lib/itemAssignment";
 import { getPersonIds, type CellValueJson } from "@/types/column";
 
 export async function upsertCellValue(
@@ -22,12 +23,15 @@ export async function upsertCellValue(
   const session = await requireSession();
   await requireBoardAccess(boardId, session);
 
-  const [existing, column, item, board] = await Promise.all([
+  const [existing, column, item, board, personColumns] = await Promise.all([
     prisma.cellValue.findUnique({
       where: { itemId_columnId: { itemId, columnId } },
     }),
     prisma.column.findUnique({ where: { id: columnId } }),
-    prisma.item.findUnique({ where: { id: itemId } }),
+    prisma.item.findUnique({
+      where: { id: itemId },
+      include: { cellValues: true, assignments: true },
+    }),
     prisma.board.findUnique({
       where: { id: boardId },
       select: {
@@ -37,13 +41,18 @@ export async function upsertCellValue(
         ganttEndColumnId: true,
       },
     }),
+    prisma.column.findMany({ where: { boardId, type: "PERSON" }, select: { id: true } }),
   ]);
+
+  const isAssignedToUser = item
+    ? isItemAssignedToUser(item, personColumns.map((c) => c.id), session.userId)
+    : false;
 
   if (
     column &&
-    !canEditCellValue(session.role, column.type, column.id === board?.progressColumnId)
+    !canEditCellValue(session.role, column.type, column.id === board?.progressColumnId, isAssignedToUser)
   ) {
-    throw new Error("權限不足:你只能編輯狀態與進度欄位");
+    throw new Error("權限不足:你只能編輯自己被指派或負責項目的狀態與進度欄位");
   }
 
   const isScheduleColumn =

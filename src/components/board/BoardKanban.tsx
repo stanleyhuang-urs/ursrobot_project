@@ -17,6 +17,10 @@ import { itemOwnerIds } from "@/lib/boardReport";
 import { KanbanLane } from "./KanbanLane";
 import { upsertCellValue } from "@/lib/actions/cell";
 
+function personColumnIdsOf(columns: ColumnData[]): string[] {
+  return columns.filter((c) => c.type === "PERSON").map((c) => c.id);
+}
+
 const UNSET_LANE = "unset";
 
 export function BoardKanban({
@@ -37,6 +41,7 @@ export function BoardKanban({
   currentUserId: string;
 }) {
   const column = statusColumns.find((c) => c.id === columnId) ?? statusColumns[0];
+  const personColumnIds = personColumnIdsOf(board.columns);
   const statuses = useMemo(
     () => (column ? getStatusOptions(column.options) : []),
     [column]
@@ -271,6 +276,9 @@ export function BoardKanban({
             label="未設定"
             color="#9aa0a6"
             items={lanes.get(UNSET_LANE) ?? []}
+            userRole={userRole}
+            currentUserId={currentUserId}
+            personColumnIds={personColumnIds}
           />
           {statuses.map((s) => (
             <KanbanLane
@@ -279,6 +287,9 @@ export function BoardKanban({
               label={s.label}
               color={s.color}
               items={lanes.get(s.id) ?? []}
+              userRole={userRole}
+              currentUserId={currentUserId}
+              personColumnIds={personColumnIds}
             />
           ))}
         </div>
