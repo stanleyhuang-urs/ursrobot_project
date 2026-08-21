@@ -8,7 +8,7 @@ export type DateRange = { start: Date; end: Date };
  * missing — such items are not plotted on the Gantt chart.
  */
 export function getItemDateRange(
-  item: ItemData,
+  item: Pick<ItemData, "cellValues">,
   startColumnId: string,
   durationColumnId: string
 ): DateRange | null {

@@ -262,6 +262,7 @@ export default async function DashboardPage({
                     showAssignees
                     userRole={session.role}
                     currentUserId={session.userId}
+                    users={users}
                   />
                 ))}
               </ul>
@@ -286,6 +287,7 @@ export default async function DashboardPage({
                   showAssignees={false}
                   userRole={session.role}
                   currentUserId={session.userId}
+                  users={users}
                 />
               ))}
             </ul>

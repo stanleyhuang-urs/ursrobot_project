@@ -1,4 +1,4 @@
-import type { BoardWithData, UserOption } from "@/types/board";
+import type { BoardWithData, ColumnData, ItemData, UserOption } from "@/types/board";
 import { getPersonIds, getStatusOptions, type StatusOption } from "@/types/column";
 import { getItemDateRange, computeDailyLoadByUser } from "@/lib/gantt";
 
@@ -232,6 +232,10 @@ export type PersonalItemEntry = {
   startDate: Date | null;
   dueDate: Date | null;
   assignees: PersonalItemAssignee[];
+  /** The full item + its board's columns, for the dashboard's item-detail
+   *  and assignment modals (same components the board table uses). */
+  fullItem: ItemData;
+  columns: ColumnData[];
 };
 
 /**
@@ -287,6 +291,8 @@ export function computePersonalItems(
         assignees: [...allocationByUser.entries()]
           .map(([id, allocationPct]) => ({ name: userById.get(id) ?? "", allocationPct }))
           .filter((a) => a.name),
+        fullItem: item,
+        columns: board.columns,
       });
     }
   }
