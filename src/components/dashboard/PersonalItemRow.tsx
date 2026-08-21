@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 import { canManageStructure, canModifyItemSchedule } from "@/lib/permissions";
@@ -23,8 +24,16 @@ export function PersonalItemRow({
   userRole: UserRole;
   currentUserId: string;
 }) {
+  const router = useRouter();
   const canAddSubitem = canManageStructure(userRole);
   const canDelete = canModifyItemSchedule(userRole, item.createdById, currentUserId);
+
+  async function handleAddSubitem() {
+    const newItem = await createItem(item.boardId, item.groupId, "新子項目", item.itemId);
+    // The new subitem has no assignee yet, so it won't show up in this
+    // dashboard list — jump to it on the board so the action feels like it did something.
+    router.push(`/boards/${item.boardId}?highlight=${newItem.id}`);
+  }
 
   return (
     <li className="flex items-center gap-3 px-4 py-2.5">
@@ -59,7 +68,7 @@ export function PersonalItemRow({
       {(canAddSubitem || canDelete) && (
         <RowMenu>
           {canAddSubitem && (
-            <RowMenuItem onSelect={() => createItem(item.boardId, item.groupId, "新子項目", item.itemId)}>
+            <RowMenuItem onSelect={handleAddSubitem}>
               <span className="flex items-center gap-2">
                 <Plus size={14} /> 新增子項目
               </span>

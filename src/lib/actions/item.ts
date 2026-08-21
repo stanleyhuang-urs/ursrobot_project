@@ -26,6 +26,7 @@ export async function createItem(
   });
 
   revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/dashboard");
   return item;
 }
 
@@ -98,6 +99,7 @@ export async function deleteItem(boardId: string, itemId: string) {
 
   await prisma.item.delete({ where: { id: itemId } });
   revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/dashboard");
 }
 
 export async function moveItemToGroup(
