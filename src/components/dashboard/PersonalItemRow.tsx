@@ -87,6 +87,11 @@ export function PersonalItemRow({
           {item.status.label}
         </span>
       )}
+      {item.progressPct !== null && (
+        <span className="shrink-0 text-xs text-neutral-500">
+          {Math.round(item.progressPct)}%
+        </span>
+      )}
       {item.dueDate && (
         <span className="shrink-0 text-xs text-neutral-500">
           {item.startDate && `${formatDate(item.startDate)} ~ `}

@@ -1,6 +1,7 @@
 import type { BoardWithData, ColumnData, ItemData, UserOption } from "@/types/board";
 import { getPersonIds, getStatusOptions, type StatusOption } from "@/types/column";
 import { getItemDateRange, computeDailyLoadByUser } from "@/lib/gantt";
+import { computeItemProgress } from "@/lib/progress";
 
 export type WorkloadPeriod = "day" | "week" | "month";
 
@@ -229,6 +230,7 @@ export type PersonalItemEntry = {
   groupId: string;
   createdById: string | null;
   status: StatusOption | null;
+  progressPct: number | null;
   startDate: Date | null;
   dueDate: Date | null;
   assignees: PersonalItemAssignee[];
@@ -254,7 +256,12 @@ export function computePersonalItems(
   const result: PersonalItemEntry[] = [];
 
   for (const board of boards) {
-    const statusColumn = board.columns.find((c) => c.type === "STATUS");
+    // Boards can have several STATUS-type columns (Type, Priority, Status,
+    // Link, ...) for different purposes — prefer the one actually named
+    // "Status" over just grabbing whichever STATUS column comes first.
+    const statusColumn =
+      board.columns.find((c) => c.type === "STATUS" && c.name === "Status") ??
+      board.columns.find((c) => c.type === "STATUS");
     const statusOptions = statusColumn ? getStatusOptions(statusColumn.options) : [];
 
     for (const item of board.items) {
@@ -279,6 +286,10 @@ export function computePersonalItems(
           ? getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId)
           : null;
 
+      const progressPct = board.progressColumnId
+        ? computeItemProgress(item, board.items, board.progressColumnId)
+        : null;
+
       result.push({
         boardId: board.id,
         boardName: board.name,
@@ -287,6 +298,7 @@ export function computePersonalItems(
         groupId: item.groupId,
         createdById: item.createdById,
         status,
+        progressPct,
         startDate: range?.start ?? null,
         dueDate: range?.end ?? null,
         assignees: [...allocationByUser.entries()]
