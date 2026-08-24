@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Settings, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import {
@@ -66,6 +66,19 @@ export function WorkloadDetailSection({
 
   const timelineWidth = weeks.length * WEEK_WIDTH;
   const timelineOrigin = weeks[0]?.start ?? null;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const today = toIsoDate(new Date());
+  const todayOffsetPx = timelineOrigin
+    ? ((new Date(today).getTime() - timelineOrigin.getTime()) / DAY_MS / 7) * WEEK_WIDTH
+    : null;
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || todayOffsetPx === null) return;
+    el.scrollLeft = Math.max(0, LABEL_WIDTH + todayOffsetPx - el.clientWidth / 2);
+    // Only center on today once, when the timeline first renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const monthGroups: { label: string; count: number }[] = [];
   for (const week of weeks) {
@@ -198,8 +211,15 @@ export function WorkloadDetailSection({
       {users.length === 0 ? (
         <p className="text-sm text-neutral-400">目前沒有成員資料。</p>
       ) : (
-        <div className="overflow-x-auto">
-          <div style={{ width: LABEL_WIDTH + timelineWidth }}>
+        <div ref={scrollContainerRef} className="overflow-x-auto">
+          <div className="relative" style={{ width: LABEL_WIDTH + timelineWidth }}>
+            {todayOffsetPx !== null && (
+              <div
+                className="pointer-events-none absolute top-0 bottom-0 z-[5] w-px bg-red-400"
+                style={{ left: LABEL_WIDTH + todayOffsetPx }}
+                title="今天"
+              />
+            )}
             <div className="mb-2 overflow-hidden rounded-md border border-neutral-200">
               <div className="flex border-b border-neutral-100 bg-neutral-50 text-[10px] font-medium text-neutral-500">
                 <div style={{ width: LABEL_WIDTH }} className="shrink-0 border-r border-neutral-100 px-2 py-1">
