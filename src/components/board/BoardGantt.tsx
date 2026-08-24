@@ -92,9 +92,22 @@ export function BoardGantt({
   const [zoom, setZoom] = useState<Zoom>("day");
   const dayWidth = ZOOM_DAY_WIDTH[zoom];
   const scrollRef = useRef<HTMLDivElement>(null);
+  const topScrollRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startX: number; startScrollLeft: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const today = useMemo(() => new Date(new Date().toISOString().slice(0, 10)), []);
+
+  function syncFromTopScroll() {
+    if (scrollRef.current && topScrollRef.current) {
+      scrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
+  }
+
+  function syncFromMainScroll() {
+    if (scrollRef.current && topScrollRef.current) {
+      topScrollRef.current.scrollLeft = scrollRef.current.scrollLeft;
+    }
+  }
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if ((e.target as HTMLElement).closest("button")) return;
@@ -108,6 +121,7 @@ export function BoardGantt({
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragState.current || !scrollRef.current) return;
     scrollRef.current.scrollLeft = dragState.current.startScrollLeft - (e.clientX - dragState.current.startX);
+    syncFromMainScroll();
   }
 
   function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
@@ -166,9 +180,12 @@ export function BoardGantt({
     const el = scrollRef.current;
     if (!el || todayIndex < 0) return;
     el.scrollLeft = Math.max(0, todayIndex * dayWidth - (el.clientWidth - LABEL_WIDTH) / 2);
+    syncFromMainScroll();
     // Only re-center when the zoom level or the underlying day range changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom, days.length]);
+
+  const contentWidth = LABEL_WIDTH + days.length * dayWidth;
 
   const dailyLoad = useMemo(() => {
     if (!startColumnId || !durationColumnId) return new Map<string, Map<string, number>>();
@@ -372,16 +389,26 @@ export function BoardGantt({
       )}
 
       {startColumnId && durationColumnId && days.length > 0 && (
-        <div
-          ref={scrollRef}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-          className={`overflow-auto rounded-md border border-neutral-200 bg-white ${
-            isPanning ? "cursor-grabbing select-none" : "cursor-grab"
-          }`}
-        >
+        <>
+          <div
+            ref={topScrollRef}
+            onScroll={syncFromTopScroll}
+            className="mb-1 overflow-x-auto overflow-y-hidden"
+            style={{ height: 14 }}
+          >
+            <div style={{ width: contentWidth, height: 1 }} />
+          </div>
+          <div
+            ref={scrollRef}
+            onScroll={syncFromMainScroll}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerLeave={handlePointerUp}
+            className={`overflow-auto rounded-md border border-neutral-200 bg-white ${
+              isPanning ? "cursor-grabbing select-none" : "cursor-grab"
+            }`}
+          >
           <div className="relative" style={{ minWidth: LABEL_WIDTH + days.length * dayWidth }}>
             {todayIndex >= 0 && (
               <div
@@ -454,7 +481,8 @@ export function BoardGantt({
             </div>
           )}
           </div>
-        </div>
+          </div>
+        </>
       )}
 
       <AssignmentModal
