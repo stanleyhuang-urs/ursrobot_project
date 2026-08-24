@@ -16,7 +16,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import { GripVertical, KeyRound, Lock, Pencil, Plus, Trash2, Unlock } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
 import {
@@ -27,13 +27,15 @@ import {
   deleteUser,
   reorderUsers,
   listUsers,
+  adminResetUserPassword,
+  unlockUser,
 } from "@/lib/actions/user";
 import type { UserRole } from "@prisma/client";
 
 type UserRow = Awaited<ReturnType<typeof listUsers>>[number];
 
 const AVATAR_SIZE = 128;
-const ROW_GRID = "grid-cols-[24px_48px_1fr_1fr_90px_140px_160px_64px]";
+const ROW_GRID = "grid-cols-[24px_48px_1fr_1fr_90px_140px_160px_120px]";
 
 async function fileToAvatarDataUrl(file: File): Promise<string> {
   const bitmap = await createImageBitmap(file);
@@ -60,6 +62,8 @@ function SortableUserRow({
   onAvatarClick,
   onEdit,
   onDelete,
+  onResetPassword,
+  onUnlock,
 }: {
   user: UserRow;
   supervisors: UserRow[];
@@ -67,6 +71,8 @@ function SortableUserRow({
   onAvatarClick: (userId: string) => void;
   onEdit: () => void;
   onDelete: () => void;
+  onResetPassword: () => void;
+  onUnlock: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: user.id,
@@ -76,6 +82,7 @@ function SortableUserRow({
     transition,
     opacity: isDragging ? 0.6 : 1,
   };
+  const isLocked = !!user.lockedUntil && new Date(user.lockedUntil) > new Date();
 
   return (
     <div
@@ -102,7 +109,12 @@ function SortableUserRow({
       >
         <Avatar name={user.name} avatarUrl={user.avatarUrl} size={32} />
       </button>
-      <span className="truncate text-neutral-800">{user.name}</span>
+      <span className="flex min-w-0 items-center gap-1 truncate text-neutral-800">
+        {user.name}
+        {isLocked && (
+          <Lock size={12} className="shrink-0 text-red-500" aria-label="帳號已鎖定" />
+        )}
+      </span>
       <span className="truncate text-neutral-500">{user.email}</span>
       <span className="text-neutral-500">{roleLabel(user.role)}</span>
       <span className="text-neutral-400">
@@ -125,6 +137,26 @@ function SortableUserRow({
         <span className="text-neutral-300">—</span>
       )}
       <span className="flex items-center justify-end gap-2">
+        {isLocked && (
+          <button
+            type="button"
+            onClick={onUnlock}
+            className="text-neutral-400 hover:text-green-600"
+            aria-label="解除帳號鎖定"
+            title="解除鎖定"
+          >
+            <Unlock size={14} />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onResetPassword}
+          className="text-neutral-400 hover:text-blue-600"
+          aria-label="重設密碼"
+          title="重設密碼"
+        >
+          <KeyRound size={14} />
+        </button>
         <button
           type="button"
           onClick={onEdit}
@@ -188,6 +220,12 @@ export function UserManagement({
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -273,6 +311,35 @@ export function UserManagement({
     }
   }
 
+  function openResetPassword(user: UserRow) {
+    setResetTarget(user);
+    setResetPasswordValue("");
+    setResetError(null);
+  }
+
+  async function handleResetPasswordSave() {
+    if (!resetTarget) return;
+    setResetSubmitting(true);
+    setResetError(null);
+    try {
+      await adminResetUserPassword(resetTarget.id, resetPasswordValue);
+      setResetTarget(null);
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : "重設密碼失敗");
+    } finally {
+      setResetSubmitting(false);
+    }
+  }
+
+  async function handleUnlock(user: UserRow) {
+    setUnlockError(null);
+    try {
+      await unlockUser(user.id);
+    } catch (err) {
+      setUnlockError(err instanceof Error ? err.message : "解除鎖定失敗");
+    }
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -303,6 +370,11 @@ export function UserManagement({
       {deleteError && (
         <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {deleteError}
+        </div>
+      )}
+      {unlockError && (
+        <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {unlockError}
         </div>
       )}
 
@@ -344,6 +416,8 @@ export function UserManagement({
                 onAvatarClick={handleAvatarClick}
                 onEdit={() => openEdit(u)}
                 onDelete={() => handleDelete(u)}
+                onResetPassword={() => openResetPassword(u)}
+                onUnlock={() => handleUnlock(u)}
               />
             ))}
           </SortableContext>
@@ -477,6 +551,37 @@ export function UserManagement({
             className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {editSubmitting ? "儲存中..." : "儲存"}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={resetTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setResetTarget(null);
+        }}
+        title={resetTarget ? `重設「${resetTarget.name}」的密碼` : "重設密碼"}
+      >
+        {resetError && (
+          <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            {resetError}
+          </div>
+        )}
+        <div className="space-y-3">
+          <input
+            value={resetPasswordValue}
+            onChange={(e) => setResetPasswordValue(e.target.value)}
+            placeholder="新密碼(至少 8 個字元)"
+            type="password"
+            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          />
+          <button
+            type="button"
+            disabled={resetSubmitting || resetPasswordValue.length < 8}
+            onClick={handleResetPasswordSave}
+            className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {resetSubmitting ? "重設中..." : "重設密碼"}
           </button>
         </div>
       </Modal>

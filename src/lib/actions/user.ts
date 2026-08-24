@@ -18,6 +18,7 @@ export async function listUsers() {
       createdAt: true,
       supervisorId: true,
       supervisor: { select: { id: true, name: true } },
+      lockedUntil: true,
     },
     orderBy: { order: "asc" },
   });
@@ -214,4 +215,42 @@ export async function updateUserAvatar(userId: string, avatarUrl: string | null)
   revalidatePath("/users");
   revalidatePath("/boards");
   revalidatePath("/dashboard");
+}
+
+export async function adminResetUserPassword(userId: string, newPassword: string) {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") {
+    throw new Error("只有管理員可以重設使用者密碼");
+  }
+  if (newPassword.length < 8) {
+    throw new Error("密碼至少需要 8 個字元");
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      passwordHash,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      resetToken: null,
+      resetTokenExpiresAt: null,
+    },
+  });
+
+  revalidatePath("/users");
+}
+
+export async function unlockUser(userId: string) {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") {
+    throw new Error("只有管理員可以解除帳號鎖定");
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { failedLoginAttempts: 0, lockedUntil: null },
+  });
+
+  revalidatePath("/users");
 }

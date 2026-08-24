@@ -36,6 +36,11 @@ model User {
   order        Int      @default(0)
   createdAt    DateTime @default(now())
 
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  resetToken          String?   @unique
+  resetTokenExpiresAt DateTime?
+
   supervisorId String?
   supervisor   User?    @relation("Supervision", fields: [supervisorId], references: [id], onDelete: SetNull)
   teamMembers  User[]   @relation("Supervision")

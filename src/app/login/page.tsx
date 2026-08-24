@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { login, type LoginState } from "@/lib/actions/auth";
 
@@ -34,8 +35,13 @@ export default function LoginPage() {
           name="password"
           type="password"
           required
-          className="mb-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          className="mb-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
         />
+        <div className="mb-4 text-right">
+          <Link href="/forgot-password" className="text-xs text-blue-600 hover:underline">
+            忘記密碼？
+          </Link>
+        </div>
 
         {state.error && (
           <p className="mb-4 text-sm text-red-600">{state.error}</p>
