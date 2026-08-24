@@ -117,6 +117,9 @@ export function PersonalItemRow({
         item={detailOpen ? item.fullItem : null}
         columns={item.columns}
         users={users}
+        progressColumnId={item.progressColumnId}
+        userRole={userRole}
+        currentUserId={currentUserId}
         open={detailOpen}
         onOpenChange={setDetailOpen}
       />

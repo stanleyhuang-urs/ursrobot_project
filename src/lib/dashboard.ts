@@ -236,6 +236,7 @@ export type PersonalItemEntry = {
    *  and assignment modals (same components the board table uses). */
   fullItem: ItemData;
   columns: ColumnData[];
+  progressColumnId: string | null;
 };
 
 /**
@@ -293,6 +294,7 @@ export function computePersonalItems(
           .filter((a) => a.name),
         fullItem: item,
         columns: board.columns,
+        progressColumnId: board.progressColumnId,
       });
     }
   }

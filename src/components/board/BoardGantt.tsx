@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
@@ -15,8 +15,38 @@ import {
 import { getItemDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
 import { AssignmentModal } from "./AssignmentModal";
 
-const DAY_WIDTH = 28;
+type Zoom = "day" | "week" | "month";
+const ZOOM_DAY_WIDTH: Record<Zoom, number> = { day: 28, week: 10, month: 3 };
 const LABEL_WIDTH = 260;
+
+type HeaderSegment = { key: string; label: string; days: number };
+
+function buildHeaderSegments(days: Date[], zoom: Zoom): HeaderSegment[] {
+  if (zoom === "day") {
+    return days.map((d) => ({ key: toIsoDate(d), label: formatDay(d), days: 1 }));
+  }
+  const segments: HeaderSegment[] = [];
+  let bucket: Date[] = [];
+  function flush() {
+    if (bucket.length === 0) return;
+    const start = bucket[0];
+    segments.push({
+      key: toIsoDate(start),
+      label: zoom === "week" ? formatDay(start) : `${start.getFullYear()}/${start.getMonth() + 1}`,
+      days: bucket.length,
+    });
+    bucket = [];
+  }
+  for (const d of days) {
+    const startsNewBucket =
+      bucket.length > 0 &&
+      (zoom === "week" ? d.getDay() === 1 : d.getDate() === 1);
+    if (startsNewBucket) flush();
+    bucket.push(d);
+  }
+  flush();
+  return segments;
+}
 const ASSIGNEE_COLORS = [
   "#579bfc",
   "#00c875",
@@ -59,9 +89,12 @@ export function BoardGantt({
   const canEditStructure = canManageStructure(userRole);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [assignmentItem, setAssignmentItem] = useState<ItemData | null>(null);
+  const [zoom, setZoom] = useState<Zoom>("day");
+  const dayWidth = ZOOM_DAY_WIDTH[zoom];
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startX: number; startScrollLeft: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
+  const today = useMemo(() => new Date(new Date().toISOString().slice(0, 10)), []);
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if ((e.target as HTMLElement).closest("button")) return;
@@ -111,6 +144,10 @@ export function BoardGantt({
       min = Math.min(min, start.getTime());
       max = Math.max(max, end.getTime());
     }
+    // Always include today, so the timeline can be scrolled to it even if no
+    // item currently spans it.
+    min = Math.min(min, today.getTime());
+    max = Math.max(max, today.getTime());
     const minD = new Date(min);
     const totalDays = Math.round((max - min) / 86400000) + 1;
     const list: Date[] = [];
@@ -120,7 +157,18 @@ export function BoardGantt({
       list.push(d);
     }
     return { minDate: minD, days: list };
-  }, [ranges]);
+  }, [ranges, today]);
+
+  const headerSegments = useMemo(() => buildHeaderSegments(days, zoom), [days, zoom]);
+  const todayIndex = days.length > 0 ? diffDays(minDate, today) : -1;
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || todayIndex < 0) return;
+    el.scrollLeft = Math.max(0, todayIndex * dayWidth - (el.clientWidth - LABEL_WIDTH) / 2);
+    // Only re-center when the zoom level or the underlying day range changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom, days.length]);
 
   const dailyLoad = useMemo(() => {
     if (!startColumnId || !durationColumnId) return new Map<string, Map<string, number>>();
@@ -176,13 +224,14 @@ export function BoardGantt({
           </div>
           <div
             className="relative shrink-0"
-            style={{ width: days.length * DAY_WIDTH, height: 34 }}
+            style={{ width: days.length * dayWidth, height: 34 }}
           >
             {range && (
               <GanttBar
                 item={item}
                 range={range}
                 minDate={minDate}
+                dayWidth={dayWidth}
                 users={users}
                 onClick={canEditStructure ? () => setAssignmentItem(item) : undefined}
               />
@@ -200,6 +249,23 @@ export function BoardGantt({
 
   return (
     <div>
+      <div className="mb-3 flex items-center gap-2 text-sm">
+        <span className="text-neutral-500">時間刻度</span>
+        <div className="flex overflow-hidden rounded-md border border-neutral-200 text-xs">
+          {(["day", "week", "month"] as const).map((z) => (
+            <button
+              key={z}
+              type="button"
+              onClick={() => setZoom(z)}
+              className={`px-2.5 py-1 ${
+                zoom === z ? "bg-neutral-900 text-white" : "bg-white text-neutral-600 hover:bg-neutral-50"
+              }`}
+            >
+              {z === "day" ? "天" : z === "week" ? "週" : "月"}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="mb-4 flex flex-wrap items-center gap-4 rounded-md border border-neutral-200 bg-white px-4 py-3 text-sm">
         <div className="flex items-center gap-2">
           <span className="text-neutral-500">開始日期欄位</span>
@@ -316,32 +382,38 @@ export function BoardGantt({
             isPanning ? "cursor-grabbing select-none" : "cursor-grab"
           }`}
         >
-          <div className="flex" style={{ minWidth: LABEL_WIDTH + days.length * DAY_WIDTH }}>
-            <div
-              className="sticky left-0 shrink-0 border-b border-r border-neutral-100 bg-neutral-50 px-2 py-1.5 text-xs font-medium text-neutral-500"
-              style={{ width: LABEL_WIDTH }}
-            >
-              項目
+          <div className="relative" style={{ minWidth: LABEL_WIDTH + days.length * dayWidth }}>
+            {todayIndex >= 0 && (
+              <div
+                className="pointer-events-none absolute top-0 bottom-0 z-[5] w-px bg-red-400"
+                style={{ left: LABEL_WIDTH + todayIndex * dayWidth }}
+                title="今天"
+              />
+            )}
+            <div className="flex">
+              <div
+                className="sticky left-0 shrink-0 border-b border-r border-neutral-100 bg-neutral-50 px-2 py-1.5 text-xs font-medium text-neutral-500"
+                style={{ width: LABEL_WIDTH }}
+              >
+                項目
+              </div>
+              <div className="flex border-b border-neutral-100 bg-neutral-50">
+                {headerSegments.map((seg) => (
+                  <div
+                    key={seg.key}
+                    className="shrink-0 truncate border-r border-neutral-100 py-1.5 text-center text-xs text-neutral-500"
+                    style={{ width: seg.days * dayWidth }}
+                  >
+                    {seg.label}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="flex border-b border-neutral-100 bg-neutral-50">
-              {days.map((d) => (
-                <div
-                  key={toIsoDate(d)}
-                  className="shrink-0 border-r border-neutral-100 py-1.5 text-center text-xs text-neutral-500"
-                  style={{ width: DAY_WIDTH }}
-                >
-                  {formatDay(d)}
-                </div>
-              ))}
-            </div>
-          </div>
 
-          <div style={{ minWidth: LABEL_WIDTH + days.length * DAY_WIDTH }}>
             {renderRows(null, 0)}
-          </div>
 
           {usersWithLoad.length > 0 && (
-            <div style={{ minWidth: LABEL_WIDTH + days.length * DAY_WIDTH }}>
+            <div>
               <div className="flex border-t-2 border-neutral-200 bg-neutral-50 px-2 py-1.5 text-xs font-medium text-neutral-500">
                 人員負載
               </div>
@@ -368,7 +440,7 @@ export function BoardGantt({
                           title={load > 0 ? `${formatDay(d)}: ${load}%` : undefined}
                           className="shrink-0 border-r border-neutral-100"
                           style={{
-                            width: DAY_WIDTH,
+                            width: dayWidth,
                             height: 24,
                             backgroundColor: bg,
                             opacity: load > 0 ? Math.min(1, 0.35 + load / 200) : 1,
@@ -381,6 +453,7 @@ export function BoardGantt({
               ))}
             </div>
           )}
+          </div>
         </div>
       )}
 
@@ -401,17 +474,19 @@ function GanttBar({
   item,
   range,
   minDate,
+  dayWidth,
   users,
   onClick,
 }: {
   item: ItemData;
   range: DateRange;
   minDate: Date;
+  dayWidth: number;
   users: UserOption[];
   onClick?: () => void;
 }) {
-  const left = diffDays(minDate, range.start) * DAY_WIDTH;
-  const width = (diffDays(range.start, range.end) + 1) * DAY_WIDTH;
+  const left = diffDays(minDate, range.start) * dayWidth;
+  const width = (diffDays(range.start, range.end) + 1) * dayWidth;
   const totalPct = item.assignments.reduce((sum, a) => sum + a.allocationPct, 0);
 
   return (

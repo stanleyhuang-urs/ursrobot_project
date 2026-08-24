@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import type { ColumnData, ItemData, UserOption } from "@/types/board";
+import type { UserRole } from "@prisma/client";
 import { UpdatesTab } from "./item-detail/UpdatesTab";
 import { FilesTab } from "./item-detail/FilesTab";
 import { ActivityLogTab } from "./item-detail/ActivityLogTab";
@@ -24,6 +25,9 @@ export function ItemDetailModal({
   item,
   columns,
   users,
+  progressColumnId,
+  userRole,
+  currentUserId,
   open,
   onOpenChange,
 }: {
@@ -31,6 +35,9 @@ export function ItemDetailModal({
   item: ItemData | null;
   columns: ColumnData[];
   users: UserOption[];
+  progressColumnId: string | null;
+  userRole: UserRole;
+  currentUserId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -60,7 +67,17 @@ export function ItemDetailModal({
       {tab === "updates" && <UpdatesTab boardId={boardId} itemId={item.id} />}
       {tab === "files" && <FilesTab boardId={boardId} itemId={item.id} />}
       {tab === "activity" && <ActivityLogTab itemId={item.id} />}
-      {tab === "card" && <ItemCardTab item={item} columns={columns} users={users} />}
+      {tab === "card" && (
+        <ItemCardTab
+          boardId={boardId}
+          item={item}
+          columns={columns}
+          users={users}
+          progressColumnId={progressColumnId}
+          userRole={userRole}
+          currentUserId={currentUserId}
+        />
+      )}
       {tab === "checklist" && <ChecklistTab boardId={boardId} itemId={item.id} />}
     </Modal>
   );

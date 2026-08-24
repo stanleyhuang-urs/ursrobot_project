@@ -254,6 +254,9 @@ export function ItemRow({
         item={detailOpen ? item : null}
         columns={columns}
         users={users}
+        progressColumnId={progressColumnId}
+        userRole={userRole}
+        currentUserId={currentUserId}
         open={detailOpen}
         onOpenChange={setDetailOpen}
       />

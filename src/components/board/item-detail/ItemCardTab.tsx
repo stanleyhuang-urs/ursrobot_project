@@ -1,19 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { UserRole } from "@prisma/client";
 import { Avatar } from "@/components/ui/Avatar";
 import { getStatusOptions } from "@/types/column";
 import { listTodoItems } from "@/lib/actions/todo";
+import { canEditCellValue } from "@/lib/permissions";
+import { isItemAssignedToUser } from "@/lib/itemAssignment";
+import { StatusCell } from "../cell-editors/StatusCell";
+import { NumberCell } from "../cell-editors/NumberCell";
 import type { ColumnData, ItemData, UserOption } from "@/types/board";
 
 export function ItemCardTab({
+  boardId,
   item,
   columns,
   users,
+  progressColumnId,
+  userRole,
+  currentUserId,
 }: {
+  boardId: string;
   item: ItemData;
   columns: ColumnData[];
   users: UserOption[];
+  progressColumnId: string | null;
+  userRole: UserRole;
+  currentUserId: string;
 }) {
   const [todoStats, setTodoStats] = useState<{ done: number; total: number } | null>(null);
 
@@ -30,13 +43,28 @@ export function ItemCardTab({
 
   const valuesByColumn = new Map(item.cellValues.map((cv) => [cv.columnId, cv.value]));
   const usersById = new Map(users.map((u) => [u.id, u]));
+  const personColumnIds = columns.filter((c) => c.type === "PERSON").map((c) => c.id);
+  const isAssignedToUser = isItemAssignedToUser(item, personColumnIds, currentUserId);
 
   function renderValue(column: ColumnData) {
     const value = valuesByColumn.get(column.id) ?? null;
-    if (value === null || value === undefined || value === "") {
-      return <span className="text-neutral-300">—</span>;
-    }
+    const isProgressColumn = column.id === progressColumnId;
+
     if (column.type === "STATUS") {
+      if (canEditCellValue(userRole, "STATUS", false, isAssignedToUser)) {
+        return (
+          <StatusCell
+            boardId={boardId}
+            itemId={item.id}
+            columnId={column.id}
+            value={typeof value === "string" ? value : null}
+            options={column.options}
+          />
+        );
+      }
+      if (value === null || value === undefined || value === "") {
+        return <span className="text-neutral-300">—</span>;
+      }
       const options = getStatusOptions(column.options);
       const option = options.find((o) => o.id === value);
       if (!option) return <span className="text-neutral-300">—</span>;
@@ -48,6 +76,19 @@ export function ItemCardTab({
           {option.label}
         </span>
       );
+    }
+    if (isProgressColumn && column.type === "NUMBER" && canEditCellValue(userRole, "NUMBER", true, isAssignedToUser)) {
+      return (
+        <NumberCell
+          boardId={boardId}
+          itemId={item.id}
+          columnId={column.id}
+          value={typeof value === "number" ? value : null}
+        />
+      );
+    }
+    if (value === null || value === undefined || value === "") {
+      return <span className="text-neutral-300">—</span>;
     }
     if (column.type === "PERSON") {
       const user = usersById.get(String(value));
@@ -77,7 +118,7 @@ export function ItemCardTab({
           className="flex items-center justify-between border-b border-neutral-100 px-4 py-2.5 last:border-b-0"
         >
           <span className="text-xs text-neutral-400">{col.name}</span>
-          <span className="text-sm text-neutral-800">{renderValue(col)}</span>
+          <span className="w-40 text-sm text-neutral-800">{renderValue(col)}</span>
         </div>
       ))}
       {todoStats && (

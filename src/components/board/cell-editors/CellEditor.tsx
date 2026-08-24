@@ -1,4 +1,5 @@
 import type { ColumnData, UserOption } from "@/types/board";
+import { getStatusOptions } from "@/types/column";
 import { TextCell } from "./TextCell";
 import { StatusCell } from "./StatusCell";
 import { PersonCell } from "./PersonCell";
@@ -14,6 +15,20 @@ function ReadOnlyCell({
   value: string | number | null;
   users: UserOption[];
 }) {
+  if (column.type === "STATUS") {
+    const option = getStatusOptions(column.options).find((o) => o.id === value);
+    if (!option) return <span className="block px-2 py-1" />;
+    return (
+      <span
+        title={option.label}
+        className="mx-2 flex h-7 items-center truncate rounded px-2 text-xs font-medium text-white"
+        style={{ backgroundColor: option.color }}
+      >
+        {option.label}
+      </span>
+    );
+  }
+
   let display = "";
   if (column.type === "PERSON") {
     display = users.find((u) => u.id === value)?.name ?? "";
