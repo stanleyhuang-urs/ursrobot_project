@@ -69,7 +69,7 @@ export default async function DashboardPage({
   const teamWorkloadWeek = computeTeamWorkload(boards, workloadScope, "week");
   const teamWorkloadMonth = computeTeamWorkload(boards, workloadScope, "month");
   const boardProgress = computeBoardProgressOverview(boards);
-  const { overdue, upcoming } = computeOverdueUpcoming(
+  const { overdue, upcoming, completed } = computeOverdueUpcoming(
     boards,
     isSupervisor ? teamMembers.map((m) => m.id) : isAdmin ? undefined : [session.userId]
   );
@@ -140,7 +140,6 @@ export default async function DashboardPage({
         day={teamWorkloadDay}
         week={teamWorkloadWeek}
         month={teamWorkloadMonth}
-        tasksByUser={tasksByUser}
         memberItemWorkload={memberItemWorkload}
       />
 
@@ -201,7 +200,7 @@ export default async function DashboardPage({
 
       <section>
         <h2 className="mb-3 text-sm font-semibold text-neutral-700">逾期 / 即將到期項目</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-md border border-neutral-200 bg-white p-4">
             <p className="mb-2 text-xs font-medium text-red-600">逾期({overdue.length})</p>
             {overdue.length === 0 ? (
@@ -237,6 +236,26 @@ export default async function DashboardPage({
                       {e.itemName}
                     </Link>
                     <span className="shrink-0 text-xs text-neutral-500">{formatDate(e.end)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="rounded-md border border-neutral-200 bg-white p-4">
+            <p className="mb-2 text-xs font-medium text-green-600">已完成項目({completed.length})</p>
+            {completed.length === 0 ? (
+              <p className="text-sm text-neutral-400">沒有已完成項目</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {completed.map((e) => (
+                  <li key={`${e.boardId}-${e.itemId}`} className="flex items-center justify-between text-sm">
+                    <Link
+                      href={`/boards/${e.boardId}?highlight=${e.itemId}`}
+                      className="truncate text-neutral-700 hover:text-blue-600"
+                    >
+                      {e.itemName}
+                    </Link>
+                    <span className="shrink-0 text-xs text-green-600">{formatDate(e.end)}</span>
                   </li>
                 ))}
               </ul>

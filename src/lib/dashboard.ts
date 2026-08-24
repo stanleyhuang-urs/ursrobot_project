@@ -176,8 +176,37 @@ export type DueItemEntry = {
 };
 
 /**
+ * Boards can have several STATUS-type columns (Type, Priority, Status,
+ * Link, ...) for different purposes — prefer the one actually named
+ * "Status" over just grabbing whichever STATUS column comes first.
+ */
+function resolveStatusColumn(board: BoardWithData): ColumnData | null {
+  return (
+    board.columns.find((c) => c.type === "STATUS" && c.name === "Status") ??
+    board.columns.find((c) => c.type === "STATUS") ??
+    null
+  );
+}
+
+/** An item counts as done if its progress column reads 100%, or its Status
+ *  column is set to the "done" option (the id every board's default status
+ *  set uses for 已完成). */
+function isItemComplete(item: ItemData, board: BoardWithData, statusColumn: ColumnData | null): boolean {
+  if (board.progressColumnId) {
+    const pct = computeItemProgress(item, board.items, board.progressColumnId);
+    if (pct !== null && pct >= 100) return true;
+  }
+  if (statusColumn) {
+    const value = item.cellValues.find((cv) => cv.columnId === statusColumn.id)?.value;
+    if (value === "done") return true;
+  }
+  return false;
+}
+
+/**
  * Items whose Gantt end date has passed (overdue) or falls within the next 7
- * days (upcoming). Pass `userIds` to only include items whose 負責人
+ * days (upcoming), excluding anything already complete — those show up in
+ * `completed` instead. Pass `userIds` to only include items whose 負責人
  * (PERSON column or Gantt Assignment) is one of those users.
  */
 export function computeOverdueUpcoming(
@@ -186,6 +215,7 @@ export function computeOverdueUpcoming(
 ): {
   overdue: DueItemEntry[];
   upcoming: DueItemEntry[];
+  completed: DueItemEntry[];
 } {
   const today = todayUtc();
   const weekAhead = new Date(today);
@@ -194,9 +224,11 @@ export function computeOverdueUpcoming(
 
   const overdue: DueItemEntry[] = [];
   const upcoming: DueItemEntry[] = [];
+  const completed: DueItemEntry[] = [];
 
   for (const board of boards) {
     if (!board.ganttStartColumnId || !board.ganttDurationColumnId) continue;
+    const statusColumn = resolveStatusColumn(board);
     for (const item of board.items) {
       if (idSet) {
         const personIds = item.cellValues
@@ -209,15 +241,23 @@ export function computeOverdueUpcoming(
 
       const range = getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId);
       if (!range) continue;
+      if (range.end > weekAhead) continue;
+
       const entry = { boardId: board.id, boardName: board.name, itemId: item.id, itemName: item.name, end: range.end };
-      if (range.end < today) overdue.push(entry);
-      else if (range.end <= weekAhead) upcoming.push(entry);
+      if (isItemComplete(item, board, statusColumn)) {
+        completed.push(entry);
+      } else if (range.end < today) {
+        overdue.push(entry);
+      } else {
+        upcoming.push(entry);
+      }
     }
   }
 
   overdue.sort((a, b) => a.end.getTime() - b.end.getTime());
   upcoming.sort((a, b) => a.end.getTime() - b.end.getTime());
-  return { overdue, upcoming };
+  completed.sort((a, b) => a.end.getTime() - b.end.getTime());
+  return { overdue, upcoming, completed };
 }
 
 export type PersonalItemAssignee = { name: string; allocationPct: number | null };

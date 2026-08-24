@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { TeamWorkloadEntry, WorkloadPeriod, MemberItemWorkloadEntry } from "@/lib/dashboard";
-import type { MemberTask } from "@/lib/workload";
 
 const PERIOD_LABELS: Record<WorkloadPeriod, string> = {
   day: "本日",
@@ -39,14 +38,12 @@ export function TeamWorkloadCard({
   day,
   week,
   month,
-  tasksByUser,
   memberItemWorkload,
 }: {
   title: string;
   day: TeamWorkloadEntry[];
   week: TeamWorkloadEntry[];
   month: TeamWorkloadEntry[];
-  tasksByUser: Record<string, MemberTask[]>;
   memberItemWorkload: Record<string, Record<WorkloadPeriod, MemberItemWorkloadEntry[]>>;
 }) {
   const [period, setPeriod] = useState<WorkloadPeriod>("day");
@@ -225,14 +222,14 @@ export function TeamWorkloadCard({
               </tr>
             </thead>
             <tbody>
-              {(tasksByUser[expandedUserId] ?? []).map((t) => (
+              {(memberItemWorkload[expandedUserId]?.[period] ?? []).map((t) => (
                 <tr key={`${t.boardId}-${t.itemId}`} className="border-t border-neutral-100">
                   <td className="px-3 py-1.5 text-neutral-600">{t.boardName}</td>
                   <td className="px-3 py-1.5 text-neutral-800">{t.itemName}</td>
-                  <td className="px-3 py-1.5 text-right text-neutral-600">{t.allocationPct}%</td>
+                  <td className="px-3 py-1.5 text-right text-neutral-600">{t.avgPct}%</td>
                 </tr>
               ))}
-              {(tasksByUser[expandedUserId] ?? []).length === 0 && (
+              {(memberItemWorkload[expandedUserId]?.[period] ?? []).length === 0 && (
                 <tr>
                   <td colSpan={3} className="px-3 py-2 text-center text-neutral-400">
                     目前沒有指派中的任務

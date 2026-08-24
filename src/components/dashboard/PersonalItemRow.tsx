@@ -79,12 +79,16 @@ export function PersonalItemRow({
         </span>
       )}
       <span className="shrink-0 text-xs text-neutral-400">{item.boardName}</span>
-      {item.status && (
+      {item.status ? (
         <span
           className="shrink-0 rounded-full px-2 py-0.5 text-xs text-white"
           style={{ backgroundColor: item.status.color }}
         >
           {item.status.label}
+        </span>
+      ) : (
+        <span className="shrink-0 rounded-full bg-neutral-200 px-2 py-0.5 text-xs text-neutral-500">
+          狀態未設置
         </span>
       )}
       {item.progressPct !== null && (
