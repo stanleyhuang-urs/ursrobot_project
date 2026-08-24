@@ -71,6 +71,16 @@ export function PersonalItemRow({
           {assignmentCount > 0 && <span>{assignmentCount}</span>}
         </button>
       )}
+      {canManage && (
+        <button
+          type="button"
+          onClick={() => setAddSubtaskOpen(true)}
+          className="flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs text-neutral-300 hover:bg-neutral-100 hover:text-neutral-600"
+          aria-label="新增子任務"
+        >
+          <Plus size={14} />
+        </button>
+      )}
       {showAssignees && (
         <span className="shrink-0 text-xs text-neutral-500">
           {item.assignees
@@ -102,22 +112,13 @@ export function PersonalItemRow({
           {formatDate(item.dueDate)}
         </span>
       )}
-      {(canManage || canDelete) && (
+      {canDelete && (
         <RowMenu>
-          {canManage && (
-            <RowMenuItem onSelect={() => setAddSubtaskOpen(true)}>
-              <span className="flex items-center gap-2">
-                <Plus size={14} /> 新增子任務
-              </span>
-            </RowMenuItem>
-          )}
-          {canDelete && (
-            <RowMenuItem danger onSelect={() => deleteItem(item.boardId, item.itemId)}>
-              <span className="flex items-center gap-2">
-                <Trash2 size={14} /> 刪除
-              </span>
-            </RowMenuItem>
-          )}
+          <RowMenuItem danger onSelect={() => deleteItem(item.boardId, item.itemId)}>
+            <span className="flex items-center gap-2">
+              <Trash2 size={14} /> 刪除
+            </span>
+          </RowMenuItem>
         </RowMenu>
       )}
 

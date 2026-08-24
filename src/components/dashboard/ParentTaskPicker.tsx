@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { findTreeNode, findTreePath, type ParentTreeNode } from "@/lib/parentTaskTree";
 
@@ -84,6 +85,30 @@ export function ParentTaskPicker({
     () => new Set(value ? (findTreePath(tree, value) ?? []) : [])
   );
   const [lastSyncedValue, setLastSyncedValue] = useState(value);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+
+  // The trigger sits inside a horizontally-scrolling timeline, which clips
+  // an absolutely-positioned dropdown to a sliver of its intended size — so
+  // the menu is portaled to <body> and fixed-positioned off the button's
+  // live location instead, re-measured while scrolling/resizing.
+  useEffect(() => {
+    if (!open) return;
+    function updatePos() {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const menuWidth = 384;
+      const left = Math.min(Math.max(rect.left, 8), window.innerWidth - menuWidth - 8);
+      setMenuPos({ top: rect.bottom + 4, left });
+    }
+    updatePos();
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [open]);
 
   // Auto-expand the ancestor path of the selection whenever it changes, e.g.
   // when a create-form is reset to a new default parent.
@@ -107,33 +132,40 @@ export function ParentTaskPicker({
   return (
     <div className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="w-56 max-w-[220px] truncate rounded-md border border-neutral-300 bg-white px-2 py-1 text-left text-xs outline-none focus:border-blue-500"
       >
         {selectedNode ? `${selectedNode.boardName} / ${selectedNode.itemName}` : "選擇父任務"}
       </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute z-20 mt-1 max-h-64 w-72 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg">
-            {tree.map((node) => (
-              <TreeRow
-                key={node.itemId}
-                node={node}
-                depth={0}
-                selectedId={value}
-                expanded={expanded}
-                onToggleExpand={toggleExpand}
-                onSelect={(id) => {
-                  onChange(id);
-                  setOpen(false);
-                }}
-              />
-            ))}
-          </div>
-        </>
-      )}
+      {open &&
+        menuPos &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+            <div
+              className="fixed z-20 max-h-96 w-96 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+              style={{ top: menuPos.top, left: menuPos.left }}
+            >
+              {tree.map((node) => (
+                <TreeRow
+                  key={node.itemId}
+                  node={node}
+                  depth={0}
+                  selectedId={value}
+                  expanded={expanded}
+                  onToggleExpand={toggleExpand}
+                  onSelect={(id) => {
+                    onChange(id);
+                    setOpen(false);
+                  }}
+                />
+              ))}
+            </div>
+          </>,
+          document.body
+        )}
     </div>
   );
 }
