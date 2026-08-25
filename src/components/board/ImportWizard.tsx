@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import {
   parseImportFile,
@@ -144,12 +144,13 @@ export function ImportWizard({
     }
   }
 
-  async function handleUrlFetch() {
-    if (!url.trim()) return;
+  async function handleUrlFetch(urlOverride?: string) {
+    const target = (urlOverride ?? url).trim();
+    if (!target) return;
     setLoading(true);
     setError(null);
     try {
-      const parsedResult = await parseImportFromUrl(url.trim());
+      const parsedResult = await parseImportFromUrl(target);
       setParsed(parsedResult);
       setSheetIndex(0);
       setHeaderRowIndex(0);
@@ -160,6 +161,49 @@ export function ImportWizard({
       setLoading(false);
     }
   }
+
+  // Google's OAuth consent screen needs the full page — a popup window
+  // isn't reliable across browsers/embedded contexts — so this navigates
+  // away entirely and relies on the callback route redirecting back here.
+  // The in-progress URL is stashed in localStorage since component state
+  // doesn't survive the round trip.
+  function handleGoogleLogin() {
+    localStorage.setItem("importWizardGoogleSheetUrl", url);
+    // A hard navigation is required here (not router.push) — the browser
+    // must actually follow the redirect chain out to Google and back.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = `/api/auth/google/start?returnTo=${encodeURIComponent(window.location.pathname)}`;
+  }
+
+  // On return from the Google OAuth redirect, reopen the modal and retry
+  // the fetch (or show an error) using the URL stashed before navigating away.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authStatus = params.get("googleSheetsAuth");
+    if (!authStatus) return;
+
+    params.delete("googleSheetsAuth");
+    const newSearch = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (newSearch ? `?${newSearch}` : ""));
+
+    const savedUrl = localStorage.getItem("importWizardGoogleSheetUrl");
+    localStorage.removeItem("importWizardGoogleSheetUrl");
+    if (!savedUrl) return;
+
+    // Reacting to the OAuth redirect the browser just landed on, not to a
+    // React state change — an effect is the right place for this.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSourceTab("url");
+    setUrl(savedUrl);
+    onOpenChange(true);
+    if (authStatus === "success") {
+      handleUrlFetch(savedUrl);
+    } else {
+      setError("Google 登入失敗,請重新嘗試。");
+    }
+    // Runs once on mount to catch the redirect-back from the OAuth callback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const nameCount = Object.values(choices).filter((c) => c === "name").length;
   const levelCount = Object.values(choices).filter((c) => c === "level").length;
@@ -283,7 +327,7 @@ export function ImportWizard({
               <button
                 type="button"
                 disabled={loading || !url.trim()}
-                onClick={handleUrlFetch}
+                onClick={() => handleUrlFetch()}
                 className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading ? "讀取中..." : "讀取"}
@@ -291,6 +335,15 @@ export function ImportWizard({
               <p className="mt-2 text-xs text-neutral-400">
                 此 Sheet 需設定為「知道連結的使用者」皆可檢視。若讀取失敗,請改用「上傳檔案」。
               </p>
+              {error && (
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  className="mt-2 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
+                >
+                  使用 Google 帳號登入後重新讀取
+                </button>
+              )}
             </div>
           )}
         </div>

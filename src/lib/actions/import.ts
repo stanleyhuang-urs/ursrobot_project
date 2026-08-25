@@ -1,13 +1,21 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireBoardAdmin } from "@/lib/permissions";
 import { parseNumberInput } from "@/lib/cellValue";
-import { parseWorkbookBuffer, type ParsedWorkbook } from "@/lib/import/parseFile";
+import {
+  parseWorkbookBuffer,
+  MAX_IMPORT_ROWS,
+  MAX_IMPORT_COLS,
+  type ParsedWorkbook,
+  type ParsedSheet,
+} from "@/lib/import/parseFile";
+import { GOOGLE_TOKEN_COOKIE } from "@/lib/googleAuth";
 import {
   DEFAULT_STATUSES,
   DEFAULT_STATUS_PALETTE,
@@ -42,6 +50,45 @@ export async function parseImportFile(
   return parseWorkbookBuffer(buffer, file.name);
 }
 
+type SheetsApiResponse = {
+  sheets?: {
+    properties?: { title?: string };
+    data?: { rowData?: { values?: { formattedValue?: string }[] }[] }[];
+  }[];
+};
+
+// The docs.google.com export URL only accepts a logged-in browser session,
+// not an OAuth bearer token — a private sheet the user just signed in for
+// has to go through the actual Sheets API instead.
+async function fetchViaSheetsApi(spreadsheetId: string, token: string): Promise<ParsedWorkbook> {
+  const fields = "sheets(properties.title,data.rowData.values.formattedValue)";
+  const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?includeGridData=true&fields=${encodeURIComponent(fields)}`;
+
+  const res = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(
+        "無法存取此 Google Sheet(此 Google 帳號沒有這份試算表的檢視權限)。請確認登入的帳號有權檢視此表單,或改用「上傳檔案」方式匯入。"
+      );
+    }
+    throw new Error(`無法讀取此 Google Sheet(HTTP ${res.status})`);
+  }
+
+  const data = (await res.json()) as SheetsApiResponse;
+  const sheets: ParsedSheet[] = (data.sheets ?? []).map((sheet) => {
+    const rowData = sheet.data?.[0]?.rowData ?? [];
+    const rows = rowData
+      .slice(0, MAX_IMPORT_ROWS)
+      .map((row) =>
+        (row.values ?? [])
+          .slice(0, MAX_IMPORT_COLS)
+          .map((cell) => cell.formattedValue ?? null)
+      );
+    return { name: sheet.properties?.title ?? "Sheet1", rows };
+  });
+  return { sheets };
+}
+
 export async function parseImportFromUrl(url: string): Promise<ParsedWorkbook> {
   const session = await requireSession();
   requireBoardAdmin(session.role);
@@ -61,13 +108,23 @@ export async function parseImportFromUrl(url: string): Promise<ParsedWorkbook> {
   if (!match) {
     throw new Error("無法從網址取得 Google Sheet ID,請確認網址格式");
   }
-  const exportUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=xlsx`;
+  const spreadsheetId = match[1];
 
+  const cookieStore = await cookies();
+  const googleToken = cookieStore.get(GOOGLE_TOKEN_COOKIE)?.value;
+
+  if (googleToken) {
+    const result = await fetchViaSheetsApi(spreadsheetId, googleToken);
+    cookieStore.delete(GOOGLE_TOKEN_COOKIE);
+    return result;
+  }
+
+  const exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=xlsx`;
   const res = await fetch(exportUrl);
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
       throw new Error(
-        "無法存取此 Google Sheet(需要登入)。請將分享設定改為「知道連結的使用者」皆可檢視,或改用「上傳檔案」方式匯入。"
+        "無法存取此 Google Sheet(需要登入)。請將分享設定改為「知道連結的使用者」皆可檢視,點擊下方「使用 Google 帳號登入」以你自己的帳號讀取,或改用「上傳檔案」方式匯入。"
       );
     }
     throw new Error(`無法讀取此 Google Sheet(HTTP ${res.status})`);
@@ -75,6 +132,23 @@ export async function parseImportFromUrl(url: string): Promise<ParsedWorkbook> {
 
   const buffer = Buffer.from(await res.arrayBuffer());
   return parseWorkbookBuffer(buffer, "sheet.xlsx");
+}
+
+/** Accepts either a plain depth number ("3") or dotted WBS notation
+ *  ("1.1.2.3") — for WBS notation, depth is the count of dot-separated
+ *  segments (so "1" is depth 1, "1.1" is depth 2, "1.1.1.1" is depth 4). */
+function parseLevel(raw: string | null): number {
+  if (!raw) return 1;
+  const trimmed = raw.trim();
+  if (!trimmed) return 1;
+
+  if (trimmed.includes(".")) {
+    const segments = trimmed.split(".").filter((s) => s.length > 0);
+    if (segments.length > 0) return segments.length;
+  }
+
+  const parsed = parseInt(trimmed, 10);
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
 }
 
 function normalizeDateInput(raw: string): string | undefined {
@@ -233,8 +307,7 @@ export async function importRows(
         if (!name) continue;
 
         const rawLevel = levelColIndex !== undefined ? row[levelColIndex] : null;
-        const parsedLevel = rawLevel ? parseInt(rawLevel, 10) : 1;
-        const level = Number.isFinite(parsedLevel) && parsedLevel >= 1 ? parsedLevel : 1;
+        const level = parseLevel(rawLevel);
 
         while (stack.length > 0 && stack[stack.length - 1].level >= level) {
           stack.pop();
