@@ -202,7 +202,24 @@ export function BoardTable({
   }
 
   async function handleAddGroup() {
-    await createGroup(board.id, "新分組");
+    const group = await createGroup(board.id, "新分組");
+    // The board can be long (many groups/items above), so a new group
+    // appended at the bottom is easy to miss without this — it looked like
+    // the button "did nothing" even though it worked every time. The new
+    // group's DOM node appears only after the server action's revalidation
+    // re-renders, which can take a render past this point, so poll briefly
+    // rather than assume one frame.
+    let attempts = 0;
+    const tryScroll = () => {
+      const el = document.querySelector<HTMLElement>(`[data-group-id="${group.id}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.querySelector("input")?.focus();
+      } else if (attempts++ < 20) {
+        setTimeout(tryScroll, 100);
+      }
+    };
+    tryScroll();
   }
 
   function startNameColumnResize(e: React.PointerEvent) {

@@ -80,6 +80,7 @@ export function GroupSection({
   return (
     <div
       ref={setNodeRef}
+      data-group-id={group.id}
       style={style}
       className="rounded-lg border border-neutral-200 bg-white"
     >
