@@ -8,6 +8,7 @@ import {
   listNotifications,
   getUnreadCount,
   markNotificationRead,
+  markAllNotificationsRead,
 } from "@/lib/actions/notification";
 
 const NOTIFICATION_TYPE_LABEL: Record<string, string> = {
@@ -42,6 +43,12 @@ export function NotificationBell() {
     }
   }
 
+  async function handleMarkAllRead() {
+    await markAllNotificationsRead();
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setUnreadCount(0);
+  }
+
   async function handleClickNotification(
     n: Awaited<ReturnType<typeof listNotifications>>[number]
   ) {
@@ -74,6 +81,18 @@ export function NotificationBell() {
           align="start"
           className="z-50 max-h-96 w-80 overflow-auto rounded-md border border-neutral-200 bg-white p-1 shadow-md"
         >
+          {unreadCount > 0 && (
+            <div className="flex items-center justify-between px-2 py-1">
+              <span className="text-xs text-neutral-400">通知</span>
+              <button
+                type="button"
+                onClick={handleMarkAllRead}
+                className="text-xs text-blue-600 hover:text-blue-700"
+              >
+                全部標為已讀
+              </button>
+            </div>
+          )}
           {notifications.length === 0 && (
             <p className="px-3 py-4 text-center text-sm text-neutral-400">
               沒有通知
