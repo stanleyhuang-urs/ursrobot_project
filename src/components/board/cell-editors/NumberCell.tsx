@@ -9,16 +9,20 @@ export function NumberCell({
   itemId,
   columnId,
   value,
+  percent = false,
 }: {
   boardId: string;
   itemId: string;
   columnId: string;
   value: number | null;
+  percent?: boolean;
 }) {
-  const [text, setText] = useState(value === null ? "" : String(value));
+  const displayValue = percent && value !== null ? Math.round(value * 100) : value;
+  const [text, setText] = useState(displayValue === null ? "" : String(displayValue));
 
   function save() {
-    const normalized = parseNumberInput(text);
+    const entered = parseNumberInput(text);
+    const normalized = percent && entered !== null ? entered / 100 : entered;
     if (normalized !== value) {
       upsertCellValue(boardId, itemId, columnId, normalized);
     }

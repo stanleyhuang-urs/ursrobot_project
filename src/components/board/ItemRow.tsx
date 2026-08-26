@@ -243,6 +243,7 @@ export function ItemRow({
                     canEditCellValue(userRole, col.type, col.id === progressColumnId, isAssignedToCurrentUser) &&
                     (!isScheduleColumn || canModifySchedule)
                   }
+                  isProgressColumn={col.id === progressColumnId}
                 />
               )}
             </div>

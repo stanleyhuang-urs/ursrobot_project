@@ -84,6 +84,7 @@ export function ItemCardTab({
           itemId={item.id}
           columnId={column.id}
           value={typeof value === "number" ? value : null}
+          percent
         />
       );
     }
@@ -101,7 +102,7 @@ export function ItemCardTab({
       );
     }
     if (column.type === "NUMBER" && typeof value === "number") {
-      return <span>{Math.round(value * 100) / 100}</span>;
+      return <span>{isProgressColumn ? `${Math.round(value * 100)}%` : Math.round(value * 100) / 100}</span>;
     }
     return <span>{String(value)}</span>;
   }

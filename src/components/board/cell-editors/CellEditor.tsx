@@ -10,10 +10,12 @@ function ReadOnlyCell({
   column,
   value,
   users,
+  isProgressColumn,
 }: {
   column: ColumnData;
   value: string | number | null;
   users: UserOption[];
+  isProgressColumn: boolean;
 }) {
   if (column.type === "STATUS") {
     const option = getStatusOptions(column.options).find((o) => o.id === value);
@@ -32,6 +34,8 @@ function ReadOnlyCell({
   let display = "";
   if (column.type === "PERSON") {
     display = users.find((u) => u.id === value)?.name ?? "";
+  } else if (isProgressColumn && column.type === "NUMBER" && typeof value === "number") {
+    display = `${Math.round(value * 100)}%`;
   } else if (value !== null) {
     display = String(value);
   }
@@ -49,6 +53,7 @@ export function CellEditor({
   value,
   users,
   canEdit = true,
+  isProgressColumn = false,
 }: {
   boardId: string;
   itemId: string;
@@ -56,9 +61,10 @@ export function CellEditor({
   value: string | number | null;
   users: UserOption[];
   canEdit?: boolean;
+  isProgressColumn?: boolean;
 }) {
   if (!canEdit) {
-    return <ReadOnlyCell column={column} value={value} users={users} />;
+    return <ReadOnlyCell column={column} value={value} users={users} isProgressColumn={isProgressColumn} />;
   }
 
   switch (column.type) {
@@ -78,6 +84,7 @@ export function CellEditor({
           itemId={itemId}
           columnId={column.id}
           value={typeof value === "number" ? value : null}
+          percent={isProgressColumn}
         />
       );
     case "DATE":
