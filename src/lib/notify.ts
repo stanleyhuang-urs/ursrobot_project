@@ -49,8 +49,19 @@ export async function notifyItemAssignees(
 
   if (recipientIds.size === 0) return;
 
+  // PERSON columns can also hold Resource ids (tools/vendors), which have no
+  // account to notify — only real Users can be notification recipients.
+  const realUsers = await tx.user.findMany({
+    where: { id: { in: Array.from(recipientIds) } },
+    select: { id: true },
+  });
+  const realUserIds = new Set(realUsers.map((u) => u.id));
+  const notifiableIds = Array.from(recipientIds).filter((id) => realUserIds.has(id));
+
+  if (notifiableIds.length === 0) return;
+
   await tx.notification.createMany({
-    data: Array.from(recipientIds).map((userId) => ({
+    data: notifiableIds.map((userId) => ({
       userId,
       actorId,
       type,

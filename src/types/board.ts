@@ -27,4 +27,8 @@ export type UserOption = {
   name: string;
   supervisorId?: string | null;
   avatarUrl?: string | null;
+  // Set for entries backed by a Resource (tool/vendor) rather than a real
+  // User — they can be a PERSON-column 負責人, but have no account, so
+  // anything with a real FK to User (e.g. Gantt Assignments) must exclude them.
+  isResource?: boolean;
 };

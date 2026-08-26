@@ -80,7 +80,7 @@ export function BoardSharingModal({
   }
 
   const memberIds = new Set(members.map((m) => m.user.id));
-  const nonMembers = users.filter((u) => !memberIds.has(u.id));
+  const nonMembers = users.filter((u) => !u.isResource && !memberIds.has(u.id));
 
   return (
     <Modal open={open} onOpenChange={onOpenChange} title="看板分享設定">

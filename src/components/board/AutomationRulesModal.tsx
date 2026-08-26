@@ -230,7 +230,7 @@ export function AutomationRulesModal({
               className="flex-1 rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
             >
               <option value="">不通知</option>
-              {users.map((u) => (
+              {users.filter((u) => !u.isResource).map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
                 </option>

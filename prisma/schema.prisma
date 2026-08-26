@@ -56,6 +56,21 @@ model User {
   createdItems        Item[]              @relation("ItemCreatedBy")
 }
 
+// A non-login entity (tool, equipment, external vendor/supplier) that can be
+// set as an item's 負責人 (PERSON column) alongside real Users, so tasks
+// depending on them still have an accountable owner. Deliberately excluded
+// from dashboards, workload calculations, and notifications, which only
+// make sense for real staff.
+model Resource {
+  id        String   @id @default(cuid())
+  name      String
+  category  String?
+  contact   String?
+  note      String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
 model Board {
   id        String          @id @default(cuid())
   name      String

@@ -79,9 +79,16 @@ export async function upsertCellValue(
       const addedIds = getPersonIds(value).filter((id) => !oldIds.has(id));
       for (const userId of addedIds) {
         const assignee = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
-        if (assignee) {
-          await logActivity(itemId, session.userId, `「${column.name}」指派給 ${assignee.name}`);
+        if (!assignee) {
+          // Not a real User — likely a Resource (tool/vendor), which has no
+          // account to notify. Still log the assignment if we can name it.
+          const resource = await prisma.resource.findUnique({ where: { id: userId }, select: { name: true } });
+          if (resource) {
+            await logActivity(itemId, session.userId, `「${column.name}」指派給 ${resource.name}`);
+          }
+          continue;
         }
+        await logActivity(itemId, session.userId, `「${column.name}」指派給 ${assignee.name}`);
         if (userId === session.userId) continue;
         const message = `你被指派到「${item.name}」`;
         await prisma.notification.create({

@@ -52,10 +52,13 @@ export function AssignmentModal({
 
   if (!item) return null;
 
+  // Gantt Assignments reference a real User row (foreign key) — Resources
+  // (tools/vendors) can be a PERSON-column 負責人 but not a %-allocation here.
+  const realUsers = users.filter((u) => !u.isResource);
   const assignableUsers =
     userRole === "SUPERVISOR"
-      ? users.filter((u) => u.supervisorId === currentUserId)
-      : users;
+      ? realUsers.filter((u) => u.supervisorId === currentUserId)
+      : realUsers;
 
   const assignedUserIds = new Set(assignments.map((a) => a.userId));
   const availableUsers = assignableUsers.filter((u) => !assignedUserIds.has(u.id));

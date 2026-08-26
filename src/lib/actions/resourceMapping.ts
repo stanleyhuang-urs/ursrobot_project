@@ -78,6 +78,15 @@ export async function applyResourceMapping(
       const nameByItem = new Map(items.map((i) => [i.id, i.name]));
       const userIdByValue = new Map(mapping.map((m) => [m.value, m.userId]));
 
+      // Mapping targets can be Resources (tools/vendors), which have no
+      // account to notify — only real Users can be notification recipients.
+      const uniqueMappedIds = [...new Set(mapping.map((m) => m.userId))];
+      const realUsers = await tx.user.findMany({
+        where: { id: { in: uniqueMappedIds } },
+        select: { id: true },
+      });
+      const realUserIds = new Set(realUsers.map((u) => u.id));
+
       let updatedCount = 0;
 
       for (const cell of sourceCells) {
@@ -92,7 +101,7 @@ export async function applyResourceMapping(
         });
         updatedCount++;
 
-        if (userId !== session.userId) {
+        if (userId !== session.userId && realUserIds.has(userId)) {
           const itemName = nameByItem.get(cell.itemId);
           if (itemName) {
             notifications.push({
