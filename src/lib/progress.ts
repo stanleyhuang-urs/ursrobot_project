@@ -4,6 +4,8 @@ import type { ItemData } from "@/types/board";
  * For a leaf item, returns its own stored value in the progress column.
  * For an item with children, recursively averages its children's effective
  * progress (children with children of their own are averaged first).
+ * A child with no value counts as 0, not excluded, so an unstarted subtask
+ * pulls the rollup down instead of vanishing from the average.
  */
 export function computeItemProgress(
   item: ItemData,
@@ -17,10 +19,8 @@ export function computeItemProgress(
     return typeof cv?.value === "number" ? cv.value : null;
   }
 
-  const childValues = children
-    .map((child) => computeItemProgress(child, allGroupItems, progressColumnId))
-    .filter((v): v is number => v !== null);
-
-  if (childValues.length === 0) return null;
+  const childValues = children.map(
+    (child) => computeItemProgress(child, allGroupItems, progressColumnId) ?? 0
+  );
   return childValues.reduce((a, b) => a + b, 0) / childValues.length;
 }
