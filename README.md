@@ -136,6 +136,28 @@ npx prisma migrate dev --name <name>   # 修改 schema 後建立新的 migration
   .gs 內容並儲存,即可使用「Gantt」選單的所有功能(此功能無法直接建立雲端上
   的 Google 試算表檔案,因為那需要 Google API 授權,目前尚未串接)
 
-## 尚未實作(下一階段)
+## 正式部署(Docker Compose)
 
-- 正式部署用的 Docker Compose(內部伺服器部署時再補上)
+需要 Docker 與 Docker Compose。部署到內部伺服器的步驟:
+
+1. 複製環境變數範本並填入真實值:
+   ```bash
+   cp .env.production.example .env.production
+   ```
+   編輯 `.env.production`,至少要設定 `POSTGRES_PASSWORD`、`AUTH_SECRET`(用
+   `openssl rand -base64 32` 產生)、`APP_BASE_URL`(這台伺服器對外的真實網址,
+   密碼重設信件連結與 Google OAuth 都會用到)。SMTP/Google OAuth 是選用的,
+   沒填就只會停用信件通知/Google Sheet 私人帳號登入匯入。
+
+2. 建置並啟動:
+   ```bash
+   docker compose --env-file .env.production up -d --build
+   ```
+   第一次啟動時,`app` 容器會先執行 `prisma migrate deploy` 套用資料庫結構,
+   再啟動伺服器。PostgreSQL 資料與上傳的附件檔案分別存在 `db_data`、
+   `uploads_data` 這兩個 Docker volume,重啟/更新容器不會遺失。
+
+3. 開啟 `http://<伺服器位址>:3000`。
+
+之後要更新版本,`git pull` 後重新執行第 2 步的指令即可(會自動重新 build
+image 並套用新的資料庫 migration)。
