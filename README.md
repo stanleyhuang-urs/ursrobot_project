@@ -149,15 +149,22 @@ npx prisma migrate dev --name <name>   # 修改 schema 後建立新的 migration
    密碼重設信件連結與 Google OAuth 都會用到)。SMTP/Google OAuth 是選用的,
    沒填就只會停用信件通知/Google Sheet 私人帳號登入匯入。
 
-2. 建置並啟動:
+2. 建置並啟動(`-p hrapp` 是明確指定專案名稱,避免專案資料夾路徑含中文字或
+   特殊字元時,Docker Compose 從資料夾名稱推導專案名稱失敗而報
+   `project name must not be empty`):
    ```bash
-   docker compose --env-file .env.production up -d --build
+   docker compose -p hrapp --env-file .env.production up -d --build
    ```
    第一次啟動時,`app` 容器會先執行 `prisma migrate deploy` 套用資料庫結構,
    再啟動伺服器。PostgreSQL 資料與上傳的附件檔案分別存在 `db_data`、
    `uploads_data` 這兩個 Docker volume,重啟/更新容器不會遺失。
 
-3. 開啟 `http://<伺服器位址>:3000`。
+3. 開啟 `http://<伺服器位址>:3000`。首次啟動資料庫是空的,沒有任何使用者,
+   需要先建立管理員帳號才能登入,可執行:
+   ```bash
+   docker compose -p hrapp exec app npx prisma db seed
+   ```
+   會建立 `admin@example.com` / `admin1234`,登入後記得立刻改密碼。
 
 之後要更新版本,`git pull` 後重新執行第 2 步的指令即可(會自動重新 build
 image 並套用新的資料庫 migration)。
