@@ -27,8 +27,9 @@ import {
 } from "@/lib/actions/resource";
 
 type ResourceRow = Awaited<ReturnType<typeof listResources>>[number];
+type UserOption = { id: string; name: string };
 
-const ROW_GRID = "grid-cols-[24px_1fr_120px_1fr_1fr_80px]";
+const ROW_GRID = "grid-cols-[24px_1fr_120px_1fr_1fr_120px_80px]";
 
 function SortableResourceRow({
   resource,
@@ -67,6 +68,7 @@ function SortableResourceRow({
       <span className="truncate text-neutral-500">{resource.category || "—"}</span>
       <span className="truncate text-neutral-500">{resource.contact || "—"}</span>
       <span className="truncate text-neutral-400">{resource.note || "—"}</span>
+      <span className="truncate text-neutral-600">{resource.manager?.name || "—"}</span>
       <span className="flex items-center justify-end gap-2">
         <button
           type="button"
@@ -91,7 +93,13 @@ function SortableResourceRow({
   );
 }
 
-export function ResourceManagement({ resources }: { resources: ResourceRow[] }) {
+export function ResourceManagement({
+  resources,
+  users,
+}: {
+  resources: ResourceRow[];
+  users: UserOption[];
+}) {
   const [prevResources, setPrevResources] = useState(resources);
   const [order, setOrder] = useState(() => resources.map((r) => r.id));
   if (resources !== prevResources) {
@@ -108,6 +116,7 @@ export function ResourceManagement({ resources }: { resources: ResourceRow[] }) 
   const [category, setCategory] = useState("");
   const [contact, setContact] = useState("");
   const [note, setNote] = useState("");
+  const [managerId, setManagerId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -116,6 +125,7 @@ export function ResourceManagement({ resources }: { resources: ResourceRow[] }) 
   const [editCategory, setEditCategory] = useState("");
   const [editContact, setEditContact] = useState("");
   const [editNote, setEditNote] = useState("");
+  const [editManagerId, setEditManagerId] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
@@ -130,6 +140,7 @@ export function ResourceManagement({ resources }: { resources: ResourceRow[] }) 
     setCategory("");
     setContact("");
     setNote("");
+    setManagerId("");
     setError(null);
   }
 
@@ -137,7 +148,7 @@ export function ResourceManagement({ resources }: { resources: ResourceRow[] }) 
     setSubmitting(true);
     setError(null);
     try {
-      await createResource(name, category || null, contact || null, note || null);
+      await createResource(name, category || null, contact || null, note || null, managerId || null);
       setOpen(false);
       reset();
     } catch (err) {
@@ -153,6 +164,7 @@ export function ResourceManagement({ resources }: { resources: ResourceRow[] }) 
     setEditCategory(resource.category ?? "");
     setEditContact(resource.contact ?? "");
     setEditNote(resource.note ?? "");
+    setEditManagerId(resource.managerId ?? "");
     setEditError(null);
   }
 
@@ -166,7 +178,8 @@ export function ResourceManagement({ resources }: { resources: ResourceRow[] }) 
         editName,
         editCategory || null,
         editContact || null,
-        editNote || null
+        editNote || null,
+        editManagerId || null
       );
       setEditTarget(null);
     } catch (err) {
@@ -225,6 +238,7 @@ export function ResourceManagement({ resources }: { resources: ResourceRow[] }) 
           <span>類別</span>
           <span>聯絡人/方式</span>
           <span>備註</span>
+          <span>負責窗口</span>
           <span />
         </div>
         {orderedResources.length === 0 ? (
@@ -287,6 +301,18 @@ export function ResourceManagement({ resources }: { resources: ResourceRow[] }) 
             placeholder="備註"
             className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
+          <select
+            value={managerId}
+            onChange={(e) => setManagerId(e.target.value)}
+            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          >
+            <option value="">負責窗口(未設定)</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             disabled={submitting || !name.trim()}
@@ -335,6 +361,18 @@ export function ResourceManagement({ resources }: { resources: ResourceRow[] }) 
             placeholder="備註"
             className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
+          <select
+            value={editManagerId}
+            onChange={(e) => setEditManagerId(e.target.value)}
+            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          >
+            <option value="">負責窗口(未設定)</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             disabled={editSubmitting || !editName.trim()}

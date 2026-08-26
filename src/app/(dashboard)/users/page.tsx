@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { listUsers } from "@/lib/actions/user";
 import { listResources } from "@/lib/actions/resource";
@@ -46,7 +47,13 @@ export default async function UsersPage({
       {activeTab === "users" ? (
         <UserManagement users={await listUsers()} currentUserId={session.userId} />
       ) : (
-        <ResourceManagement resources={await listResources()} />
+        <ResourceManagement
+          resources={await listResources()}
+          users={await prisma.user.findMany({
+            select: { id: true, name: true },
+            orderBy: { name: "asc" },
+          })}
+        />
       )}
     </div>
   );

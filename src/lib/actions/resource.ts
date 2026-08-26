@@ -6,14 +6,18 @@ import { requireSession } from "@/lib/session";
 
 export async function listResources() {
   await requireSession();
-  return prisma.resource.findMany({ orderBy: { order: "asc" } });
+  return prisma.resource.findMany({
+    orderBy: { order: "asc" },
+    include: { manager: { select: { id: true, name: true } } },
+  });
 }
 
 export async function createResource(
   name: string,
   category: string | null,
   contact: string | null,
-  note: string | null
+  note: string | null,
+  managerId: string | null
 ) {
   const session = await requireSession();
   if (session.role !== "ADMIN") {
@@ -32,6 +36,7 @@ export async function createResource(
       category: category?.trim() || null,
       contact: contact?.trim() || null,
       note: note?.trim() || null,
+      managerId: managerId || null,
       order: (maxOrder._max.order ?? -1) + 1,
     },
   });
@@ -44,7 +49,8 @@ export async function updateResource(
   name: string,
   category: string | null,
   contact: string | null,
-  note: string | null
+  note: string | null,
+  managerId: string | null
 ) {
   const session = await requireSession();
   if (session.role !== "ADMIN") {
@@ -63,6 +69,7 @@ export async function updateResource(
       category: category?.trim() || null,
       contact: contact?.trim() || null,
       note: note?.trim() || null,
+      managerId: managerId || null,
     },
   });
 
