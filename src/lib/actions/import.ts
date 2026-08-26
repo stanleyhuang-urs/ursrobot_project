@@ -137,14 +137,14 @@ export async function parseImportFromUrl(url: string): Promise<ParsedWorkbook> {
 /** Accepts either a plain depth number ("3") or dotted WBS notation
  *  ("1.1.2.3") — for WBS notation, depth is the count of dot-separated
  *  segments (so "1" is depth 1, "1.1" is depth 2, "1.1.1.1" is depth 4). */
-function parseLevel(raw: string | null): number {
+function parseLevel(raw: string | null, useWbsSegments: boolean): number {
   if (!raw) return 1;
   const trimmed = raw.trim();
   if (!trimmed) return 1;
 
-  if (trimmed.includes(".")) {
+  if (useWbsSegments) {
     const segments = trimmed.split(".").filter((s) => s.length > 0);
-    if (segments.length > 0) return segments.length;
+    return segments.length > 0 ? segments.length : 1;
   }
 
   const parsed = parseInt(trimmed, 10);
@@ -180,9 +180,10 @@ async function coerceValue(
 
   switch (columnType) {
     case "NUMBER": {
-      const parsed = parseNumberInput(trimmed);
+      const isPercent = trimmed.endsWith("%");
+      const parsed = parseNumberInput(isPercent ? trimmed.slice(0, -1).trim() : trimmed);
       if (parsed === null) stats.numberParseFailCount++;
-      return parsed ?? undefined;
+      return parsed === null ? undefined : isPercent ? parsed / 100 : parsed;
     }
     case "DATE":
       return normalizeDateInput(trimmed);
@@ -292,6 +293,10 @@ export async function importRows(
       const orderCounters = new Map<string | null, number>();
       orderCounters.set(null, topLevelCount);
 
+      const useWbsSegments =
+        levelColIndex !== undefined &&
+        dataRows.some((row) => row[levelColIndex]?.includes("."));
+
       const stack: { level: number; itemId: string }[] = [];
       const cellValuesToCreate: {
         itemId: string;
@@ -307,7 +312,7 @@ export async function importRows(
         if (!name) continue;
 
         const rawLevel = levelColIndex !== undefined ? row[levelColIndex] : null;
-        const level = parseLevel(rawLevel);
+        const level = parseLevel(rawLevel, useWbsSegments);
 
         while (stack.length > 0 && stack[stack.length - 1].level >= level) {
           stack.pop();
