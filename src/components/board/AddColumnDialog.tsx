@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { createColumn } from "@/lib/actions/column";
 import type { ColumnType } from "@/types/column";
@@ -25,6 +26,7 @@ export function AddColumnDialog({
   const [name, setName] = useState("");
   const [type, setType] = useState<ColumnType>("TEXT");
   const [pending, setPending] = useState(false);
+  const router = useRouter();
 
   async function handleCreate() {
     if (!name.trim()) return;
@@ -34,6 +36,9 @@ export function AddColumnDialog({
     setName("");
     setType("TEXT");
     onOpenChange(false);
+    // revalidatePath alone doesn't reliably refresh an already-open client
+    // on a large board — force it so the new column actually shows up.
+    router.refresh();
   }
 
   return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   closestCenter,
@@ -117,8 +118,19 @@ export function BoardTable({
   highlightItemId?: string | null;
 }) {
   const canEditStructure = canManageStructure(userRole);
-  const [groupOrder, setGroupOrder] = useState(board.groups.map((g) => g.id));
-  const [columnOrder, setColumnOrder] = useState(board.columns.map((c) => c.id));
+  const router = useRouter();
+  const [prevBoard, setPrevBoard] = useState(board);
+  const [groupOrder, setGroupOrder] = useState(() => board.groups.map((g) => g.id));
+  const [columnOrder, setColumnOrder] = useState(() => board.columns.map((c) => c.id));
+  // groupOrder/columnOrder are locally-reorderable copies of the board's own
+  // lists — but a plain useState initializer only runs on first mount, so a
+  // group/column added after a revalidated refresh (new `board` prop) would
+  // never appear without this resync, even though the data arrived correctly.
+  if (board !== prevBoard) {
+    setPrevBoard(board);
+    setGroupOrder(board.groups.map((g) => g.id));
+    setColumnOrder(board.columns.map((c) => c.id));
+  }
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
   const [nameWidth, setNameWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
   const hasAutoSizedRef = useRef(false);
@@ -203,12 +215,15 @@ export function BoardTable({
 
   async function handleAddGroup() {
     const group = await createGroup(board.id, "新分組");
+    // revalidatePath alone doesn't reliably refresh an already-open client
+    // on a large board — force it so the new group actually renders.
+    router.refresh();
     // The board can be long (many groups/items above), so a new group
     // appended at the bottom is easy to miss without this — it looked like
     // the button "did nothing" even though it worked every time. The new
-    // group's DOM node appears only after the server action's revalidation
-    // re-renders, which can take a render past this point, so poll briefly
-    // rather than assume one frame.
+    // group's DOM node appears only after the refresh above re-renders,
+    // which can take a render past this point, so poll briefly rather
+    // than assume one frame.
     let attempts = 0;
     const tryScroll = () => {
       const el = document.querySelector<HTMLElement>(`[data-group-id="${group.id}"]`);
