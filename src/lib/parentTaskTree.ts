@@ -1,11 +1,14 @@
 import type { BoardWithData, ItemData } from "@/types/board";
 import { getPersonIds } from "@/types/column";
+import { getItemDateRange } from "@/lib/gantt";
 
 export type ParentTreeNode = {
   itemId: string;
   itemName: string;
   boardId: string;
   boardName: string;
+  startDate: Date | null;
+  endDate: Date | null;
   children: ParentTreeNode[];
 };
 
@@ -37,7 +40,19 @@ export function buildSupervisorParentTree(boards: BoardWithData[], userIds: stri
     function ensureNode(item: ItemData): ParentTreeNode {
       let node = nodeById.get(item.id);
       if (!node) {
-        node = { itemId: item.id, itemName: item.name, boardId: board.id, boardName: board.name, children: [] };
+        const range =
+          board.ganttStartColumnId && board.ganttDurationColumnId
+            ? getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId)
+            : null;
+        node = {
+          itemId: item.id,
+          itemName: item.name,
+          boardId: board.id,
+          boardName: board.name,
+          startDate: range?.start ?? null,
+          endDate: range?.end ?? null,
+          children: [],
+        };
         nodeById.set(item.id, node);
       }
       return node;
@@ -107,11 +122,17 @@ export function buildFullParentTree(boards: BoardWithData[]): ParentTreeNode[] {
     for (const list of childrenOf.values()) list.sort((a, b) => a.order - b.order);
 
     function buildNode(item: ItemData): ParentTreeNode {
+      const range =
+        board.ganttStartColumnId && board.ganttDurationColumnId
+          ? getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId)
+          : null;
       return {
         itemId: item.id,
         itemName: item.name,
         boardId: board.id,
         boardName: board.name,
+        startDate: range?.start ?? null,
+        endDate: range?.end ?? null,
         children: (childrenOf.get(item.id) ?? []).map(buildNode),
       };
     }

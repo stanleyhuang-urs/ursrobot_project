@@ -134,6 +134,18 @@ export async function createTeamSubtask(input: {
     }
   }
 
+  const { board } = parent;
+  if (board.ganttStartColumnId && board.ganttDurationColumnId) {
+    const parentRange = getItemDateRange(parent, board.ganttStartColumnId, board.ganttDurationColumnId);
+    if (parentRange) {
+      const start = new Date(input.startDate);
+      const end = new Date(start.getTime() + (input.days - 1) * 86_400_000);
+      if (start < parentRange.start || end > parentRange.end) {
+        throw new Error("子任務時程需在父任務的時間範圍內");
+      }
+    }
+  }
+
   return createChildTask(parent, { ...input, name: trimmedName }, session.userId);
 }
 

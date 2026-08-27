@@ -12,7 +12,7 @@ import {
 } from "@/lib/workload";
 import { createTeamSubtask } from "@/lib/actions/teamTask";
 import { upsertAssignment } from "@/lib/actions/assignment";
-import { firstTreeItemId, type ParentTreeNode } from "@/lib/parentTaskTree";
+import { findTreeNode, firstTreeItemId, type ParentTreeNode } from "@/lib/parentTaskTree";
 import { ParentTaskPicker } from "./ParentTaskPicker";
 import { WorkloadThresholdModal } from "./WorkloadThresholdModal";
 
@@ -87,6 +87,10 @@ export function WorkloadDetailSection({
       setEditSubmitting(false);
     }
   }
+
+  const selectedParentNode = formParentId ? findTreeNode(parentTaskTree, formParentId) : null;
+  const formMinDate = selectedParentNode?.startDate ? toIsoDate(selectedParentNode.startDate) : undefined;
+  const formMaxDate = selectedParentNode?.endDate ? toIsoDate(selectedParentNode.endDate) : undefined;
 
   const timelineWidth = weeks.length * WEEK_WIDTH;
   const timelineOrigin = weeks[0]?.start ?? null;
@@ -196,6 +200,11 @@ export function WorkloadDetailSection({
     }
     if (!Number.isFinite(formPct) || formPct < 1 || formPct > 100) {
       setFormError("百分比需介於 1 到 100 之間");
+      return;
+    }
+    const rangeEnd = addDaysIso(formStartDate, formDays - 1);
+    if ((formMinDate && formStartDate < formMinDate) || (formMaxDate && rangeEnd > formMaxDate)) {
+      setFormError("子任務時程需在父任務的時間範圍內");
       return;
     }
     setSubmitting(true);
@@ -493,6 +502,11 @@ export function WorkloadDetailSection({
                                 {formError && (
                                   <p className="mb-1.5 text-xs text-red-600">{formError}</p>
                                 )}
+                                {(formMinDate || formMaxDate) && (
+                                  <p className="mb-1.5 text-xs text-neutral-400">
+                                    時程需介於父任務的 {formMinDate ?? "…"} ~ {formMaxDate ?? "…"} 之間
+                                  </p>
+                                )}
                                 {projectedMax > 100 && (
                                   <p className="mb-1.5 text-xs text-amber-600">
                                     ⚠ 此區間 {user.name} 已有 {existingLoad}% 負載,加上此任務 {formPct}%
@@ -519,6 +533,8 @@ export function WorkloadDetailSection({
                                     <input
                                       type="date"
                                       value={formStartDate}
+                                      min={formMinDate}
+                                      max={formMaxDate}
                                       onChange={(e) => setFormStartDate(e.target.value)}
                                       className="rounded-md border border-neutral-300 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
                                     />
@@ -528,6 +544,8 @@ export function WorkloadDetailSection({
                                     <input
                                       type="date"
                                       value={formEndDate}
+                                      min={formMinDate}
+                                      max={formMaxDate}
                                       onChange={(e) => handleEndDateChange(e.target.value)}
                                       className="rounded-md border border-neutral-300 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
                                     />
