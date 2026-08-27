@@ -17,7 +17,6 @@ import {
 } from "@/lib/import/parseFile";
 import { GOOGLE_TOKEN_COOKIE } from "@/lib/googleAuth";
 import {
-  DEFAULT_STATUSES,
   DEFAULT_STATUS_PALETTE,
   getStatusOptions,
   type ColumnType,
@@ -261,9 +260,7 @@ export async function importRows(
           columnIdByColIndex.set(mapping.sourceColIndex, mapping.target.columnId);
         } else if (mapping.target.kind === "newColumn") {
           const options =
-            mapping.target.columnType === "STATUS"
-              ? { statuses: DEFAULT_STATUSES }
-              : {};
+            mapping.target.columnType === "STATUS" ? { statuses: [] } : {};
           const created = await tx.column.create({
             data: {
               boardId,
@@ -276,7 +273,7 @@ export async function importRows(
           columnIdByColIndex.set(mapping.sourceColIndex, created.id);
           columnTypeById.set(created.id, mapping.target.columnType);
           if (mapping.target.columnType === "STATUS") {
-            statusOptionsById.set(created.id, DEFAULT_STATUSES);
+            statusOptionsById.set(created.id, []);
           }
           newColumnCount++;
         }
