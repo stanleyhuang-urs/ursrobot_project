@@ -6,7 +6,9 @@ export type DateRange = { start: Date; end: Date };
 /**
  * Reads the item's start-date and duration-day cell values and turns them
  * into a concrete [start, end] range. Returns null if either value is
- * missing — such items are not plotted on the Gantt chart.
+ * missing — such items are not plotted on the Gantt chart. A 0-day duration
+ * (a milestone with no length of its own) still counts as a valid range,
+ * occupying just its start date.
  */
 export function getItemDateRange(
   item: Pick<ItemData, "cellValues">,
@@ -17,13 +19,13 @@ export function getItemDateRange(
   const durationValue = item.cellValues.find((cv) => cv.columnId === durationColumnId)?.value;
 
   if (typeof startValue !== "string" || typeof durationValue !== "number") return null;
-  if (durationValue <= 0) return null;
+  if (durationValue < 0) return null;
 
   const start = new Date(startValue);
   if (Number.isNaN(start.getTime())) return null;
 
   const end = new Date(start);
-  end.setDate(end.getDate() + durationValue - 1);
+  end.setDate(end.getDate() + Math.max(durationValue - 1, 0));
 
   return { start, end };
 }
