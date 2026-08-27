@@ -16,7 +16,7 @@ import { getItemDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/
 import { AssignmentModal } from "./AssignmentModal";
 
 type Zoom = "day" | "week" | "month";
-const ZOOM_DAY_WIDTH: Record<Zoom, number> = { day: 28, week: 10, month: 3 };
+const ZOOM_DAY_WIDTH: Record<Zoom, number> = { day: 34, week: 10, month: 3 };
 const LABEL_WIDTH = 260;
 
 type HeaderSegment = { key: string; label: string; days: number };
