@@ -75,13 +75,20 @@ export default async function DashboardPage({
   const teamMembers = isSupervisor
     ? users.filter((u) => u.supervisorId === session.userId)
     : [];
-  // Admins see the whole org's workload; supervisors see their team's;
-  // plain members only see their own — not everyone else's.
+  // Admins see the whole org's workload; supervisors see their own plus
+  // their team's (they do real work too, not just oversight); plain members
+  // only see their own — not everyone else's.
+  const currentUser = users.find((u) => u.id === session.userId);
   const workloadScope = isSupervisor
-    ? teamMembers
+    ? currentUser
+      ? [currentUser, ...teamMembers]
+      : teamMembers
     : isAdmin
       ? users
       : users.filter((u) => u.id === session.userId);
+  // Who a supervisor is allowed to hand new subtasks to from the dashboard —
+  // their own team only, not the whole org.
+  const assignableUsers = isSupervisor ? teamMembers : isAdmin ? users : [];
 
   const teamWorkloadDay = computeTeamWorkload(boards, workloadScope, "day");
   const teamWorkloadWeek = computeTeamWorkload(boards, workloadScope, "week");
@@ -107,12 +114,14 @@ export default async function DashboardPage({
   const memberTasksMap = computeMemberTaskBreakdown(boards, workloadScopeIds);
   // Admins aren't limited to delegating their own work — they can split a
   // subtask off any task in the full hierarchy. Supervisors get a tree of
-  // just the ancestor paths of tasks assigned to them, so they can pick any
-  // level of their own work as the new subtask's parent.
+  // the ancestor paths of tasks assigned to them or their team, so they can
+  // pick any level of their team's work as the new subtask's parent — a
+  // supervisor with no assignments of their own still needs to be able to
+  // add work under a team member's existing task.
   const parentTaskTree =
     session.role === "ADMIN"
       ? buildFullParentTree(allBoards)
-      : buildSupervisorParentTree(boards, session.userId);
+      : buildSupervisorParentTree(boards, [session.userId, ...teamMembers.map((m) => m.id)]);
   const weekColumns = computeWeekColumns(boards);
   const weeklyLoadMap = computeMemberWeeklyLoad(boards, workloadScopeIds, weekColumns);
 
@@ -299,6 +308,7 @@ export default async function DashboardPage({
             userRole={session.role}
             currentUserId={session.userId}
             users={users}
+            assignableUsers={assignableUsers}
             emptyText="你的團隊目前沒有指派中的項目"
           />
         </section>
@@ -314,6 +324,7 @@ export default async function DashboardPage({
           userRole={session.role}
           currentUserId={session.userId}
           users={users}
+          assignableUsers={assignableUsers}
           emptyText="目前沒有指派給你的項目"
         />
       </section>
@@ -329,6 +340,7 @@ export default async function DashboardPage({
             userRole={session.role}
             currentUserId={session.userId}
             users={users}
+            assignableUsers={assignableUsers}
             emptyText="你負責窗口的資源目前沒有指派中的項目"
           />
         </section>

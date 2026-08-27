@@ -23,6 +23,7 @@ export function PersonalItemRow({
   userRole,
   currentUserId,
   users,
+  assignableUsers,
   widths,
 }: {
   item: PersonalItemEntry;
@@ -30,6 +31,7 @@ export function PersonalItemRow({
   userRole: UserRole;
   currentUserId: string;
   users: UserOption[];
+  assignableUsers: UserOption[];
   widths: Record<"name" | "window" | "board" | "status" | "progress" | "date", number>;
 }) {
   const canManage = canManageStructure(userRole);
@@ -168,7 +170,7 @@ export function PersonalItemRow({
           parentItemName={item.itemName}
           parentStartDate={item.startDate}
           parentDueDate={item.dueDate}
-          users={users}
+          users={assignableUsers}
         />
       )}
     </li>

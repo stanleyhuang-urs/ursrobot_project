@@ -1,4 +1,5 @@
 import type { BoardWithData, ItemData } from "@/types/board";
+import { getPersonIds } from "@/types/column";
 
 export type ParentTreeNode = {
   itemId: string;
@@ -10,13 +11,16 @@ export type ParentTreeNode = {
 
 /**
  * For a supervisor: the ancestor path (root → ... → assigned item) of every
- * item they're personally assigned to, PLUS the full existing descendant
- * subtree under each assigned item, merged into one tree. Lets them pick any
- * level of their own work as the new subtask's parent — an ancestor of what
- * they're assigned to, the assigned item itself, or anywhere already nested
- * under it — not just the exact leaf they happen to be assigned to.
+ * item assigned to them or anyone on their team, PLUS the full existing
+ * descendant subtree under each assigned item, merged into one tree. Lets
+ * them pick any level of their team's work as the new subtask's parent — an
+ * ancestor of an assignment, the assigned item itself, or anywhere already
+ * nested under it — not just items they personally happen to be assigned to
+ * (a supervisor with no assignments of their own still needs to be able to
+ * add work under their team members' existing tasks).
  */
-export function buildSupervisorParentTree(boards: BoardWithData[], userId: string): ParentTreeNode[] {
+export function buildSupervisorParentTree(boards: BoardWithData[], userIds: string[]): ParentTreeNode[] {
+  const idSet = new Set(userIds);
   const roots: ParentTreeNode[] = [];
   const nodeById = new Map<string, ParentTreeNode>();
 
@@ -51,7 +55,20 @@ export function buildSupervisorParentTree(boards: BoardWithData[], userId: strin
       }
     }
 
-    const assignedItems = board.items.filter((i) => i.assignments.some((a) => a.userId === userId));
+    // "Assigned" here means the same thing it does everywhere else in the
+    // app (see isItemAssignedToUser): a Gantt Assignment row, OR a
+    // PERSON-column value (負責人/Resource) naming them — most items on an
+    // imported board are only "assigned" in the latter sense, so checking
+    // just the Assignment model left supervisors with an empty tree even
+    // though their team clearly owns work.
+    const personColumnIds = board.columns.filter((c) => c.type === "PERSON").map((c) => c.id);
+    const assignedItems = board.items.filter(
+      (i) =>
+        i.assignments.some((a) => idSet.has(a.userId)) ||
+        i.cellValues.some(
+          (cv) => personColumnIds.includes(cv.columnId) && getPersonIds(cv.value).some((id) => idSet.has(id))
+        )
+    );
 
     for (const item of assignedItems) {
       const chain: ItemData[] = [];

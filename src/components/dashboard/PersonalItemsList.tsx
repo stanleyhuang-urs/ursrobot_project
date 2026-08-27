@@ -46,6 +46,7 @@ export function PersonalItemsList({
   userRole,
   currentUserId,
   users,
+  assignableUsers,
   emptyText,
 }: {
   items: PersonalItemEntry[];
@@ -53,6 +54,7 @@ export function PersonalItemsList({
   userRole: UserRole;
   currentUserId: string;
   users: UserOption[];
+  assignableUsers: UserOption[];
   emptyText: string;
 }) {
   const [widths, setWidths] = useState<Record<ColKey, number>>(DEFAULT_WIDTHS);
@@ -180,6 +182,7 @@ export function PersonalItemsList({
                 userRole={userRole}
                 currentUserId={currentUserId}
                 users={users}
+                assignableUsers={assignableUsers}
                 widths={widths}
               />
             ))}
