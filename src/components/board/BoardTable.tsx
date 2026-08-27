@@ -291,7 +291,7 @@ export function BoardTable({
       <FilterBar columns={orderedColumns} users={users} filters={filters} onChange={setFilters} />
 
       <div className="rounded-lg border-2 border-neutral-800">
-      <div className="mb-2 flex items-center text-xs font-medium text-neutral-500">
+      <div className="sticky top-0 z-20 mb-2 flex items-center border-b border-neutral-200 bg-neutral-50 text-xs font-medium text-neutral-500">
         <div
           className="relative shrink-0 border-r border-neutral-200 bg-neutral-50 px-2"
           style={{ width: frozenPaneWidth(nameWidth) }}
