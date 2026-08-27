@@ -29,10 +29,10 @@ export async function upsertAssignment(
   requireStructureAccess(session.role);
   const pct = Math.max(5, Math.min(100, Math.round(allocationPct / 5) * 5));
 
-  if (session.role === "SUPERVISOR") {
+  if (session.role === "SUPERVISOR" && userId !== session.userId) {
     const target = await prisma.user.findUnique({ where: { id: userId } });
     if (target?.supervisorId !== session.userId) {
-      throw new Error("主管只能將任務指派給自己團隊的成員");
+      throw new Error("主管只能將任務指派給自己或自己團隊的成員");
     }
   }
 

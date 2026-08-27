@@ -11,6 +11,7 @@ import {
   type WeekColumn,
 } from "@/lib/workload";
 import { createTeamSubtask } from "@/lib/actions/teamTask";
+import { upsertAssignment } from "@/lib/actions/assignment";
 import { firstTreeItemId, type ParentTreeNode } from "@/lib/parentTaskTree";
 import { ParentTaskPicker } from "./ParentTaskPicker";
 import { WorkloadThresholdModal } from "./WorkloadThresholdModal";
@@ -63,6 +64,29 @@ export function WorkloadDetailSection({
   const [formParentId, setFormParentId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editPct, setEditPct] = useState(100);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  function startEditingPct(userId: string, itemId: string, currentPct: number) {
+    setEditingKey(`${userId}:${itemId}`);
+    setEditPct(currentPct);
+  }
+
+  async function savePct(userId: string, boardId: string, itemId: string) {
+    setEditSubmitting(true);
+    try {
+      await upsertAssignment(boardId, itemId, userId, editPct);
+      setEditingKey(null);
+    } catch (err) {
+      // A rejected upsert (e.g. permission) just leaves the editor open with
+      // its current value — the user can retry or cancel.
+      alert(err instanceof Error ? err.message : "更新失敗");
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
 
   const timelineWidth = weeks.length * WEEK_WIDTH;
   const timelineOrigin = weeks[0]?.start ?? null;
@@ -327,6 +351,8 @@ export function WorkloadDetailSection({
                             const hasRange = t.startDate && t.endDate;
                             const startIdx = hasRange ? weekIndexForDate(t.startDate!, weeks) : 0;
                             const endIdx = hasRange ? weekIndexForDate(t.endDate!, weeks) : 0;
+                            const key = `${user.id}:${t.itemId}`;
+                            const isEditingPct = editingKey === key;
                             return (
                               <div key={`${t.boardId}-${t.itemId}`} className="flex items-center">
                                 <div
@@ -341,19 +367,71 @@ export function WorkloadDetailSection({
                                     {t.itemName}
                                   </Link>
                                 </div>
-                                <div className="relative" style={{ width: timelineWidth, height: 18 }}>
-                                  {hasRange && (
+                                <div className="relative flex items-center" style={{ width: timelineWidth, height: 18 }}>
+                                  {isEditingPct ? (
                                     <div
-                                      className="absolute top-0.5 flex h-3.5 items-center justify-center overflow-hidden rounded-sm text-[9px] font-medium text-white"
+                                      className="absolute top-0 z-10 flex items-center gap-1 rounded border border-blue-300 bg-white px-1 py-0.5 shadow-sm"
+                                      style={{ left: hasRange ? startIdx * WEEK_WIDTH : 0 }}
+                                    >
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={100}
+                                        autoFocus
+                                        value={editPct}
+                                        onChange={(e) => setEditPct(Number(e.target.value))}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") savePct(user.id, t.boardId, t.itemId);
+                                          if (e.key === "Escape") setEditingKey(null);
+                                        }}
+                                        className="w-11 rounded border border-neutral-300 px-1 py-0.5 text-[10px] outline-none focus:border-blue-500"
+                                      />
+                                      <button
+                                        type="button"
+                                        disabled={editSubmitting}
+                                        onClick={() => savePct(user.id, t.boardId, t.itemId)}
+                                        className="text-[10px] font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                                      >
+                                        ✓
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingKey(null)}
+                                        className="text-[10px] text-neutral-400 hover:text-neutral-600"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ) : canCreateSubtask ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditingPct(user.id, t.itemId, t.allocationPct)}
+                                      title="點選調整百分比"
+                                      className={`flex h-3.5 items-center justify-center overflow-hidden rounded-sm text-[9px] font-medium text-white hover:ring-1 hover:ring-blue-400 ${
+                                        hasRange ? "absolute top-0.5" : "px-1.5"
+                                      }`}
                                       style={{
-                                        left: startIdx * WEEK_WIDTH,
-                                        width: (endIdx - startIdx + 1) * WEEK_WIDTH,
+                                        left: hasRange ? startIdx * WEEK_WIDTH : undefined,
+                                        width: hasRange ? (endIdx - startIdx + 1) * WEEK_WIDTH : undefined,
                                         backgroundColor: colorForPct(t.allocationPct, threshold),
                                       }}
-                                      title={`${t.allocationPct}%`}
                                     >
                                       {t.allocationPct}%
-                                    </div>
+                                    </button>
+                                  ) : (
+                                    hasRange && (
+                                      <div
+                                        className="absolute top-0.5 flex h-3.5 items-center justify-center overflow-hidden rounded-sm text-[9px] font-medium text-white"
+                                        style={{
+                                          left: startIdx * WEEK_WIDTH,
+                                          width: (endIdx - startIdx + 1) * WEEK_WIDTH,
+                                          backgroundColor: colorForPct(t.allocationPct, threshold),
+                                        }}
+                                        title={`${t.allocationPct}%`}
+                                      >
+                                        {t.allocationPct}%
+                                      </div>
+                                    )
                                   )}
                                 </div>
                               </div>
