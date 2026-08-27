@@ -170,7 +170,7 @@ export function BoardView({
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className={`flex-1 p-6 ${view === "table" ? "overflow-hidden" : "overflow-auto"}`}>
         {view === "table" && (
           <BoardTable
             board={board}

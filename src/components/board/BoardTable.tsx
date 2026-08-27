@@ -287,11 +287,11 @@ export function BoardTable({
   }
 
   return (
-    <div>
+    <div className="flex h-full flex-col">
       <FilterBar columns={orderedColumns} users={users} filters={filters} onChange={setFilters} />
 
-      <div className="rounded-lg border-2 border-neutral-800">
-      <div className="sticky top-0 z-20 mb-2 flex items-center border-b border-neutral-200 bg-neutral-50 text-xs font-medium text-neutral-500">
+      <div className="flex flex-1 flex-col overflow-hidden rounded-lg border-2 border-neutral-800">
+      <div className="flex shrink-0 items-center border-b border-neutral-200 bg-neutral-50 text-xs font-medium text-neutral-500">
         <div
           className="relative shrink-0 border-r border-neutral-200 bg-neutral-50 px-2"
           style={{ width: frozenPaneWidth(nameWidth) }}
@@ -346,6 +346,7 @@ export function BoardTable({
         </DndContext>
       </div>
 
+      <div className="flex-1 overflow-y-auto p-2">
       <DndContext
         id="board-groups-dnd"
         sensors={sensors}
@@ -386,7 +387,6 @@ export function BoardTable({
           </div>
         </SortableContext>
       </DndContext>
-      </div>
 
       {canEditStructure && (
         <button
@@ -397,6 +397,8 @@ export function BoardTable({
           <Plus size={14} /> 新增分組
         </button>
       )}
+      </div>
+      </div>
     </div>
   );
 }
