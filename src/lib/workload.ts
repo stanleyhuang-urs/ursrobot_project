@@ -1,4 +1,5 @@
-import type { BoardWithData } from "@/types/board";
+import type { BoardWithData, ItemData } from "@/types/board";
+import { getPersonIds } from "@/types/column";
 import { getItemDateRange, computeDailyLoadByUser } from "@/lib/gantt";
 
 export type WorkloadThresholdSettings = {
@@ -35,7 +36,13 @@ export type MemberTask = {
   endDate: Date | null;
 };
 
-/** Per-user list of assigned tasks (Gantt Assignments only, since only those carry an allocation %). */
+/**
+ * Per-user list of assigned tasks — a Gantt Assignment (which carries a real
+ * allocation %), or a PERSON-column value (負責人/Resource) naming them, the
+ * same two mechanisms isItemAssignedToUser treats as equivalent everywhere
+ * else. A PERSON-column match has no allocation % of its own, so it's shown
+ * as fully allocated (100%) unless a Gantt Assignment already covers it.
+ */
 export function computeMemberTaskBreakdown(
   boards: BoardWithData[],
   userIds: string[]
@@ -43,25 +50,41 @@ export function computeMemberTaskBreakdown(
   const idSet = new Set(userIds);
   const byUser = new Map<string, MemberTask[]>();
 
+  function addTask(userId: string, board: BoardWithData, item: ItemData, allocationPct: number, hasRange: boolean) {
+    const range = hasRange
+      ? getItemDateRange(item, board.ganttStartColumnId!, board.ganttDurationColumnId!)
+      : null;
+    const list = byUser.get(userId) ?? [];
+    list.push({
+      boardId: board.id,
+      boardName: board.name,
+      itemId: item.id,
+      itemName: item.name,
+      allocationPct,
+      startDate: range?.start ?? null,
+      endDate: range?.end ?? null,
+    });
+    byUser.set(userId, list);
+  }
+
   for (const board of boards) {
-    const hasRange = board.ganttStartColumnId && board.ganttDurationColumnId;
+    const hasRange = !!(board.ganttStartColumnId && board.ganttDurationColumnId);
+    const personColumnIds = board.columns.filter((c) => c.type === "PERSON").map((c) => c.id);
+
     for (const item of board.items) {
+      const coveredByAssignment = new Set<string>();
       for (const assignment of item.assignments) {
         if (!idSet.has(assignment.userId)) continue;
-        const range = hasRange
-          ? getItemDateRange(item, board.ganttStartColumnId!, board.ganttDurationColumnId!)
-          : null;
-        const list = byUser.get(assignment.userId) ?? [];
-        list.push({
-          boardId: board.id,
-          boardName: board.name,
-          itemId: item.id,
-          itemName: item.name,
-          allocationPct: assignment.allocationPct,
-          startDate: range?.start ?? null,
-          endDate: range?.end ?? null,
-        });
-        byUser.set(assignment.userId, list);
+        addTask(assignment.userId, board, item, assignment.allocationPct, hasRange);
+        coveredByAssignment.add(assignment.userId);
+      }
+
+      const personIds = item.cellValues
+        .filter((cv) => personColumnIds.includes(cv.columnId))
+        .flatMap((cv) => getPersonIds(cv.value));
+      for (const userId of personIds) {
+        if (!idSet.has(userId) || coveredByAssignment.has(userId)) continue;
+        addTask(userId, board, item, 100, hasRange);
       }
     }
   }
