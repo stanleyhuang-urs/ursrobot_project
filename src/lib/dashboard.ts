@@ -188,13 +188,20 @@ function resolveStatusColumn(board: BoardWithData): ColumnData | null {
   );
 }
 
-/** An item counts as done if its progress column reads 100%, or its Status
- *  column is set to the "done" option (the id every board's default status
- *  set uses for 已完成). */
+/** An item counts as done if its progress column reads 100% — stored as the
+ *  0-1 fraction computeItemProgress uses, not a 0-100 percentage — or its
+ *  report status column (configured in 報表設定) is set to one of the
+ *  board's mapped "done" options. Falls back to the "done" id every board's
+ *  un-imported default status set uses, for boards that haven't configured
+ *  報表設定 at all. */
 function isItemComplete(item: ItemData, board: BoardWithData, statusColumn: ColumnData | null): boolean {
   if (board.progressColumnId) {
     const pct = computeItemProgress(item, board.items, board.progressColumnId);
-    if (pct !== null && pct >= 100) return true;
+    if (pct !== null && pct >= 1) return true;
+  }
+  if (board.reportStatusColumnId && board.reportDoneOptionIds.length > 0) {
+    const value = item.cellValues.find((cv) => cv.columnId === board.reportStatusColumnId)?.value;
+    if (typeof value === "string" && board.reportDoneOptionIds.includes(value)) return true;
   }
   if (statusColumn) {
     const value = item.cellValues.find((cv) => cv.columnId === statusColumn.id)?.value;

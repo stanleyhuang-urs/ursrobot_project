@@ -37,7 +37,7 @@ export default async function DashboardPage({
   const session = await requireSession();
   const { board: boardFilter } = await searchParams;
 
-  const [allBoards, users] = await Promise.all([
+  const [allBoards, users, managedResources] = await Promise.all([
     prisma.board.findMany({
       where: accessibleBoardWhere(session),
       ...boardWithDataArgs,
@@ -47,11 +47,29 @@ export default async function DashboardPage({
       select: { id: true, name: true, supervisorId: true, avatarUrl: true },
       orderBy: { name: "asc" },
     }),
+    prisma.resource.findMany({
+      where: { managerId: { not: null } },
+      select: { id: true, name: true, managerId: true },
+    }),
   ]);
 
   const boards = boardFilter ? allBoards.filter((b) => b.id === boardFilter) : allBoards;
 
+  // A resource (tool/vendor) can be an item's 負責人 like a real user, but has
+  // no login of its own — its 負責窗口 is the real user who tracks its work,
+  // so items assigned to the resource should show up on that person's
+  // dashboard as if they owned them directly.
+  const resourceIdsByManager = new Map<string, string[]>();
+  for (const r of managedResources) {
+    const list = resourceIdsByManager.get(r.managerId!) ?? [];
+    list.push(r.id);
+    resourceIdsByManager.set(r.managerId!, list);
+  }
   const userById = new Map(users.map((u) => [u.id, u.name]));
+  for (const r of managedResources) userById.set(r.id, r.name);
+  function withManagedResourceIds(userIds: string[]): string[] {
+    return userIds.flatMap((id) => [id, ...(resourceIdsByManager.get(id) ?? [])]);
+  }
   const isSupervisor = session.role === "SUPERVISOR";
   const isAdmin = session.role === "ADMIN";
   const teamMembers = isSupervisor
@@ -71,11 +89,15 @@ export default async function DashboardPage({
   const boardProgress = computeBoardProgressOverview(boards);
   const { overdue, upcoming, completed } = computeOverdueUpcoming(
     boards,
-    isSupervisor ? teamMembers.map((m) => m.id) : isAdmin ? undefined : [session.userId]
+    isSupervisor
+      ? withManagedResourceIds(teamMembers.map((m) => m.id))
+      : isAdmin
+        ? undefined
+        : withManagedResourceIds([session.userId])
   );
-  const personalItems = computePersonalItems(boards, [session.userId], userById);
+  const personalItems = computePersonalItems(boards, withManagedResourceIds([session.userId]), userById);
   const teamItems = isSupervisor
-    ? computePersonalItems(boards, teamMembers.map((m) => m.id), userById)
+    ? computePersonalItems(boards, withManagedResourceIds(teamMembers.map((m) => m.id)), userById)
     : [];
 
   const workloadThreshold = await getWorkloadThreshold();
