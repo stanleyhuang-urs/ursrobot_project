@@ -23,12 +23,14 @@ export function PersonalItemRow({
   userRole,
   currentUserId,
   users,
+  widths,
 }: {
   item: PersonalItemEntry;
   showAssignees: boolean;
   userRole: UserRole;
   currentUserId: string;
   users: UserOption[];
+  widths: Record<"name" | "window" | "board" | "status" | "progress" | "date", number>;
 }) {
   const canManage = canManageStructure(userRole);
   const canDelete = canModifyItemSchedule(userRole, item.createdById, currentUserId);
@@ -38,80 +40,94 @@ export function PersonalItemRow({
   const commentCount = item.fullItem._count.comments;
   const assignmentCount = item.fullItem.assignments.length;
 
+  const columns: (keyof typeof widths)[] = showAssignees
+    ? ["name", "window", "board", "status", "progress", "date"]
+    : ["name", "board", "status", "progress", "date"];
+  const gridTemplate = columns.map((c) => `${widths[c]}px`).join(" ") + " 32px";
+
   return (
-    <li className="flex items-center gap-3 px-4 py-2.5">
-      <Link
-        href={`/boards/${item.boardId}?highlight=${item.itemId}`}
-        className="min-w-0 flex-1 truncate text-sm text-neutral-800 hover:text-blue-600"
-      >
-        {item.itemName}
-      </Link>
-      <button
-        type="button"
-        onClick={() => setDetailOpen(true)}
-        className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
-          commentCount > 0 ? "text-blue-600" : "text-neutral-300"
-        }`}
-        aria-label="留言"
-      >
-        <MessageSquare size={14} />
-        {commentCount > 0 && <span>{commentCount}</span>}
-      </button>
-      {canManage && (
+    <li
+      className="grid items-center gap-2 px-4 py-2.5"
+      style={{ gridTemplateColumns: gridTemplate }}
+    >
+      <div className="flex min-w-0 items-center gap-1">
+        <Link
+          href={`/boards/${item.boardId}?highlight=${item.itemId}`}
+          className="min-w-0 flex-1 truncate text-sm text-neutral-800 hover:text-blue-600"
+        >
+          {item.itemName}
+        </Link>
         <button
           type="button"
-          onClick={() => setAssignOpen(true)}
-          title={item.fullItem.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
+          onClick={() => setDetailOpen(true)}
           className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
-            assignmentCount > 0 ? "text-blue-600" : "text-neutral-300"
+            commentCount > 0 ? "text-blue-600" : "text-neutral-300"
           }`}
-          aria-label="指派"
+          aria-label="留言"
         >
-          <UserPlus size={14} />
-          {assignmentCount > 0 && <span>{assignmentCount}</span>}
+          <MessageSquare size={14} />
+          {commentCount > 0 && <span>{commentCount}</span>}
         </button>
-      )}
-      {canManage && (
-        <button
-          type="button"
-          onClick={() => setAddSubtaskOpen(true)}
-          className="flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs text-neutral-300 hover:bg-neutral-100 hover:text-neutral-600"
-          aria-label="新增子任務"
-        >
-          <Plus size={14} />
-        </button>
-      )}
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setAssignOpen(true)}
+            title={item.fullItem.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
+            className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
+              assignmentCount > 0 ? "text-blue-600" : "text-neutral-300"
+            }`}
+            aria-label="指派"
+          >
+            <UserPlus size={14} />
+            {assignmentCount > 0 && <span>{assignmentCount}</span>}
+          </button>
+        )}
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setAddSubtaskOpen(true)}
+            className="flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs text-neutral-300 hover:bg-neutral-100 hover:text-neutral-600"
+            aria-label="新增子任務"
+          >
+            <Plus size={14} />
+          </button>
+        )}
+      </div>
+
       {showAssignees && (
-        <span className="shrink-0 text-xs text-neutral-500">
+        <span className="truncate text-xs text-neutral-500">
           {item.assignees
             .map((a) => (a.allocationPct !== null ? `${a.name} ${a.allocationPct}%` : a.name))
             .join(", ")}
         </span>
       )}
-      <span className="shrink-0 text-xs text-neutral-400">{item.boardName}</span>
-      {item.status ? (
-        <span
-          className="shrink-0 rounded-full px-2 py-0.5 text-xs text-white"
-          style={{ backgroundColor: item.status.color }}
-        >
-          {item.status.label}
-        </span>
-      ) : (
-        <span className="shrink-0 rounded-full bg-neutral-200 px-2 py-0.5 text-xs text-neutral-500">
-          狀態未設置
-        </span>
-      )}
-      {item.progressPct !== null && (
-        <span className="shrink-0 text-xs text-neutral-500">
-          {Math.round(item.progressPct)}%
-        </span>
-      )}
-      {item.dueDate && (
-        <span className="shrink-0 text-xs text-neutral-500">
-          {item.startDate && `${formatDate(item.startDate)} ~ `}
-          {formatDate(item.dueDate)}
-        </span>
-      )}
+
+      <span className="truncate text-xs text-neutral-400">{item.boardName}</span>
+
+      <span className="truncate">
+        {item.status ? (
+          <span
+            className="rounded-full px-2 py-0.5 text-xs text-white"
+            style={{ backgroundColor: item.status.color }}
+          >
+            {item.status.label}
+          </span>
+        ) : (
+          <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs text-neutral-500">
+            狀態未設置
+          </span>
+        )}
+      </span>
+
+      <span className="text-xs text-neutral-500">
+        {item.progressPct !== null && `${Math.round(item.progressPct)}%`}
+      </span>
+
+      <span className="truncate text-xs text-neutral-500">
+        {item.dueDate &&
+          `${item.startDate ? `${formatDate(item.startDate)} ~ ` : ""}${formatDate(item.dueDate)}`}
+      </span>
+
       {canDelete && (
         <RowMenu>
           <RowMenuItem danger onSelect={() => deleteItem(item.boardId, item.itemId)}>

@@ -15,7 +15,7 @@ import {
 } from "@/lib/dashboard";
 import { TeamWorkloadCard } from "@/components/dashboard/TeamWorkloadCard";
 import { WorkloadDetailSection } from "@/components/dashboard/WorkloadDetailSection";
-import { PersonalItemRow } from "@/components/dashboard/PersonalItemRow";
+import { PersonalItemsList } from "@/components/dashboard/PersonalItemsList";
 import { getWorkloadThreshold } from "@/lib/actions/workloadThreshold";
 import {
   computeMemberTaskBreakdown,
@@ -293,24 +293,14 @@ export default async function DashboardPage({
           <h2 className="mb-3 text-sm font-semibold text-neutral-700">
             團隊項目({teamItems.length})
           </h2>
-          <div className="overflow-hidden rounded-md border border-neutral-200 bg-white">
-            {teamItems.length === 0 ? (
-              <p className="p-4 text-sm text-neutral-400">你的團隊目前沒有指派中的項目</p>
-            ) : (
-              <ul className="divide-y divide-neutral-100">
-                {teamItems.map((item) => (
-                  <PersonalItemRow
-                    key={`${item.boardId}-${item.itemId}`}
-                    item={item}
-                    showAssignees
-                    userRole={session.role}
-                    currentUserId={session.userId}
-                    users={users}
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
+          <PersonalItemsList
+            items={teamItems}
+            showAssignees
+            userRole={session.role}
+            currentUserId={session.userId}
+            users={users}
+            emptyText="你的團隊目前沒有指派中的項目"
+          />
         </section>
       )}
 
@@ -318,24 +308,14 @@ export default async function DashboardPage({
         <h2 className="mb-3 text-sm font-semibold text-neutral-700">
           我的項目({personalItems.length})
         </h2>
-        <div className="overflow-hidden rounded-md border border-neutral-200 bg-white">
-          {personalItems.length === 0 ? (
-            <p className="p-4 text-sm text-neutral-400">目前沒有指派給你的項目</p>
-          ) : (
-            <ul className="divide-y divide-neutral-100">
-              {personalItems.map((item) => (
-                <PersonalItemRow
-                  key={`${item.boardId}-${item.itemId}`}
-                  item={item}
-                  showAssignees={false}
-                  userRole={session.role}
-                  currentUserId={session.userId}
-                  users={users}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
+        <PersonalItemsList
+          items={personalItems}
+          showAssignees={false}
+          userRole={session.role}
+          currentUserId={session.userId}
+          users={users}
+          emptyText="目前沒有指派給你的項目"
+        />
       </section>
 
       {myResourceIds.length > 0 && (
@@ -343,24 +323,14 @@ export default async function DashboardPage({
           <h2 className="mb-3 text-sm font-semibold text-neutral-700">
             我的團隊項目({myResourceItems.length})
           </h2>
-          <div className="overflow-hidden rounded-md border border-neutral-200 bg-white">
-            {myResourceItems.length === 0 ? (
-              <p className="p-4 text-sm text-neutral-400">你負責窗口的資源目前沒有指派中的項目</p>
-            ) : (
-              <ul className="divide-y divide-neutral-100">
-                {myResourceItems.map((item) => (
-                  <PersonalItemRow
-                    key={`${item.boardId}-${item.itemId}`}
-                    item={item}
-                    showAssignees
-                    userRole={session.role}
-                    currentUserId={session.userId}
-                    users={users}
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
+          <PersonalItemsList
+            items={myResourceItems}
+            showAssignees
+            userRole={session.role}
+            currentUserId={session.userId}
+            users={users}
+            emptyText="你負責窗口的資源目前沒有指派中的項目"
+          />
         </section>
       )}
     </div>
