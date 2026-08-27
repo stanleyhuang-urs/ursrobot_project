@@ -95,7 +95,9 @@ export default async function DashboardPage({
         ? undefined
         : withManagedResourceIds([session.userId])
   );
-  const personalItems = computePersonalItems(boards, withManagedResourceIds([session.userId]), userById);
+  const personalItems = computePersonalItems(boards, [session.userId], userById);
+  const myResourceIds = resourceIdsByManager.get(session.userId) ?? [];
+  const myResourceItems = computePersonalItems(boards, myResourceIds, userById);
   const teamItems = isSupervisor
     ? computePersonalItems(boards, withManagedResourceIds(teamMembers.map((m) => m.id)), userById)
     : [];
@@ -335,6 +337,32 @@ export default async function DashboardPage({
           )}
         </div>
       </section>
+
+      {myResourceIds.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-sm font-semibold text-neutral-700">
+            我的團隊項目({myResourceItems.length})
+          </h2>
+          <div className="overflow-hidden rounded-md border border-neutral-200 bg-white">
+            {myResourceItems.length === 0 ? (
+              <p className="p-4 text-sm text-neutral-400">你負責窗口的資源目前沒有指派中的項目</p>
+            ) : (
+              <ul className="divide-y divide-neutral-100">
+                {myResourceItems.map((item) => (
+                  <PersonalItemRow
+                    key={`${item.boardId}-${item.itemId}`}
+                    item={item}
+                    showAssignees
+                    userRole={session.role}
+                    currentUserId={session.userId}
+                    users={users}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
