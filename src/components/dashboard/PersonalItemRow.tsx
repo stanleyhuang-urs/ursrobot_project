@@ -120,7 +120,7 @@ export function PersonalItemRow({
       </span>
 
       <span className="text-xs text-neutral-500">
-        {item.progressPct !== null && `${Math.round(item.progressPct)}%`}
+        {item.progressPct !== null && `${Math.round(item.progressPct * 100)}%`}
       </span>
 
       <span className="truncate text-xs text-neutral-500">
