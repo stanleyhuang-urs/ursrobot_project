@@ -6,6 +6,13 @@ export const MAX_NAME_COLUMN_WIDTH = 1000;
  * drag the column wider manually up to MAX_NAME_COLUMN_WIDTH. */
 export const AUTO_FIT_MAX_NAME_COLUMN_WIDTH = 400;
 
-export function gridTemplate(columnCount: number, nameWidth: number = DEFAULT_NAME_COLUMN_WIDTH) {
-  return `32px ${nameWidth}px repeat(${columnCount}, 160px) 40px`;
+/** Grid template for the data-columns pane only (everything except the
+ * frozen checkbox+name columns, which live in a separate non-scrolling pane
+ * — see FrozenPane/DataPane in BoardTable.tsx). */
+export function gridTemplate(columnCount: number) {
+  return `repeat(${columnCount}, 160px) 40px`;
+}
+
+export function frozenPaneWidth(nameWidth: number) {
+  return 32 + nameWidth;
 }

@@ -21,9 +21,10 @@ import { AssignmentModal } from "./AssignmentModal";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import { renameItem, deleteItem, createItem, insertItem } from "@/lib/actions/item";
 import { computeItemProgress } from "@/lib/progress";
-import { gridTemplate } from "./gridTemplate";
+import { gridTemplate, frozenPaneWidth } from "./gridTemplate";
 
 export function ItemRow({
+  pane,
   boardId,
   groupId,
   item,
@@ -43,7 +44,10 @@ export function ItemRow({
   highlightItemId,
   expandIds,
   levelColors,
+  collapsedIds,
+  onToggleCollapse,
 }: {
+  pane: "frozen" | "data";
   boardId: string;
   groupId: string;
   item: ItemData;
@@ -63,6 +67,8 @@ export function ItemRow({
   highlightItemId?: string | null;
   expandIds?: Set<string>;
   levelColors?: string[];
+  collapsedIds: Set<string>;
+  onToggleCollapse: (itemId: string) => void;
 }) {
   const canEditStructure = canManageStructure(userRole);
   const canModifySchedule = canModifyItemSchedule(userRole, item.createdById, currentUserId);
@@ -70,8 +76,7 @@ export function ItemRow({
   const isAssignedToCurrentUser = isItemAssignedToUser(item, personColumnIds, currentUserId);
   const [name, setName] = useState(item.name);
   const isAncestorOfHighlight = expandIds?.has(item.id) ?? false;
-  const [expandedState, setExpanded] = useState(true);
-  const expanded = expandedState || isAncestorOfHighlight;
+  const expanded = !collapsedIds.has(item.id) || isAncestorOfHighlight;
   const [detailOpen, setDetailOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -108,7 +113,7 @@ export function ItemRow({
   }
 
   async function handleAddSubitem() {
-    setExpanded(true);
+    if (collapsedIds.has(item.id)) onToggleCollapse(item.id);
     await createItem(boardId, groupId, "新子項目", item.id);
   }
 
@@ -116,112 +121,165 @@ export function ItemRow({
     await insertItem(boardId, groupId, item.parentId, item.id, position);
   }
 
+  const childRows = expanded
+    ? children.map((child) => (
+        <ItemRow
+          key={child.id}
+          pane={pane}
+          boardId={boardId}
+          groupId={groupId}
+          item={child}
+          allGroupItems={allGroupItems}
+          depth={depth + 1}
+          columns={columns}
+          users={users}
+          progressColumnId={progressColumnId}
+          ganttStartColumnId={ganttStartColumnId}
+          ganttDurationColumnId={ganttDurationColumnId}
+          ganttEndColumnId={ganttEndColumnId}
+          userRole={userRole}
+          currentUserId={currentUserId}
+          visibleIds={visibleIds}
+          nameWidth={nameWidth}
+          wbsCodes={wbsCodes}
+          highlightItemId={highlightItemId}
+          expandIds={expandIds}
+          levelColors={levelColors}
+          collapsedIds={collapsedIds}
+          onToggleCollapse={onToggleCollapse}
+        />
+      ))
+    : null;
+
+  if (pane === "frozen") {
+    return (
+      <>
+        <div
+          ref={rowRef}
+          className="group flex h-9 items-center border-b border-neutral-100 hover:bg-neutral-50"
+          style={{
+            width: frozenPaneWidth(nameWidth),
+            backgroundColor: rowBackground,
+            transition: "background-color 1.5s ease",
+          }}
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center">
+            {hasChildren && (
+              <button
+                type="button"
+                onClick={() => onToggleCollapse(item.id)}
+                className="text-neutral-400 hover:text-neutral-700"
+                aria-label={expanded ? "收合子項目" : "展開子項目"}
+              >
+                {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </button>
+            )}
+          </div>
+          <div className="flex min-w-0 flex-1 items-center gap-1" style={{ paddingLeft: depth * 20 }}>
+            {wbsCodes?.get(item.id) && (
+              <span className="shrink-0 text-xs font-bold text-black">{wbsCodes.get(item.id)}</span>
+            )}
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={saveName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+              }}
+              readOnly={!canEditStructure}
+              className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-sm outline-none hover:bg-neutral-100 focus:bg-white focus:ring-1 focus:ring-blue-400"
+            />
+            <button
+              type="button"
+              onClick={() => setDetailOpen(true)}
+              className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
+                commentCount > 0 ? "text-blue-600" : "text-neutral-300"
+              }`}
+              aria-label="留言"
+            >
+              <MessageSquare size={14} />
+              {commentCount > 0 && <span>{commentCount}</span>}
+            </button>
+            {canEditStructure && (
+              <button
+                type="button"
+                onClick={() => setAssignOpen(true)}
+                title={item.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
+                className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
+                  item.assignments.length > 0 ? "text-blue-600" : "text-neutral-300"
+                }`}
+                aria-label="指派"
+              >
+                <UserPlus size={14} />
+                {item.assignments.length > 0 && <span>{item.assignments.length}</span>}
+              </button>
+            )}
+            {canEditStructure && (
+              <RowMenu>
+                <RowMenuItem onSelect={handleAddSubitem}>
+                  <span className="flex items-center gap-2">
+                    <Plus size={14} /> 新增子項目
+                  </span>
+                </RowMenuItem>
+                <RowMenuItem onSelect={() => handleInsert("before")}>
+                  <span className="flex items-center gap-2">
+                    <ArrowUpToLine size={14} /> 上方插入項目
+                  </span>
+                </RowMenuItem>
+                <RowMenuItem onSelect={() => handleInsert("after")}>
+                  <span className="flex items-center gap-2">
+                    <ArrowDownToLine size={14} /> 下方插入項目
+                  </span>
+                </RowMenuItem>
+                {canModifySchedule && (
+                  <RowMenuItem danger onSelect={() => deleteItem(boardId, item.id)}>
+                    <span className="flex items-center gap-2">
+                      <Trash2 size={14} /> 刪除
+                    </span>
+                  </RowMenuItem>
+                )}
+              </RowMenu>
+            )}
+          </div>
+        </div>
+        <ItemDetailModal
+          boardId={boardId}
+          item={detailOpen ? item : null}
+          columns={columns}
+          users={users}
+          progressColumnId={progressColumnId}
+          userRole={userRole}
+          currentUserId={currentUserId}
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
+        />
+        {canEditStructure && (
+          <AssignmentModal
+            boardId={boardId}
+            item={assignOpen ? item : null}
+            users={users}
+            currentUserId={currentUserId}
+            userRole={userRole}
+            open={assignOpen}
+            onOpenChange={setAssignOpen}
+          />
+        )}
+        {childRows}
+      </>
+    );
+  }
+
   return (
     <>
       <div
         ref={rowRef}
-        className="group grid w-fit items-center border-b border-neutral-100 hover:bg-neutral-50"
+        className="group grid h-9 w-fit items-center border-b border-neutral-100 hover:bg-neutral-50"
         style={{
-          gridTemplateColumns: gridTemplate(columns.length, nameWidth),
+          gridTemplateColumns: gridTemplate(columns.length),
           backgroundColor: rowBackground,
           transition: "background-color 1.5s ease",
         }}
       >
-        <div
-          className="sticky left-0 z-10 flex items-center justify-center border-r border-neutral-100 group-hover:bg-neutral-50"
-          style={{
-            backgroundColor: rowBackground ?? "white",
-            transform: "translateZ(0)",
-            willChange: "transform",
-            isolation: "isolate",
-          }}
-        >
-          {hasChildren && (
-            <button
-              type="button"
-              onClick={() => setExpanded(!expanded)}
-              className="text-neutral-400 hover:text-neutral-700"
-              aria-label={expanded ? "收合子項目" : "展開子項目"}
-            >
-              {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-          )}
-        </div>
-        <div
-          className="sticky left-8 z-10 flex min-w-0 items-center gap-1 border-r border-neutral-100 group-hover:bg-neutral-50"
-          style={{
-            paddingLeft: depth * 20,
-            backgroundColor: rowBackground ?? "white",
-            transform: "translateZ(0)",
-            willChange: "transform",
-            isolation: "isolate",
-          }}
-        >
-          {wbsCodes?.get(item.id) && (
-            <span className="shrink-0 text-xs font-bold text-black">{wbsCodes.get(item.id)}</span>
-          )}
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={saveName}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-            }}
-            readOnly={!canEditStructure}
-            className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-sm outline-none hover:bg-neutral-100 focus:bg-white focus:ring-1 focus:ring-blue-400"
-          />
-          <button
-            type="button"
-            onClick={() => setDetailOpen(true)}
-            className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
-              commentCount > 0 ? "text-blue-600" : "text-neutral-300"
-            }`}
-            aria-label="留言"
-          >
-            <MessageSquare size={14} />
-            {commentCount > 0 && <span>{commentCount}</span>}
-          </button>
-          {canEditStructure && (
-            <button
-              type="button"
-              onClick={() => setAssignOpen(true)}
-              title={item.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
-              className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
-                item.assignments.length > 0 ? "text-blue-600" : "text-neutral-300"
-              }`}
-              aria-label="指派"
-            >
-              <UserPlus size={14} />
-              {item.assignments.length > 0 && <span>{item.assignments.length}</span>}
-            </button>
-          )}
-          {canEditStructure && (
-            <RowMenu>
-              <RowMenuItem onSelect={handleAddSubitem}>
-                <span className="flex items-center gap-2">
-                  <Plus size={14} /> 新增子項目
-                </span>
-              </RowMenuItem>
-              <RowMenuItem onSelect={() => handleInsert("before")}>
-                <span className="flex items-center gap-2">
-                  <ArrowUpToLine size={14} /> 上方插入項目
-                </span>
-              </RowMenuItem>
-              <RowMenuItem onSelect={() => handleInsert("after")}>
-                <span className="flex items-center gap-2">
-                  <ArrowDownToLine size={14} /> 下方插入項目
-                </span>
-              </RowMenuItem>
-              {canModifySchedule && (
-                <RowMenuItem danger onSelect={() => deleteItem(boardId, item.id)}>
-                  <span className="flex items-center gap-2">
-                    <Trash2 size={14} /> 刪除
-                  </span>
-                </RowMenuItem>
-              )}
-            </RowMenu>
-          )}
-        </div>
         {columns.map((col) => {
           const isScheduleColumn =
             col.id === ganttStartColumnId ||
@@ -252,53 +310,7 @@ export function ItemRow({
           );
         })}
       </div>
-      <ItemDetailModal
-        boardId={boardId}
-        item={detailOpen ? item : null}
-        columns={columns}
-        users={users}
-        progressColumnId={progressColumnId}
-        userRole={userRole}
-        currentUserId={currentUserId}
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-      />
-      {canEditStructure && (
-        <AssignmentModal
-          boardId={boardId}
-          item={assignOpen ? item : null}
-          users={users}
-          currentUserId={currentUserId}
-          userRole={userRole}
-          open={assignOpen}
-          onOpenChange={setAssignOpen}
-        />
-      )}
-      {expanded &&
-        children.map((child) => (
-          <ItemRow
-            key={child.id}
-            boardId={boardId}
-            groupId={groupId}
-            item={child}
-            allGroupItems={allGroupItems}
-            depth={depth + 1}
-            columns={columns}
-            users={users}
-            progressColumnId={progressColumnId}
-            ganttStartColumnId={ganttStartColumnId}
-            ganttDurationColumnId={ganttDurationColumnId}
-            ganttEndColumnId={ganttEndColumnId}
-            userRole={userRole}
-            currentUserId={currentUserId}
-            visibleIds={visibleIds}
-            nameWidth={nameWidth}
-            wbsCodes={wbsCodes}
-            highlightItemId={highlightItemId}
-            expandIds={expandIds}
-            levelColors={levelColors}
-          />
-        ))}
+      {childRows}
     </>
   );
 }

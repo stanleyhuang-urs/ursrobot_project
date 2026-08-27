@@ -29,6 +29,7 @@ import { FilterBar } from "./FilterBar";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import {
   gridTemplate,
+  frozenPaneWidth,
   DEFAULT_NAME_COLUMN_WIDTH,
   MIN_NAME_COLUMN_WIDTH,
   MAX_NAME_COLUMN_WIDTH,
@@ -133,7 +134,39 @@ export function BoardTable({
   }
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
   const [nameWidth, setNameWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const hasAutoSizedRef = useRef(false);
+  const scrollPanesRef = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  function toggleCollapse(itemId: string) {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function registerScrollPane(key: string, el: HTMLDivElement | null) {
+    if (el) scrollPanesRef.current.set(key, el);
+    else scrollPanesRef.current.delete(key);
+  }
+
+  // The frozen name column and the data columns are two separate, independently
+  // scrolling panes (see the two-pane layout below) — position:sticky can't hide
+  // scrolled-past content from a sibling column, only paint over what's directly
+  // beneath it, so a wide table with many columns eventually shows other columns'
+  // cells peeking out past the "frozen" column instead of staying hidden behind it.
+  // Keeping the header's and every group's data pane in one real, separately
+  // clipped scroll container (synced here) avoids that entirely.
+  function handlePaneScroll(sourceKey: string) {
+    const source = scrollPanesRef.current.get(sourceKey);
+    if (!source) return;
+    const left = source.scrollLeft;
+    for (const [key, el] of scrollPanesRef.current) {
+      if (key !== sourceKey && el.scrollLeft !== left) el.scrollLeft = left;
+    }
+  }
   const visibleIds = useMemo(
     () => computeVisibleItemIds(board.items, filters),
     [board.items, filters]
@@ -257,57 +290,61 @@ export function BoardTable({
     <div>
       <FilterBar columns={orderedColumns} users={users} filters={filters} onChange={setFilters} />
 
-      <div className="w-fit rounded-lg border-2 border-neutral-800">
-      <DndContext
-        id="board-columns-dnd"
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleColumnDragEnd}
-      >
+      <div className="rounded-lg border-2 border-neutral-800">
+      <div className="mb-2 flex items-center text-xs font-medium text-neutral-500">
         <div
-          className="mb-2 grid w-fit items-center text-xs font-medium text-neutral-500"
-          style={{ gridTemplateColumns: gridTemplate(orderedColumns.length, nameWidth) }}
+          className="relative shrink-0 border-r border-neutral-200 bg-neutral-50 px-2"
+          style={{ width: frozenPaneWidth(nameWidth) }}
+        >
+          項目名稱
+          <div
+            onPointerDown={startNameColumnResize}
+            className="absolute right-0 top-0 z-20 h-full w-1 cursor-col-resize hover:bg-blue-400"
+          />
+        </div>
+        <DndContext
+          id="board-columns-dnd"
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleColumnDragEnd}
         >
           <div
-            className="sticky left-0 z-10 border-r border-neutral-200 bg-neutral-50"
-            style={{ transform: "translateZ(0)", willChange: "transform", isolation: "isolate" }}
-          />
-          <div
-            className="sticky left-8 z-10 relative border-r border-neutral-200 bg-neutral-50 px-2"
-            style={{ transform: "translateZ(0)", willChange: "transform", isolation: "isolate" }}
+            ref={(el) => registerScrollPane("header", el)}
+            onScroll={() => handlePaneScroll("header")}
+            className="min-w-0 flex-1 overflow-x-auto"
           >
-            項目名稱
             <div
-              onPointerDown={startNameColumnResize}
-              className="absolute right-0 top-0 z-20 h-full w-1 cursor-col-resize hover:bg-blue-400"
-            />
-          </div>
-          <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
-            {orderedColumns.map((col) => (
-              <SortableColumnHeader
-                key={col.id}
-                col={col}
-                canEditStructure={canEditStructure}
-                isProgressColumn={board.progressColumnId === col.id}
-                onSetProgressColumn={() =>
-                  setProgressColumn(board.id, board.progressColumnId === col.id ? null : col.id)
-                }
-                onDelete={() => deleteColumn(board.id, col.id)}
-              />
-            ))}
-          </SortableContext>
-          {canEditStructure && (
-            <button
-              type="button"
-              onClick={onAddColumn}
-              className="flex items-center justify-center text-neutral-400 hover:text-neutral-700"
-              aria-label="新增欄位"
+              className="grid w-fit items-center"
+              style={{ gridTemplateColumns: gridTemplate(orderedColumns.length) }}
             >
-              <Plus size={16} />
-            </button>
-          )}
-        </div>
-      </DndContext>
+              <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+                {orderedColumns.map((col) => (
+                  <SortableColumnHeader
+                    key={col.id}
+                    col={col}
+                    canEditStructure={canEditStructure}
+                    isProgressColumn={board.progressColumnId === col.id}
+                    onSetProgressColumn={() =>
+                      setProgressColumn(board.id, board.progressColumnId === col.id ? null : col.id)
+                    }
+                    onDelete={() => deleteColumn(board.id, col.id)}
+                  />
+                ))}
+              </SortableContext>
+              {canEditStructure && (
+                <button
+                  type="button"
+                  onClick={onAddColumn}
+                  className="flex items-center justify-center text-neutral-400 hover:text-neutral-700"
+                  aria-label="新增欄位"
+                >
+                  <Plus size={16} />
+                </button>
+              )}
+            </div>
+          </div>
+        </DndContext>
+      </div>
 
       <DndContext
         id="board-groups-dnd"
@@ -339,6 +376,10 @@ export function BoardTable({
                   highlightItemId={highlightItemId}
                   expandIds={expandIds}
                   levelColors={board.levelColors}
+                  collapsedIds={collapsedIds}
+                  onToggleCollapse={toggleCollapse}
+                  registerScrollPane={registerScrollPane}
+                  onPaneScroll={handlePaneScroll}
                 />
               );
             })}

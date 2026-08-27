@@ -8,7 +8,7 @@ import type { GroupData, ColumnData, ItemData, UserOption } from "@/types/board"
 import type { UserRole } from "@prisma/client";
 import { canManageStructure } from "@/lib/permissions";
 import { ItemRow } from "./ItemRow";
-import { gridTemplate } from "./gridTemplate";
+import { gridTemplate, frozenPaneWidth } from "./gridTemplate";
 import { renameGroup, deleteGroup } from "@/lib/actions/group";
 import { createItem } from "@/lib/actions/item";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
@@ -31,6 +31,10 @@ export function GroupSection({
   highlightItemId,
   expandIds,
   levelColors,
+  collapsedIds,
+  onToggleCollapse,
+  registerScrollPane,
+  onPaneScroll,
 }: {
   boardId: string;
   group: GroupData;
@@ -48,6 +52,10 @@ export function GroupSection({
   highlightItemId?: string | null;
   expandIds?: Set<string>;
   levelColors?: string[];
+  collapsedIds: Set<string>;
+  onToggleCollapse: (itemId: string) => void;
+  registerScrollPane: (key: string, el: HTMLDivElement | null) => void;
+  onPaneScroll: (key: string) => void;
 }) {
   const wbsCodes = useMemo(() => computeWbsCodes(items), [items]);
   const canEditStructure = canManageStructure(userRole);
@@ -56,6 +64,7 @@ export function GroupSection({
   const [collapsed, setCollapsed] = useState(false);
   const [name, setName] = useState(group.name);
   const [newItemName, setNewItemName] = useState("");
+  const scrollPaneKey = `group:${group.id}`;
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -76,6 +85,11 @@ export function GroupSection({
     await createItem(boardId, group.id, newItemName.trim());
     setNewItemName("");
   }
+
+  const topLevelItems = items
+    .filter((item) => item.parentId === null)
+    .filter((item) => visibleIds === null || visibleIds.has(item.id))
+    .sort((a, b) => a.order - b.order);
 
   return (
     <div
@@ -133,14 +147,12 @@ export function GroupSection({
       </div>
 
       {!collapsed && (
-        <div>
-          {items
-            .filter((item) => item.parentId === null)
-            .filter((item) => visibleIds === null || visibleIds.has(item.id))
-            .sort((a, b) => a.order - b.order)
-            .map((item) => (
+        <div className="flex items-start">
+          <div className="shrink-0" style={{ width: frozenPaneWidth(nameWidth) }}>
+            {topLevelItems.map((item) => (
               <ItemRow
                 key={item.id}
+                pane="frozen"
                 boardId={boardId}
                 groupId={group.id}
                 item={item}
@@ -159,28 +171,61 @@ export function GroupSection({
                 highlightItemId={highlightItemId}
                 expandIds={expandIds}
                 levelColors={levelColors}
+                collapsedIds={collapsedIds}
+                onToggleCollapse={onToggleCollapse}
               />
             ))}
-          {canEditStructure && (
-            <div
-              className="grid w-fit items-center py-1.5"
-              style={{ gridTemplateColumns: gridTemplate(columns.length, nameWidth) }}
-            >
+            {canEditStructure && (
+              <div className="flex h-9 items-center">
+                <input
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
+                  onBlur={handleAddItem}
+                  placeholder="+ 新增項目"
+                  className="ml-8 min-w-0 flex-1 rounded bg-white px-2 py-1 text-sm text-neutral-500 outline-none hover:bg-neutral-50 focus:bg-white focus:text-neutral-900 focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
+            )}
+          </div>
+          <div
+            ref={(el) => registerScrollPane(scrollPaneKey, el)}
+            onScroll={() => onPaneScroll(scrollPaneKey)}
+            className="no-scrollbar min-w-0 flex-1 overflow-x-auto"
+          >
+            {topLevelItems.map((item) => (
+              <ItemRow
+                key={item.id}
+                pane="data"
+                boardId={boardId}
+                groupId={group.id}
+                item={item}
+                allGroupItems={items}
+                columns={columns}
+                users={users}
+                progressColumnId={progressColumnId}
+                ganttStartColumnId={ganttStartColumnId}
+                ganttDurationColumnId={ganttDurationColumnId}
+                ganttEndColumnId={ganttEndColumnId}
+                userRole={userRole}
+                currentUserId={currentUserId}
+                visibleIds={visibleIds}
+                nameWidth={nameWidth}
+                wbsCodes={wbsCodes}
+                highlightItemId={highlightItemId}
+                expandIds={expandIds}
+                levelColors={levelColors}
+                collapsedIds={collapsedIds}
+                onToggleCollapse={onToggleCollapse}
+              />
+            ))}
+            {canEditStructure && (
               <div
-                className="sticky left-0 z-10 bg-white"
-                style={{ transform: "translateZ(0)", willChange: "transform", isolation: "isolate" }}
+                className="grid h-9 w-fit items-center"
+                style={{ gridTemplateColumns: gridTemplate(columns.length) }}
               />
-              <input
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
-                onBlur={handleAddItem}
-                placeholder="+ 新增項目"
-                className="sticky left-8 z-10 rounded bg-white px-2 py-1 text-sm text-neutral-500 outline-none hover:bg-neutral-50 focus:bg-white focus:text-neutral-900 focus:ring-1 focus:ring-blue-400"
-                style={{ transform: "translateZ(0)", willChange: "transform", isolation: "isolate" }}
-              />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>

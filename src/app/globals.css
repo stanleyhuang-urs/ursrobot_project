@@ -17,3 +17,15 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Each group's data-columns pane scrolls in sync with the header's pane
+ * (see BoardTable.tsx's handlePaneScroll) — showing its own scrollbar too
+ * would mean one redundant scrollbar per group, so only the header's stays
+ * visible as the single scroll handle. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
