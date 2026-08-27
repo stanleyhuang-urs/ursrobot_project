@@ -270,11 +270,11 @@ export function BoardTable({
         >
           <div
             className="sticky left-0 z-10 border-r border-neutral-200 bg-neutral-50"
-            style={{ transform: "translateZ(0)", willChange: "transform" }}
+            style={{ transform: "translateZ(0)", willChange: "transform", isolation: "isolate" }}
           />
           <div
             className="sticky left-8 z-10 relative border-r border-neutral-200 bg-neutral-50 px-2"
-            style={{ transform: "translateZ(0)", willChange: "transform" }}
+            style={{ transform: "translateZ(0)", willChange: "transform", isolation: "isolate" }}
           >
             項目名稱
             <div

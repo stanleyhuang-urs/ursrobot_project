@@ -133,6 +133,7 @@ export function ItemRow({
             backgroundColor: rowBackground ?? "white",
             transform: "translateZ(0)",
             willChange: "transform",
+            isolation: "isolate",
           }}
         >
           {hasChildren && (
@@ -153,6 +154,7 @@ export function ItemRow({
             backgroundColor: rowBackground ?? "white",
             transform: "translateZ(0)",
             willChange: "transform",
+            isolation: "isolate",
           }}
         >
           {wbsCodes?.get(item.id) && (
