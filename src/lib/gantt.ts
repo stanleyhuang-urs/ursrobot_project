@@ -1,4 +1,5 @@
 import type { ItemData } from "@/types/board";
+import { getPersonIds } from "@/types/column";
 
 export type DateRange = { start: Date; end: Date };
 
@@ -32,35 +33,52 @@ function toIsoDate(date: Date): string {
 }
 
 /**
- * For every item with a resolvable date range, spreads each of its
- * assignments' allocationPct across every day in that range, accumulated
- * per user. Used to detect days where a person is assigned over 100%.
+ * For every item with a resolvable date range, spreads each assignee's load
+ * across every day in that range, accumulated per user. An assignee is a
+ * Gantt Assignment (real allocationPct) or a PERSON-column value (負責人/
+ * Resource, no allocation of its own so it's spread at 100% unless a real
+ * Assignment already covers that user) — the same two mechanisms
+ * isItemAssignedToUser treats as equivalent everywhere else. Used to detect
+ * days where a person is assigned over 100%.
  */
 export function computeDailyLoadByUser(
   items: ItemData[],
   startColumnId: string,
-  durationColumnId: string
+  durationColumnId: string,
+  personColumnIds: string[] = []
 ): Map<string, Map<string, number>> {
   const loadByUser = new Map<string, Map<string, number>>();
 
+  function addLoad(userId: string, range: DateRange, pct: number) {
+    let dayMap = loadByUser.get(userId);
+    if (!dayMap) {
+      dayMap = new Map();
+      loadByUser.set(userId, dayMap);
+    }
+    const cursor = new Date(range.start);
+    while (cursor <= range.end) {
+      const key = toIsoDate(cursor);
+      dayMap.set(key, (dayMap.get(key) ?? 0) + pct);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+
   for (const item of items) {
-    if (item.assignments.length === 0) continue;
     const range = getItemDateRange(item, startColumnId, durationColumnId);
     if (!range) continue;
 
+    const coveredByAssignment = new Set<string>();
     for (const assignment of item.assignments) {
-      let dayMap = loadByUser.get(assignment.userId);
-      if (!dayMap) {
-        dayMap = new Map();
-        loadByUser.set(assignment.userId, dayMap);
-      }
+      addLoad(assignment.userId, range, assignment.allocationPct);
+      coveredByAssignment.add(assignment.userId);
+    }
 
-      const cursor = new Date(range.start);
-      while (cursor <= range.end) {
-        const key = toIsoDate(cursor);
-        dayMap.set(key, (dayMap.get(key) ?? 0) + assignment.allocationPct);
-        cursor.setDate(cursor.getDate() + 1);
-      }
+    const personIds = item.cellValues
+      .filter((cv) => personColumnIds.includes(cv.columnId))
+      .flatMap((cv) => getPersonIds(cv.value));
+    for (const userId of personIds) {
+      if (coveredByAssignment.has(userId)) continue;
+      addLoad(userId, range, 100);
     }
   }
 

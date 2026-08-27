@@ -52,10 +52,12 @@ export function computeTeamWorkload(
 
   for (const board of boards) {
     if (!board.ganttStartColumnId || !board.ganttDurationColumnId) continue;
+    const personColumnIds = board.columns.filter((c) => c.type === "PERSON").map((c) => c.id);
     const dailyLoad = computeDailyLoadByUser(
       board.items,
       board.ganttStartColumnId,
-      board.ganttDurationColumnId
+      board.ganttDurationColumnId,
+      personColumnIds
     );
     for (const [userId, dayMap] of dailyLoad) {
       const sum = dates.reduce((acc, date) => acc + (dayMap.get(date) ?? 0), 0);
@@ -96,9 +98,14 @@ export function computeMemberItemWorkload(
 
   for (const board of boards) {
     if (!board.ganttStartColumnId || !board.ganttDurationColumnId) continue;
+    const personColumnIds = board.columns.filter((c) => c.type === "PERSON").map((c) => c.id);
     for (const item of board.items) {
       const assignment = item.assignments.find((a) => a.userId === userId);
-      if (!assignment) continue;
+      const personIds = item.cellValues
+        .filter((cv) => personColumnIds.includes(cv.columnId))
+        .flatMap((cv) => getPersonIds(cv.value));
+      if (!assignment && !personIds.includes(userId)) continue;
+      const allocationPct = assignment?.allocationPct ?? 100;
       const range = getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId);
       if (!range) continue;
 
@@ -115,7 +122,7 @@ export function computeMemberItemWorkload(
         boardName: board.name,
         itemId: item.id,
         itemName: item.name,
-        avgPct: Math.round((assignment.allocationPct * activeDays) / dates.size),
+        avgPct: Math.round((allocationPct * activeDays) / dates.size),
       });
     }
   }

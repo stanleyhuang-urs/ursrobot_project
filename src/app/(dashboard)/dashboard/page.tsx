@@ -97,7 +97,7 @@ export default async function DashboardPage({
   const { overdue, upcoming, completed } = computeOverdueUpcoming(
     boards,
     isSupervisor
-      ? withManagedResourceIds(teamMembers.map((m) => m.id))
+      ? withManagedResourceIds([session.userId, ...teamMembers.map((m) => m.id)])
       : isAdmin
         ? undefined
         : withManagedResourceIds([session.userId])

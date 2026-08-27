@@ -102,10 +102,12 @@ export function computeCrossBoardDailyLoad(
 
   for (const board of boards) {
     if (!board.ganttStartColumnId || !board.ganttDurationColumnId) continue;
+    const personColumnIds = board.columns.filter((c) => c.type === "PERSON").map((c) => c.id);
     const dailyLoad = computeDailyLoadByUser(
       board.items,
       board.ganttStartColumnId,
-      board.ganttDurationColumnId
+      board.ganttDurationColumnId,
+      personColumnIds
     );
     for (const [userId, dayMap] of dailyLoad) {
       if (!idSet.has(userId)) continue;
