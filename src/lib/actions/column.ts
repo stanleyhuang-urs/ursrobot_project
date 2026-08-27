@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireStructureAccess } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
+import type { GanttDurationMode } from "@prisma/client";
 import type { ColumnType, StatusColumnOptions } from "@/types/column";
 import { DEFAULT_STATUSES } from "@/types/column";
 
@@ -140,6 +141,21 @@ export async function setGanttEndColumn(
     data: { ganttEndColumnId: columnId },
   });
   revalidatePath(`/boards/${boardId}`);
+}
+
+export async function setGanttDurationMode(
+  boardId: string,
+  mode: GanttDurationMode
+) {
+  const session = await requireSession();
+  await requireBoardAccess(boardId, session);
+  requireStructureAccess(session.role);
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { ganttDurationMode: mode },
+  });
+  revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/dashboard");
 }
 
 export async function setPredColumn(

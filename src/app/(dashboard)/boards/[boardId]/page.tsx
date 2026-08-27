@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/session";
 import { canAccessBoard } from "@/lib/boardAccess";
 import { boardWithDataArgs, type UserOption } from "@/types/board";
 import { BoardView } from "@/components/board/BoardView";
+import { listHolidays } from "@/lib/holidays";
 
 export default async function BoardPage({
   params,
@@ -15,7 +16,7 @@ export default async function BoardPage({
   const { boardId } = await params;
   const { highlight } = await searchParams;
 
-  const [session, board, users, resources] = await Promise.all([
+  const [session, board, users, resources, holidays] = await Promise.all([
     requireSession(),
     prisma.board.findUnique({
       where: { id: boardId },
@@ -26,6 +27,7 @@ export default async function BoardPage({
       orderBy: { name: "asc" },
     }),
     prisma.resource.findMany({ orderBy: { order: "asc" } }),
+    listHolidays(),
   ]);
 
   if (!board) notFound();
@@ -52,6 +54,7 @@ export default async function BoardPage({
       userRole={session.role}
       currentUserId={session.userId}
       highlightItemId={highlight ?? null}
+      holidays={holidays}
     />
   );
 }

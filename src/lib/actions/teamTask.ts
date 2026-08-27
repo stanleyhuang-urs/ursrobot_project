@@ -1,14 +1,30 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@prisma/client";
+import { Prisma, type GanttDurationMode } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { canManageStructure } from "@/lib/permissions";
 import { getItemDateRange } from "@/lib/gantt";
+import { addBusinessDays } from "@/lib/workday";
+import { listHolidays, toHolidaySet } from "@/lib/holidays";
 import { upsertAssignment } from "./assignment";
 
 type ParentWithBoard = Prisma.ItemGetPayload<{ include: { board: true; cellValues: true } }>;
+
+/** End date for a proposed start+days span, respecting the board's calendar
+ *  vs business-day duration mode — mirrors getItemDateRange's own math for
+ *  a not-yet-created item. */
+function computeSpanEnd(
+  startDate: string,
+  days: number,
+  mode: GanttDurationMode,
+  holidays: Set<string>
+): Date {
+  const start = new Date(startDate);
+  if (mode === "BUSINESS") return addBusinessDays(start, Math.max(days, 1), holidays);
+  return new Date(start.getTime() + (days - 1) * 86_400_000);
+}
 
 /** Shared item-creation mechanics for both createTeamSubtask and
  *  createSubtaskFromDashboard: creates the child item, stamps its Gantt
@@ -16,7 +32,8 @@ type ParentWithBoard = Prisma.ItemGetPayload<{ include: { board: true; cellValue
 async function createChildTask(
   parent: ParentWithBoard,
   input: { assigneeUserId: string; name: string; startDate: string; days: number; allocationPct: number },
-  createdById: string
+  createdById: string,
+  holidays: Set<string>
 ) {
   const { board } = parent;
   if (!board.ganttStartColumnId || !board.ganttDurationColumnId) {
@@ -41,8 +58,7 @@ async function createChildTask(
     { itemId: item.id, columnId: board.ganttDurationColumnId, value: input.days },
   ];
   if (board.ganttEndColumnId) {
-    const start = new Date(input.startDate);
-    const end = new Date(start.getTime() + (input.days - 1) * 86_400_000);
+    const end = computeSpanEnd(input.startDate, input.days, board.ganttDurationMode, holidays);
     cellValues.push({
       itemId: item.id,
       columnId: board.ganttEndColumnId,
@@ -135,18 +151,25 @@ export async function createTeamSubtask(input: {
   }
 
   const { board } = parent;
+  const holidays = toHolidaySet(await listHolidays());
   if (board.ganttStartColumnId && board.ganttDurationColumnId) {
-    const parentRange = getItemDateRange(parent, board.ganttStartColumnId, board.ganttDurationColumnId);
+    const parentRange = getItemDateRange(
+      parent,
+      board.ganttStartColumnId,
+      board.ganttDurationColumnId,
+      board.ganttDurationMode,
+      holidays
+    );
     if (parentRange) {
       const start = new Date(input.startDate);
-      const end = new Date(start.getTime() + (input.days - 1) * 86_400_000);
+      const end = computeSpanEnd(input.startDate, input.days, board.ganttDurationMode, holidays);
       if (start < parentRange.start || end > parentRange.end) {
         throw new Error("子任務時程需在父任務的時間範圍內");
       }
     }
   }
 
-  return createChildTask(parent, { ...input, name: trimmedName }, session.userId);
+  return createChildTask(parent, { ...input, name: trimmedName }, session.userId, holidays);
 }
 
 /**
@@ -182,16 +205,23 @@ export async function createSubtaskFromDashboard(input: {
   if (!parent) throw new Error("找不到父任務");
 
   const { board } = parent;
+  const holidays = toHolidaySet(await listHolidays());
   if (board.ganttStartColumnId && board.ganttDurationColumnId) {
-    const parentRange = getItemDateRange(parent, board.ganttStartColumnId, board.ganttDurationColumnId);
+    const parentRange = getItemDateRange(
+      parent,
+      board.ganttStartColumnId,
+      board.ganttDurationColumnId,
+      board.ganttDurationMode,
+      holidays
+    );
     if (parentRange) {
       const start = new Date(input.startDate);
-      const end = new Date(start.getTime() + (input.days - 1) * 86_400_000);
+      const end = computeSpanEnd(input.startDate, input.days, board.ganttDurationMode, holidays);
       if (start < parentRange.start || end > parentRange.end) {
         throw new Error("子任務時程需在父任務的時間範圍內");
       }
     }
   }
 
-  return createChildTask(parent, input, session.userId);
+  return createChildTask(parent, input, session.userId, holidays);
 }

@@ -33,4 +33,12 @@ describe("countBusinessDays", () => {
     const end = addBusinessDays(start, 10);
     expect(countBusinessDays(start, end)).toBe(10);
   });
+
+  it("skips holidays in addition to weekends", () => {
+    // Fri 2026-07-17 + 5 business days skips Sat/Sun as well as the
+    // Monday 2026-07-20 holiday, landing one day later than the plain case.
+    const holidays = new Set(["2026-07-20"]);
+    expect(countBusinessDays(new Date("2026-07-17"), new Date("2026-07-23"), holidays)).toBe(4);
+    expect(iso(addBusinessDays(new Date("2026-07-17"), 5, holidays))).toBe("2026-07-24");
+  });
 });

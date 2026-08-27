@@ -26,6 +26,11 @@ enum BoardVisibility {
   RESTRICTED
 }
 
+enum GanttDurationMode {
+  CALENDAR
+  BUSINESS
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -92,6 +97,7 @@ model Board {
   ganttDurationColumn   Column? @relation("BoardGanttDurationColumn", fields: [ganttDurationColumnId], references: [id], onDelete: SetNull)
   ganttEndColumnId      String?
   ganttEndColumn        Column? @relation("BoardGanttEndColumn", fields: [ganttEndColumnId], references: [id], onDelete: SetNull)
+  ganttDurationMode     GanttDurationMode @default(CALENDAR)
 
   predColumnId String?
   predColumn   Column? @relation("BoardPredColumn", fields: [predColumnId], references: [id], onDelete: SetNull)
@@ -289,6 +295,14 @@ model WorkloadThreshold {
   yellowColor String   @default("#fdab3d")
   redColor    String   @default("#e2445c")
   updatedAt   DateTime @updatedAt
+}
+
+// Company-wide (not per-board) list of dates that business-day duration
+// calculations should skip in addition to weekends.
+model Holiday {
+  id   String @id @default(cuid())
+  date String @unique // "YYYY-MM-DD"
+  name String
 }
 
 model CellValue {

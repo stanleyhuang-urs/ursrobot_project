@@ -45,14 +45,21 @@ export type MemberTask = {
  */
 export function computeMemberTaskBreakdown(
   boards: BoardWithData[],
-  userIds: string[]
+  userIds: string[],
+  holidays: Set<string> = new Set()
 ): Map<string, MemberTask[]> {
   const idSet = new Set(userIds);
   const byUser = new Map<string, MemberTask[]>();
 
   function addTask(userId: string, board: BoardWithData, item: ItemData, allocationPct: number, hasRange: boolean) {
     const range = hasRange
-      ? getItemDateRange(item, board.ganttStartColumnId!, board.ganttDurationColumnId!)
+      ? getItemDateRange(
+          item,
+          board.ganttStartColumnId!,
+          board.ganttDurationColumnId!,
+          board.ganttDurationMode,
+          holidays
+        )
       : null;
     const list = byUser.get(userId) ?? [];
     list.push({
@@ -95,7 +102,8 @@ export function computeMemberTaskBreakdown(
 /** Merges each board's per-day load-by-user map into one cross-board map. */
 export function computeCrossBoardDailyLoad(
   boards: BoardWithData[],
-  userIds: string[]
+  userIds: string[],
+  holidays: Set<string> = new Set()
 ): Map<string, Map<string, number>> {
   const idSet = new Set(userIds);
   const merged = new Map<string, Map<string, number>>();
@@ -107,7 +115,9 @@ export function computeCrossBoardDailyLoad(
       board.items,
       board.ganttStartColumnId,
       board.ganttDurationColumnId,
-      personColumnIds
+      personColumnIds,
+      board.ganttDurationMode,
+      holidays
     );
     for (const [userId, dayMap] of dailyLoad) {
       if (!idSet.has(userId)) continue;
@@ -123,14 +133,23 @@ export function computeCrossBoardDailyLoad(
 }
 
 /** Earliest start / latest end across every item with a resolvable Gantt date range. */
-function computeOverallDateRange(boards: BoardWithData[]): { min: Date; max: Date } {
+function computeOverallDateRange(
+  boards: BoardWithData[],
+  holidays: Set<string> = new Set()
+): { min: Date; max: Date } {
   let min: Date | null = null;
   let max: Date | null = null;
 
   for (const board of boards) {
     if (!board.ganttStartColumnId || !board.ganttDurationColumnId) continue;
     for (const item of board.items) {
-      const range = getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId);
+      const range = getItemDateRange(
+        item,
+        board.ganttStartColumnId,
+        board.ganttDurationColumnId,
+        board.ganttDurationMode,
+        holidays
+      );
       if (!range) continue;
       if (!min || range.start < min) min = range.start;
       if (!max || range.end > max) max = range.end;
@@ -156,8 +175,11 @@ function mondayOf(date: Date): Date {
  * calendar month for grouping. Falls back to the current week if no item
  * has a resolvable date range.
  */
-export function computeWeekColumns(boards: BoardWithData[]): WeekColumn[] {
-  const { min, max } = computeOverallDateRange(boards);
+export function computeWeekColumns(
+  boards: BoardWithData[],
+  holidays: Set<string> = new Set()
+): WeekColumn[] {
+  const { min, max } = computeOverallDateRange(boards, holidays);
 
   const weeks: WeekColumn[] = [];
   let cursor = mondayOf(min);
@@ -182,9 +204,10 @@ export function computeWeekColumns(boards: BoardWithData[]): WeekColumn[] {
 export function computeMemberWeeklyLoad(
   boards: BoardWithData[],
   userIds: string[],
-  weeks: WeekColumn[]
+  weeks: WeekColumn[],
+  holidays: Set<string> = new Set()
 ): Map<string, number[]> {
-  const dailyLoad = computeCrossBoardDailyLoad(boards, userIds);
+  const dailyLoad = computeCrossBoardDailyLoad(boards, userIds, holidays);
 
   const result = new Map<string, number[]>();
   for (const userId of userIds) {

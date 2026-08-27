@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Table2, LayoutGrid, Upload, Download, GanttChartSquare, Users2, Zap, Share2, BarChart3, Palette } from "lucide-react";
 import type { BoardWithData, UserOption } from "@/types/board";
-import type { UserRole } from "@prisma/client";
+import type { Holiday, UserRole } from "@prisma/client";
 import { canManageBoard, canManageStructure } from "@/lib/permissions";
 import { BoardTable } from "./BoardTable";
 import { BoardKanban } from "./BoardKanban";
@@ -23,12 +23,14 @@ export function BoardView({
   userRole,
   currentUserId,
   highlightItemId,
+  holidays,
 }: {
   board: BoardWithData;
   users: UserOption[];
   userRole: UserRole;
   currentUserId: string;
   highlightItemId?: string | null;
+  holidays: Holiday[];
 }) {
   const [view, setView] = useState<"table" | "kanban" | "gantt" | "report">("table");
   const [addColumnOpen, setAddColumnOpen] = useState(false);
@@ -198,6 +200,7 @@ export function BoardView({
             users={users}
             userRole={userRole}
             currentUserId={currentUserId}
+            holidays={holidays}
           />
         )}
         {view === "report" && (

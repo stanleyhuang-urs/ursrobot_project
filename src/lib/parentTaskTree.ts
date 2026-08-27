@@ -22,7 +22,11 @@ export type ParentTreeNode = {
  * (a supervisor with no assignments of their own still needs to be able to
  * add work under their team members' existing tasks).
  */
-export function buildSupervisorParentTree(boards: BoardWithData[], userIds: string[]): ParentTreeNode[] {
+export function buildSupervisorParentTree(
+  boards: BoardWithData[],
+  userIds: string[],
+  holidays: Set<string> = new Set()
+): ParentTreeNode[] {
   const idSet = new Set(userIds);
   const roots: ParentTreeNode[] = [];
   const nodeById = new Map<string, ParentTreeNode>();
@@ -42,7 +46,13 @@ export function buildSupervisorParentTree(boards: BoardWithData[], userIds: stri
       if (!node) {
         const range =
           board.ganttStartColumnId && board.ganttDurationColumnId
-            ? getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId)
+            ? getItemDateRange(
+                item,
+                board.ganttStartColumnId,
+                board.ganttDurationColumnId,
+                board.ganttDurationMode,
+                holidays
+              )
             : null;
         node = {
           itemId: item.id,
@@ -109,7 +119,10 @@ export function buildSupervisorParentTree(boards: BoardWithData[], userIds: stri
 }
 
 /** For an admin: the full item hierarchy of every accessible board. */
-export function buildFullParentTree(boards: BoardWithData[]): ParentTreeNode[] {
+export function buildFullParentTree(
+  boards: BoardWithData[],
+  holidays: Set<string> = new Set()
+): ParentTreeNode[] {
   const roots: ParentTreeNode[] = [];
 
   for (const board of boards) {
@@ -124,7 +137,13 @@ export function buildFullParentTree(boards: BoardWithData[]): ParentTreeNode[] {
     function buildNode(item: ItemData): ParentTreeNode {
       const range =
         board.ganttStartColumnId && board.ganttDurationColumnId
-          ? getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId)
+          ? getItemDateRange(
+              item,
+              board.ganttStartColumnId,
+              board.ganttDurationColumnId,
+              board.ganttDurationMode,
+              holidays
+            )
           : null;
       return {
         itemId: item.id,

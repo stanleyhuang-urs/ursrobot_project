@@ -1,19 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, CalendarOff } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
-import type { UserRole } from "@prisma/client";
+import type { Holiday, UserRole } from "@prisma/client";
 import { canManageStructure } from "@/lib/permissions";
 import {
   setGanttStartColumn,
   setGanttDurationColumn,
   setGanttEndColumn,
+  setGanttDurationMode,
   setPredColumn,
   setLinkColumn,
 } from "@/lib/actions/column";
 import { getItemDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
+import { isNonWorkingDay } from "@/lib/workday";
 import { AssignmentModal } from "./AssignmentModal";
+import { HolidaySettingsModal } from "@/components/dashboard/HolidaySettingsModal";
 
 type Zoom = "day" | "week" | "month";
 const ZOOM_DAY_WIDTH: Record<Zoom, number> = { day: 34, week: 10, month: 3 };
@@ -80,16 +83,26 @@ export function BoardGantt({
   users,
   userRole,
   currentUserId,
+  holidays,
 }: {
   board: BoardWithData;
   users: UserOption[];
   userRole: UserRole;
   currentUserId: string;
+  holidays: Holiday[];
 }) {
   const canEditStructure = canManageStructure(userRole);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [assignmentItem, setAssignmentItem] = useState<ItemData | null>(null);
+  const [holidaySettingsOpen, setHolidaySettingsOpen] = useState(false);
   const [zoom, setZoom] = useState<Zoom>("day");
+  const durationMode = board.ganttDurationMode;
+  const isBusinessMode = durationMode === "BUSINESS";
+  const holidaySet = useMemo(() => new Set(holidays.map((h) => h.date)), [holidays]);
+  const holidayNameByDate = useMemo(() => new Map(holidays.map((h) => [h.date, h.name])), [holidays]);
+  function nonWorking(d: Date) {
+    return isBusinessMode && isNonWorkingDay(d, holidaySet);
+  }
   const dayWidth = ZOOM_DAY_WIDTH[zoom];
   const scrollRef = useRef<HTMLDivElement>(null);
   const topScrollRef = useRef<HTMLDivElement>(null);
@@ -144,11 +157,11 @@ export function BoardGantt({
     const map = new Map<string, DateRange>();
     if (!startColumnId || !durationColumnId) return map;
     for (const item of board.items) {
-      const range = getItemDateRange(item, startColumnId, durationColumnId);
+      const range = getItemDateRange(item, startColumnId, durationColumnId, durationMode, holidaySet);
       if (range) map.set(item.id, range);
     }
     return map;
-  }, [board.items, startColumnId, durationColumnId]);
+  }, [board.items, startColumnId, durationColumnId, durationMode, holidaySet]);
 
   const { minDate, days } = useMemo(() => {
     if (ranges.size === 0) return { minDate: new Date(), days: [] as Date[] };
@@ -187,10 +200,22 @@ export function BoardGantt({
 
   const contentWidth = LABEL_WIDTH + days.length * dayWidth;
 
+  const personColumnIds = useMemo(
+    () => board.columns.filter((c) => c.type === "PERSON").map((c) => c.id),
+    [board.columns]
+  );
+
   const dailyLoad = useMemo(() => {
     if (!startColumnId || !durationColumnId) return new Map<string, Map<string, number>>();
-    return computeDailyLoadByUser(board.items, startColumnId, durationColumnId);
-  }, [board.items, startColumnId, durationColumnId]);
+    return computeDailyLoadByUser(
+      board.items,
+      startColumnId,
+      durationColumnId,
+      personColumnIds,
+      durationMode,
+      holidaySet
+    );
+  }, [board.items, startColumnId, durationColumnId, personColumnIds, durationMode, holidaySet]);
 
   const usersWithLoad = users.filter((u) => (dailyLoad.get(u.id)?.size ?? 0) > 0);
 
@@ -243,6 +268,17 @@ export function BoardGantt({
             className="relative shrink-0"
             style={{ width: days.length * dayWidth, height: 34 }}
           >
+            {isBusinessMode && (
+              <div className="absolute inset-0 flex">
+                {days.map((d) => (
+                  <div
+                    key={toIsoDate(d)}
+                    className="shrink-0"
+                    style={{ width: dayWidth, backgroundColor: nonWorking(d) ? "#e9ecef" : "transparent" }}
+                  />
+                ))}
+              </div>
+            )}
             {range && (
               <GanttBar
                 item={item}
@@ -317,6 +353,27 @@ export function BoardGantt({
           </select>
         </div>
         <div className="flex items-center gap-2">
+          <span className="text-neutral-500">計算方式</span>
+          <select
+            value={durationMode}
+            onChange={(e) => setGanttDurationMode(board.id, e.target.value as "CALENDAR" | "BUSINESS")}
+            disabled={!canEditStructure}
+            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
+          >
+            <option value="CALENDAR">日曆天</option>
+            <option value="BUSINESS">工作天</option>
+          </select>
+        </div>
+        {userRole === "ADMIN" && (
+          <button
+            type="button"
+            onClick={() => setHolidaySettingsOpen(true)}
+            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-600 hover:bg-neutral-50"
+          >
+            <CalendarOff size={13} /> 國定假日設定
+          </button>
+        )}
+        <div className="flex items-center gap-2">
           <span className="text-neutral-500">結束日期欄位</span>
           <select
             value={endColumnId ?? ""}
@@ -372,7 +429,11 @@ export function BoardGantt({
       )}
       {startColumnId && durationColumnId && endColumnId && (
         <p className="mb-2 text-xs text-neutral-400">
-          已啟用自動計算:填寫開始日期+天數會自動算出結束日期,填寫開始日期+結束日期會自動算出天數(以工作日計算)。
+          已啟用自動計算:填寫開始日期+天數會自動算出結束日期,填寫開始日期+結束日期會自動算出天數
+          {isBusinessMode
+            ? `(以工作日計算,已排除週六日與 ${holidays.length} 個國定假日)`
+            : "(以日曆天計算)"}
+          。
         </p>
       )}
 
@@ -425,15 +486,21 @@ export function BoardGantt({
                 項目
               </div>
               <div className="flex border-b border-neutral-100 bg-neutral-50">
-                {headerSegments.map((seg) => (
-                  <div
-                    key={seg.key}
-                    className="shrink-0 truncate border-r border-neutral-100 py-1.5 text-center text-xs text-neutral-500"
-                    style={{ width: seg.days * dayWidth }}
-                  >
-                    {seg.label}
-                  </div>
-                ))}
+                {headerSegments.map((seg) => {
+                  const segDate = zoom === "day" ? new Date(seg.key) : null;
+                  const nonWork = segDate ? nonWorking(segDate) : false;
+                  const holidayName = segDate ? holidayNameByDate.get(toIsoDate(segDate)) : undefined;
+                  return (
+                    <div
+                      key={seg.key}
+                      title={holidayName}
+                      className="shrink-0 truncate border-r border-neutral-100 py-1.5 text-center text-xs text-neutral-500"
+                      style={{ width: seg.days * dayWidth, backgroundColor: nonWork ? "#e9ecef" : undefined }}
+                    >
+                      {seg.label}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -457,7 +524,9 @@ export function BoardGantt({
                       const load = dailyLoad.get(u.id)?.get(toIsoDate(d)) ?? 0;
                       const bg =
                         load === 0
-                          ? "transparent"
+                          ? nonWorking(d)
+                            ? "#e9ecef"
+                            : "transparent"
                           : load > 100
                             ? "#e2445c"
                             : "#00c875";
@@ -494,6 +563,14 @@ export function BoardGantt({
         open={assignmentItem !== null}
         onOpenChange={(open) => !open && setAssignmentItem(null)}
       />
+
+      {userRole === "ADMIN" && (
+        <HolidaySettingsModal
+          holidays={holidays}
+          open={holidaySettingsOpen}
+          onOpenChange={setHolidaySettingsOpen}
+        />
+      )}
     </div>
   );
 }

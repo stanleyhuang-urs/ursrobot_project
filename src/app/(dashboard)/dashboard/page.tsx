@@ -24,6 +24,7 @@ import {
   type MemberTask,
 } from "@/lib/workload";
 import { buildSupervisorParentTree, buildFullParentTree } from "@/lib/parentTaskTree";
+import { listHolidays, toHolidaySet } from "@/lib/holidays";
 
 function formatDate(date: Date) {
   return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
@@ -37,7 +38,7 @@ export default async function DashboardPage({
   const session = await requireSession();
   const { board: boardFilter } = await searchParams;
 
-  const [allBoards, users, managedResources] = await Promise.all([
+  const [allBoards, users, managedResources, holidayRows] = await Promise.all([
     prisma.board.findMany({
       where: accessibleBoardWhere(session),
       ...boardWithDataArgs,
@@ -51,7 +52,9 @@ export default async function DashboardPage({
       where: { managerId: { not: null } },
       select: { id: true, name: true, managerId: true },
     }),
+    listHolidays(),
   ]);
+  const holidays = toHolidaySet(holidayRows);
 
   const boards = boardFilter ? allBoards.filter((b) => b.id === boardFilter) : allBoards;
 
@@ -90,9 +93,9 @@ export default async function DashboardPage({
   // their own team only, not the whole org.
   const assignableUsers = isSupervisor ? teamMembers : isAdmin ? users : [];
 
-  const teamWorkloadDay = computeTeamWorkload(boards, workloadScope, "day");
-  const teamWorkloadWeek = computeTeamWorkload(boards, workloadScope, "week");
-  const teamWorkloadMonth = computeTeamWorkload(boards, workloadScope, "month");
+  const teamWorkloadDay = computeTeamWorkload(boards, workloadScope, "day", holidays);
+  const teamWorkloadWeek = computeTeamWorkload(boards, workloadScope, "week", holidays);
+  const teamWorkloadMonth = computeTeamWorkload(boards, workloadScope, "month", holidays);
   const boardProgress = computeBoardProgressOverview(boards);
   const { overdue, upcoming, completed } = computeOverdueUpcoming(
     boards,
@@ -100,18 +103,19 @@ export default async function DashboardPage({
       ? withManagedResourceIds([session.userId, ...teamMembers.map((m) => m.id)])
       : isAdmin
         ? undefined
-        : withManagedResourceIds([session.userId])
+        : withManagedResourceIds([session.userId]),
+    holidays
   );
-  const personalItems = computePersonalItems(boards, [session.userId], userById);
+  const personalItems = computePersonalItems(boards, [session.userId], userById, holidays);
   const myResourceIds = resourceIdsByManager.get(session.userId) ?? [];
-  const myResourceItems = computePersonalItems(boards, myResourceIds, userById);
+  const myResourceItems = computePersonalItems(boards, myResourceIds, userById, holidays);
   const teamItems = isSupervisor
-    ? computePersonalItems(boards, withManagedResourceIds(teamMembers.map((m) => m.id)), userById)
+    ? computePersonalItems(boards, withManagedResourceIds(teamMembers.map((m) => m.id)), userById, holidays)
     : [];
 
   const workloadThreshold = await getWorkloadThreshold();
   const workloadScopeIds = workloadScope.map((u) => u.id);
-  const memberTasksMap = computeMemberTaskBreakdown(boards, workloadScopeIds);
+  const memberTasksMap = computeMemberTaskBreakdown(boards, workloadScopeIds, holidays);
   // Admins aren't limited to delegating their own work — they can split a
   // subtask off any task in the full hierarchy. Supervisors get a tree of
   // the ancestor paths of tasks assigned to them or their team, so they can
@@ -120,10 +124,10 @@ export default async function DashboardPage({
   // add work under a team member's existing task.
   const parentTaskTree =
     session.role === "ADMIN"
-      ? buildFullParentTree(allBoards)
-      : buildSupervisorParentTree(boards, [session.userId, ...teamMembers.map((m) => m.id)]);
-  const weekColumns = computeWeekColumns(boards);
-  const weeklyLoadMap = computeMemberWeeklyLoad(boards, workloadScopeIds, weekColumns);
+      ? buildFullParentTree(allBoards, holidays)
+      : buildSupervisorParentTree(boards, [session.userId, ...teamMembers.map((m) => m.id)], holidays);
+  const weekColumns = computeWeekColumns(boards, holidays);
+  const weeklyLoadMap = computeMemberWeeklyLoad(boards, workloadScopeIds, weekColumns, holidays);
 
   const tasksByUser: Record<string, MemberTask[]> = {};
   const weeklyLoadByUser: Record<string, number[]> = {};
@@ -135,9 +139,9 @@ export default async function DashboardPage({
   const memberItemWorkload: Record<string, Record<WorkloadPeriod, MemberItemWorkloadEntry[]>> = {};
   for (const id of workloadScopeIds) {
     memberItemWorkload[id] = {
-      day: computeMemberItemWorkload(boards, id, "day"),
-      week: computeMemberItemWorkload(boards, id, "week"),
-      month: computeMemberItemWorkload(boards, id, "month"),
+      day: computeMemberItemWorkload(boards, id, "day", holidays),
+      week: computeMemberItemWorkload(boards, id, "week", holidays),
+      month: computeMemberItemWorkload(boards, id, "month", holidays),
     };
   }
 

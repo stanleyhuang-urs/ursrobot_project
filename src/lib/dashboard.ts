@@ -45,7 +45,8 @@ export type TeamWorkloadEntry = { userId: string; userName: string; avgPct: numb
 export function computeTeamWorkload(
   boards: BoardWithData[],
   users: UserOption[],
-  period: WorkloadPeriod = "day"
+  period: WorkloadPeriod = "day",
+  holidays: Set<string> = new Set()
 ): TeamWorkloadEntry[] {
   const dates = datesForPeriod(period).map(toIsoDate);
   const totals = new Map<string, number>();
@@ -57,7 +58,9 @@ export function computeTeamWorkload(
       board.items,
       board.ganttStartColumnId,
       board.ganttDurationColumnId,
-      personColumnIds
+      personColumnIds,
+      board.ganttDurationMode,
+      holidays
     );
     for (const [userId, dayMap] of dailyLoad) {
       const sum = dates.reduce((acc, date) => acc + (dayMap.get(date) ?? 0), 0);
@@ -91,7 +94,8 @@ export type MemberItemWorkloadEntry = {
 export function computeMemberItemWorkload(
   boards: BoardWithData[],
   userId: string,
-  period: WorkloadPeriod = "day"
+  period: WorkloadPeriod = "day",
+  holidays: Set<string> = new Set()
 ): MemberItemWorkloadEntry[] {
   const dates = new Set(datesForPeriod(period).map(toIsoDate));
   const entries: MemberItemWorkloadEntry[] = [];
@@ -106,7 +110,13 @@ export function computeMemberItemWorkload(
         .flatMap((cv) => getPersonIds(cv.value));
       if (!assignment && !personIds.includes(userId)) continue;
       const allocationPct = assignment?.allocationPct ?? 100;
-      const range = getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId);
+      const range = getItemDateRange(
+        item,
+        board.ganttStartColumnId,
+        board.ganttDurationColumnId,
+        board.ganttDurationMode,
+        holidays
+      );
       if (!range) continue;
 
       let activeDays = 0;
@@ -225,7 +235,8 @@ function isItemComplete(item: ItemData, board: BoardWithData, statusColumn: Colu
  */
 export function computeOverdueUpcoming(
   boards: BoardWithData[],
-  userIds?: string[]
+  userIds?: string[],
+  holidays: Set<string> = new Set()
 ): {
   overdue: DueItemEntry[];
   upcoming: DueItemEntry[];
@@ -253,7 +264,13 @@ export function computeOverdueUpcoming(
         if (!isOwnedByScope) continue;
       }
 
-      const range = getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId);
+      const range = getItemDateRange(
+        item,
+        board.ganttStartColumnId,
+        board.ganttDurationColumnId,
+        board.ganttDurationMode,
+        holidays
+      );
       if (!range) continue;
       if (range.end > weekAhead) continue;
 
@@ -304,7 +321,8 @@ export type PersonalItemEntry = {
 export function computePersonalItems(
   boards: BoardWithData[],
   userIds: string[],
-  userById: Map<string, string> = new Map()
+  userById: Map<string, string> = new Map(),
+  holidays: Set<string> = new Set()
 ): PersonalItemEntry[] {
   const idSet = new Set(userIds);
   const result: PersonalItemEntry[] = [];
@@ -337,7 +355,13 @@ export function computePersonalItems(
 
       const range =
         board.ganttStartColumnId && board.ganttDurationColumnId
-          ? getItemDateRange(item, board.ganttStartColumnId, board.ganttDurationColumnId)
+          ? getItemDateRange(
+              item,
+              board.ganttStartColumnId,
+              board.ganttDurationColumnId,
+              board.ganttDurationMode,
+              holidays
+            )
           : null;
 
       const progressPct = board.progressColumnId
