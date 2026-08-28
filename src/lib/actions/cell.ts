@@ -41,6 +41,7 @@ export async function upsertCellValue(
         ganttEndColumnId: true,
         predColumnId: true,
         linkColumnId: true,
+        typeColumnId: true,
       },
     }),
     prisma.column.findMany({ where: { boardId, type: "PERSON" }, select: { id: true } }),
@@ -70,21 +71,34 @@ export async function upsertCellValue(
   if (
     column &&
     board &&
-    board.predColumnId &&
-    board.linkColumnId &&
-    (column.id === board.ganttStartColumnId || column.id === board.ganttEndColumnId)
+    (column.id === board.ganttStartColumnId ||
+      column.id === board.ganttEndColumnId ||
+      column.id === board.ganttDurationColumnId)
   ) {
-    const [linkColumn, boardItems] = await Promise.all([
-      prisma.column.findUnique({ where: { id: board.linkColumnId }, select: { options: true } }),
+    const [linkColumn, typeColumn, boardItems] = await Promise.all([
+      board.linkColumnId
+        ? prisma.column.findUnique({ where: { id: board.linkColumnId }, select: { options: true } })
+        : null,
+      board.typeColumnId
+        ? prisma.column.findUnique({ where: { id: board.typeColumnId }, select: { options: true } })
+        : null,
       prisma.item.findMany({ where: { boardId }, select: { id: true, parentId: true, order: true, cellValues: true } }),
     ]);
-    const locked = resolveLockedScheduleFields(boardItems, board.predColumnId, board.linkColumnId, linkColumn?.options);
+    const locked = resolveLockedScheduleFields(
+      boardItems,
+      board.predColumnId,
+      board.linkColumnId,
+      linkColumn?.options,
+      board.typeColumnId,
+      typeColumn?.options
+    );
     const lock = locked.get(itemId);
     const isLocked =
       (column.id === board.ganttStartColumnId && lock?.startLocked) ||
-      (column.id === board.ganttEndColumnId && lock?.endLocked);
+      (column.id === board.ganttEndColumnId && lock?.endLocked) ||
+      (column.id === board.ganttDurationColumnId && lock?.daysLocked);
     if (isLocked) {
-      throw new Error("此日期由前置依賴自動計算,請改天數或前置依賴設定");
+      throw new Error("此日期/天數由前置依賴或子項目統計自動計算,無法手動編輯");
     }
   }
 

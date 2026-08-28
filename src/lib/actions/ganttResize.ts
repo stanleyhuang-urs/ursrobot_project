@@ -45,6 +45,7 @@ export async function resizeItemBar(
         ganttDurationMode: true,
         predColumnId: true,
         linkColumnId: true,
+        typeColumnId: true,
       },
     }),
     prisma.item.findUnique({ where: { id: itemId }, include: { cellValues: true } }),
@@ -56,15 +57,28 @@ export async function resizeItemBar(
     throw new Error("權限不足:僅建立者或管理者可以修改此項目的時程");
   }
 
-  if (board.predColumnId && board.linkColumnId) {
-    const [linkColumn, boardItems] = await Promise.all([
-      prisma.column.findUnique({ where: { id: board.linkColumnId }, select: { options: true } }),
+  {
+    const [linkColumn, typeColumn, boardItems] = await Promise.all([
+      board.linkColumnId
+        ? prisma.column.findUnique({ where: { id: board.linkColumnId }, select: { options: true } })
+        : null,
+      board.typeColumnId
+        ? prisma.column.findUnique({ where: { id: board.typeColumnId }, select: { options: true } })
+        : null,
       prisma.item.findMany({ where: { boardId }, select: { id: true, parentId: true, order: true, cellValues: true } }),
     ]);
-    const locked = resolveLockedScheduleFields(boardItems, board.predColumnId, board.linkColumnId, linkColumn?.options);
+    const locked = resolveLockedScheduleFields(
+      boardItems,
+      board.predColumnId,
+      board.linkColumnId,
+      linkColumn?.options,
+      board.typeColumnId,
+      typeColumn?.options
+    );
     const lock = locked.get(itemId);
-    if ((edge === "start" && lock?.startLocked) || (edge === "end" && lock?.endLocked)) {
-      throw new Error("此日期由前置依賴自動計算,請改天數或前置依賴設定");
+    const isLocked = lock?.daysLocked || (edge === "start" ? lock?.startLocked : lock?.endLocked);
+    if (isLocked) {
+      throw new Error("此日期由前置依賴、子項目統計或里程碑規則自動計算,請改天數、前置依賴或子項目設定");
     }
   }
 

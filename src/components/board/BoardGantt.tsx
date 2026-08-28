@@ -13,11 +13,13 @@ import {
   setPredColumn,
   setLinkColumn,
   setGanttLagColumn,
+  setGanttTypeColumn,
 } from "@/lib/actions/column";
-import { getItemDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
+import { computeRolledUpDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
 import { resolveLockedScheduleFields } from "@/lib/predecessorLink";
 import { resizeItemBar } from "@/lib/actions/ganttResize";
 import { recomputeBoardSchedule } from "@/lib/actions/predecessorSchedule";
+import { getStatusOptions } from "@/types/column";
 import { AssignmentModal } from "./AssignmentModal";
 import { HolidaySettingsModal } from "@/components/dashboard/HolidaySettingsModal";
 
@@ -162,16 +164,35 @@ export function BoardGantt({
   const predColumnId = board.predColumnId;
   const linkColumnId = board.linkColumnId;
   const lagColumnId = board.lagColumnId;
+  const typeColumnId = board.typeColumnId;
   const dateColumns = board.columns.filter((c) => c.type === "DATE");
   const numberColumns = board.columns.filter((c) => c.type === "NUMBER");
   const textColumns = board.columns.filter((c) => c.type === "TEXT");
   const statusColumns = board.columns.filter((c) => c.type === "STATUS");
 
   const lockedScheduleFields = useMemo(() => {
-    if (!predColumnId || !linkColumnId) return new Map();
     const linkColumn = board.columns.find((c) => c.id === linkColumnId);
-    return resolveLockedScheduleFields(board.items, predColumnId, linkColumnId, linkColumn?.options);
-  }, [board.items, board.columns, predColumnId, linkColumnId]);
+    const typeColumn = board.columns.find((c) => c.id === typeColumnId);
+    return resolveLockedScheduleFields(
+      board.items,
+      predColumnId,
+      linkColumnId,
+      linkColumn?.options,
+      typeColumnId,
+      typeColumn?.options
+    );
+  }, [board.items, board.columns, predColumnId, linkColumnId, typeColumnId]);
+
+  const typeOptions = useMemo(() => {
+    const typeColumn = board.columns.find((c) => c.id === typeColumnId);
+    return getStatusOptions(typeColumn?.options);
+  }, [board.columns, typeColumnId]);
+
+  function isMilestone(item: ItemData): boolean {
+    if (!typeColumnId) return false;
+    const value = item.cellValues.find((cv) => cv.columnId === typeColumnId)?.value;
+    return typeOptions.find((o) => o.id === value)?.label === "Milestone";
+  }
 
   const [recomputing, setRecomputing] = useState(false);
   async function handleRecomputeAll() {
@@ -188,11 +209,13 @@ export function BoardGantt({
     const map = new Map<string, DateRange>();
     if (!startColumnId || !durationColumnId) return map;
     for (const item of board.items) {
-      const range = getItemDateRange(item, startColumnId, durationColumnId, durationMode, holidaySet);
-      if (range) map.set(item.id, range);
+      const range = computeRolledUpDateRange(item, board.items, startColumnId, durationColumnId, durationMode, holidaySet);
+      if (!range) continue;
+      map.set(item.id, isMilestone(item) ? { start: range.start, end: range.start } : range);
     }
     return map;
-  }, [board.items, startColumnId, durationColumnId, durationMode, holidaySet]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board.items, startColumnId, durationColumnId, durationMode, holidaySet, typeColumnId, typeOptions]);
 
   const days = useMemo(() => {
     if (ranges.size === 0) return [] as Date[];
@@ -336,8 +359,14 @@ export function BoardGantt({
                 dayIndexByIso={dayIndexByIso}
                 days={days}
                 users={users}
-                startLocked={lockedScheduleFields.get(item.id)?.startLocked ?? false}
-                endLocked={lockedScheduleFields.get(item.id)?.endLocked ?? false}
+                startLocked={
+                  (lockedScheduleFields.get(item.id)?.startLocked ?? false) ||
+                  (lockedScheduleFields.get(item.id)?.daysLocked ?? false)
+                }
+                endLocked={
+                  (lockedScheduleFields.get(item.id)?.endLocked ?? false) ||
+                  (lockedScheduleFields.get(item.id)?.daysLocked ?? false)
+                }
                 canResize={canEditStructure}
                 onClick={canEditStructure ? () => setAssignmentItem(item) : undefined}
               />
@@ -463,6 +492,22 @@ export function BoardGantt({
           <select
             value={linkColumnId ?? ""}
             onChange={(e) => setLinkColumn(board.id, e.target.value || null)}
+            disabled={!canEditStructure}
+            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
+          >
+            <option value="">未設定</option>
+            {statusColumns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-500">Type 欄位</span>
+          <select
+            value={typeColumnId ?? ""}
+            onChange={(e) => setGanttTypeColumn(board.id, e.target.value || null)}
             disabled={!canEditStructure}
             className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
           >

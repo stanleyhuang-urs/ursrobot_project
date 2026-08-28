@@ -13,6 +13,7 @@ import { renameGroup, deleteGroup } from "@/lib/actions/group";
 import { createItem } from "@/lib/actions/item";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import { computeWbsCodes } from "@/lib/wbs";
+import type { ScheduleLock } from "@/lib/predecessorLink";
 
 export function GroupSection({
   boardId,
@@ -46,7 +47,7 @@ export function GroupSection({
   ganttStartColumnId: string | null;
   ganttDurationColumnId: string | null;
   ganttEndColumnId: string | null;
-  lockedScheduleFields: Map<string, { startLocked: boolean; endLocked: boolean }>;
+  lockedScheduleFields: Map<string, ScheduleLock>;
   userRole: UserRole;
   currentUserId: string;
   visibleIds: Set<string> | null;

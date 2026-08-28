@@ -200,6 +200,20 @@ export async function setGanttLagColumn(
   revalidatePath(`/boards/${boardId}`);
 }
 
+export async function setGanttTypeColumn(
+  boardId: string,
+  columnId: string | null
+) {
+  const session = await requireSession();
+  await requireBoardAccess(boardId, session);
+  requireStructureAccess(session.role);
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { typeColumnId: columnId },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}
+
 export async function setReportStatusColumn(
   boardId: string,
   columnId: string | null

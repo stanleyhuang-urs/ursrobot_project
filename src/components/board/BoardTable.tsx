@@ -177,10 +177,17 @@ export function BoardTable({
     [board.items, highlightItemId]
   );
   const lockedScheduleFields = useMemo(() => {
-    if (!board.predColumnId || !board.linkColumnId) return new Map();
     const linkColumn = board.columns.find((c) => c.id === board.linkColumnId);
-    return resolveLockedScheduleFields(board.items, board.predColumnId, board.linkColumnId, linkColumn?.options);
-  }, [board.items, board.columns, board.predColumnId, board.linkColumnId]);
+    const typeColumn = board.columns.find((c) => c.id === board.typeColumnId);
+    return resolveLockedScheduleFields(
+      board.items,
+      board.predColumnId,
+      board.linkColumnId,
+      linkColumn?.options,
+      board.typeColumnId,
+      typeColumn?.options
+    );
+  }, [board.items, board.columns, board.predColumnId, board.linkColumnId, board.typeColumnId]);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );

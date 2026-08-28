@@ -83,34 +83,72 @@ export function computeScheduledRange(
   return { start: shiftDate(end, -span, mode, holidays), end };
 }
 
+export type ScheduleLock = { startLocked: boolean; endLocked: boolean; daysLocked: boolean };
+
 /**
- * For every item whose Pred resolves to a real predecessor and whose Link
- * resolves to a valid relationship type, which of its Start/Finish is
- * computed (and therefore not manually editable). Pure — safe to call
- * client-side against already-loaded items, or server-side.
+ * For every item, which of its Start/Finish/Days is computed elsewhere and
+ * therefore not manually editable:
+ *  - an item with children has its Start+Finish rolled up from its subtree
+ *    (a "Summary" row), regardless of its own Type value
+ *  - an item whose Pred resolves to a real predecessor and whose Link
+ *    resolves to a valid relationship type has the date that relationship
+ *    determines locked (FS/SS -> Start, FF/SF -> Finish)
+ *  - an item whose Type resolves to "Milestone" has Days locked at 0
+ * Pure — safe to call client-side against already-loaded items, or
+ * server-side. typeColumnId/typeColumnOptions are optional since not every
+ * board configures a Type column.
  */
 export function resolveLockedScheduleFields(
   items: Pick<ItemData, "id" | "parentId" | "order" | "cellValues">[],
-  predColumnId: string,
-  linkColumnId: string,
-  linkColumnOptions: unknown
-): Map<string, { startLocked: boolean; endLocked: boolean }> {
+  predColumnId?: string | null,
+  linkColumnId?: string | null,
+  linkColumnOptions?: unknown,
+  typeColumnId?: string | null,
+  typeColumnOptions?: unknown
+): Map<string, ScheduleLock> {
   const { itemIdByWbs } = buildWbsIndexFromItems(items);
-  const linkOptions = getStatusOptions(linkColumnOptions);
-  const result = new Map<string, { startLocked: boolean; endLocked: boolean }>();
+  const linkOptions = linkColumnId ? getStatusOptions(linkColumnOptions) : [];
+  const typeOptions = typeColumnId ? getStatusOptions(typeColumnOptions) : [];
+
+  const childCount = new Map<string, number>();
+  for (const item of items) {
+    if (item.parentId) childCount.set(item.parentId, (childCount.get(item.parentId) ?? 0) + 1);
+  }
+
+  const result = new Map<string, ScheduleLock>();
+  function ensure(id: string): ScheduleLock {
+    let lock = result.get(id);
+    if (!lock) {
+      lock = { startLocked: false, endLocked: false, daysLocked: false };
+      result.set(id, lock);
+    }
+    return lock;
+  }
 
   for (const item of items) {
-    const predValue = item.cellValues.find((cv) => cv.columnId === predColumnId)?.value;
-    if (typeof predValue !== "string" || !predValue) continue;
-    const predItemId = itemIdByWbs.get(predValue);
-    if (!predItemId || predItemId === item.id) continue;
+    if ((childCount.get(item.id) ?? 0) > 0) {
+      const lock = ensure(item.id);
+      lock.startLocked = true;
+      lock.endLocked = true;
+    }
 
-    const linkValue = item.cellValues.find((cv) => cv.columnId === linkColumnId)?.value;
-    const label = linkOptions.find((o) => o.id === linkValue)?.label;
-    if (label === "FS" || label === "SS") {
-      result.set(item.id, { startLocked: true, endLocked: false });
-    } else if (label === "FF" || label === "SF") {
-      result.set(item.id, { startLocked: false, endLocked: true });
+    if (predColumnId && linkColumnId) {
+      const predValue = item.cellValues.find((cv) => cv.columnId === predColumnId)?.value;
+      if (typeof predValue === "string" && predValue) {
+        const predItemId = itemIdByWbs.get(predValue);
+        if (predItemId && predItemId !== item.id) {
+          const linkValue = item.cellValues.find((cv) => cv.columnId === linkColumnId)?.value;
+          const label = linkOptions.find((o) => o.id === linkValue)?.label;
+          if (label === "FS" || label === "SS") ensure(item.id).startLocked = true;
+          else if (label === "FF" || label === "SF") ensure(item.id).endLocked = true;
+        }
+      }
+    }
+
+    if (typeColumnId) {
+      const typeValue = item.cellValues.find((cv) => cv.columnId === typeColumnId)?.value;
+      const typeLabel = typeOptions.find((o) => o.id === typeValue)?.label;
+      if (typeLabel === "Milestone") ensure(item.id).daysLocked = true;
     }
   }
 

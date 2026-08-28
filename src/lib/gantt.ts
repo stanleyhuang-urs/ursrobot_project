@@ -39,6 +39,37 @@ export function getItemDateRange(
   return { start, end };
 }
 
+/**
+ * Like getItemDateRange, but for an item with children it rolls up to the
+ * earliest child start and latest child end (recursively) instead of
+ * reading its own Start/Days cells — a "Summary" row's range is whatever
+ * its subtree currently spans, computed fresh each time (never stored).
+ * Leaf items (no children) behave exactly like getItemDateRange.
+ */
+export function computeRolledUpDateRange(
+  item: Pick<ItemData, "id" | "cellValues">,
+  allItems: Pick<ItemData, "id" | "parentId" | "cellValues">[],
+  startColumnId: string,
+  durationColumnId: string,
+  mode: GanttDurationMode = "CALENDAR",
+  holidays: Set<string> = new Set()
+): DateRange | null {
+  const children = allItems.filter((i) => i.parentId === item.id);
+  if (children.length === 0) {
+    return getItemDateRange(item, startColumnId, durationColumnId, mode, holidays);
+  }
+
+  let min: Date | null = null;
+  let max: Date | null = null;
+  for (const child of children) {
+    const childRange = computeRolledUpDateRange(child, allItems, startColumnId, durationColumnId, mode, holidays);
+    if (!childRange) continue;
+    if (!min || childRange.start < min) min = childRange.start;
+    if (!max || childRange.end > max) max = childRange.end;
+  }
+  return min && max ? { start: min, end: max } : null;
+}
+
 function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }

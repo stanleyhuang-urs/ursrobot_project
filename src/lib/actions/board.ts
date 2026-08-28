@@ -103,6 +103,7 @@ export async function createBoard(name: string) {
       predColumnId: byName.get("Pred"),
       linkColumnId: byName.get("Link"),
       lagColumnId: byName.get("Lag"),
+      typeColumnId: byName.get("Type"),
       reportStatusColumnId: byName.get("Status"),
       reportDoneOptionIds: [doneOptionId],
       reportPlannedOptionIds: [plannedOptionId],
