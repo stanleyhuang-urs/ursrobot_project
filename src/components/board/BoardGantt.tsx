@@ -898,6 +898,13 @@ function GanttBar({
 
   function handleBodyPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (!onClick) return;
+    // The bar body is a div (not a real <button>) since a real button's
+    // native click would fire alongside our own drag-vs-click detection —
+    // but that means the outer chart's whole-timeline pan handler no longer
+    // recognizes it via closest("button") and would otherwise also start
+    // panning on the same pointerdown, stealing pointer capture from this
+    // bar and making the drag fight itself.
+    e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     setDrag({ edge: "move", originStartIndex: startIndex, originEndIndex: endIndex, originX: e.clientX, offsetPx: 0 });
   }
