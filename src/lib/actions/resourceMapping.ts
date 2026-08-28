@@ -32,10 +32,17 @@ export async function applyResourceMapping(
   sourceColumnId: string,
   newColumnName: string,
   targetColumnId: string | null,
-  mapping: { value: string; userId: string }[]
+  mapping: { value: string; userId: string }[],
+  assignAllocation: boolean,
+  allocationPct: number
 ) {
   const session = await requireSession();
   requireBoardAdmin(session.role);
+
+  if (assignAllocation && (!Number.isFinite(allocationPct) || allocationPct < 1 || allocationPct > 100)) {
+    throw new Error("人員分配百分比需介於 1 到 100 之間");
+  }
+  const clampedAllocationPct = Math.max(5, Math.min(100, Math.round(allocationPct / 5) * 5));
 
   const notifications: {
     userId: string;
@@ -100,6 +107,16 @@ export async function applyResourceMapping(
           update: { value: userId },
         });
         updatedCount++;
+
+        // Resources (tools/vendors) have no User account, so they can't
+        // carry a real Assignment — only real users get one.
+        if (assignAllocation && realUserIds.has(userId)) {
+          await tx.assignment.upsert({
+            where: { itemId_userId: { itemId: cell.itemId, userId } },
+            create: { itemId: cell.itemId, userId, allocationPct: clampedAllocationPct },
+            update: { allocationPct: clampedAllocationPct },
+          });
+        }
 
         if (userId !== session.userId && realUserIds.has(userId)) {
           const itemName = nameByItem.get(cell.itemId);

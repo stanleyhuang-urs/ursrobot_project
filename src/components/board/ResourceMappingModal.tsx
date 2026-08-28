@@ -26,6 +26,8 @@ export function ResourceMappingModal({
   const [sourceColumnId, setSourceColumnId] = useState(defaultSourceId);
   const [targetChoice, setTargetChoice] = useState<string>(personColumns[0]?.id ?? "new");
   const [newColumnName, setNewColumnName] = useState("負責人");
+  const [assignAllocation, setAssignAllocation] = useState(true);
+  const [allocationPct, setAllocationPct] = useState(10);
   const [values, setValues] = useState<{ value: string; count: number }[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -64,7 +66,9 @@ export function ResourceMappingModal({
         sourceColumnId,
         newColumnName,
         targetChoice === "new" ? null : targetChoice,
-        entries.map(([value, userId]) => ({ value, userId }))
+        entries.map(([value, userId]) => ({ value, userId })),
+        assignAllocation,
+        allocationPct
       );
       setResult(res);
     } catch (err) {
@@ -122,6 +126,30 @@ export function ResourceMappingModal({
                 placeholder="新欄位名稱"
                 className="w-28 rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
               />
+            )}
+          </div>
+
+          <div className="mb-4 flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-1.5 text-neutral-600">
+              <input
+                type="checkbox"
+                checked={assignAllocation}
+                onChange={(e) => setAssignAllocation(e.target.checked)}
+              />
+              同時設定人員分配
+            </label>
+            {assignAllocation && (
+              <>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={allocationPct}
+                  onChange={(e) => setAllocationPct(Number(e.target.value))}
+                  className="w-16 rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+                />
+                <span className="text-neutral-500">%</span>
+              </>
             )}
           </div>
 
