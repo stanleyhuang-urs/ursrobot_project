@@ -669,7 +669,7 @@ export function BoardGantt({
           <div
             ref={topScrollRef}
             onScroll={syncFromTopScroll}
-            className="mb-1 overflow-x-auto overflow-y-hidden"
+            className="sticky top-0 z-30 mb-1 overflow-x-auto overflow-y-hidden bg-white"
             style={{ height: 14 }}
           >
             <div style={{ width: contentWidth, height: 1 }} />
@@ -681,7 +681,7 @@ export function BoardGantt({
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
-            className={`overflow-auto rounded-md border border-neutral-200 bg-white ${
+            className={`max-h-[65vh] overflow-auto rounded-md border border-neutral-200 bg-white ${
               isPanning ? "cursor-grabbing select-none" : "cursor-grab"
             }`}
           >
@@ -693,9 +693,9 @@ export function BoardGantt({
                 title="今天"
               />
             )}
-            <div className="flex">
+            <div className="sticky top-0 z-20 flex">
               <div
-                className="sticky left-0 shrink-0 border-b border-r border-neutral-100 bg-neutral-50 px-2 py-1.5 text-xs font-medium text-neutral-500"
+                className="sticky left-0 z-10 shrink-0 border-b border-r border-neutral-100 bg-neutral-50 px-2 py-1.5 text-xs font-medium text-neutral-500"
                 style={{ width: LABEL_WIDTH }}
               >
                 項目
