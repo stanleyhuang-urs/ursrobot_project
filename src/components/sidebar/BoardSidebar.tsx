@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, LayoutGrid, Plus, Pencil, Trash2, Users } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Plus, Pencil, Trash2, Users, Settings } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 import { canManageBoard } from "@/lib/permissions";
 import { Modal } from "@/components/ui/Modal";
@@ -101,6 +101,19 @@ export function BoardSidebar({
           >
             <Users size={14} className="shrink-0" />
             使用者管理
+          </Link>
+        )}
+        {userRole === "ADMIN" && (
+          <Link
+            href="/settings"
+            className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
+              pathname === "/settings"
+                ? "bg-blue-50 text-blue-700"
+                : "text-neutral-700 hover:bg-neutral-100"
+            }`}
+          >
+            <Settings size={14} className="shrink-0" />
+            系統設定
           </Link>
         )}
         {boards.map((board) => {

@@ -6,8 +6,11 @@ import { sendMail } from "@/lib/mail";
 const EMAIL_NOTIFICATION_TYPES: NotificationType[] = ["ASSIGNED", "AUTOMATION"];
 
 /**
- * Sends an email for notification types the user opted into (指派與自動化規則).
- * Runs outside any DB transaction since it makes a network call.
+ * Sends an email for notification types the user opted into (指派與自動化規則) —
+ * but only if an ADMIN has turned email notifications on in /settings
+ * (SystemSettings.emailNotificationsEnabled, off by default). Doesn't apply
+ * to transactional mail like password resets, which go through sendMail
+ * directly. Runs outside any DB transaction since it makes a network call.
  */
 export async function notifyEmailIfNeeded(
   userId: string,
@@ -15,6 +18,8 @@ export async function notifyEmailIfNeeded(
   message: string
 ) {
   if (!EMAIL_NOTIFICATION_TYPES.includes(type)) return;
+  const settings = await prisma.systemSettings.findUnique({ where: { id: "global" } });
+  if (!settings?.emailNotificationsEnabled) return;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
   if (user) await sendMail(user.email, "工作管理平台通知", message);
 }

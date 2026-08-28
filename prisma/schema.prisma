@@ -303,6 +303,15 @@ model WorkloadThreshold {
   updatedAt   DateTime @updatedAt
 }
 
+// App-wide settings an ADMIN controls from /settings. Defaults to email
+// notifications OFF — the site isn't public yet and nobody should get an
+// email until an admin deliberately turns it on.
+model SystemSettings {
+  id                        String   @id @default("global")
+  emailNotificationsEnabled Boolean  @default(false)
+  updatedAt                 DateTime @updatedAt
+}
+
 // Company-wide (not per-board) list of dates that business-day duration
 // calculations should skip in addition to weekends.
 model Holiday {
