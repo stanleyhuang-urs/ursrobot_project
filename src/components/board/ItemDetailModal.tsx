@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import type { ColumnData, ItemData, UserOption } from "@/types/board";
+import type { ScheduleLock } from "@/lib/predecessorLink";
 import type { UserRole } from "@prisma/client";
 import { UpdatesTab } from "./item-detail/UpdatesTab";
 import { FilesTab } from "./item-detail/FilesTab";
@@ -26,22 +27,40 @@ export function ItemDetailModal({
   columns,
   users,
   progressColumnId,
+  ganttStartColumnId,
+  ganttDurationColumnId,
+  ganttEndColumnId,
+  lockedScheduleFields,
   userRole,
   currentUserId,
   open,
   onOpenChange,
+  initialTab = "updates",
 }: {
   boardId: string;
   item: ItemData | null;
   columns: ColumnData[];
   users: UserOption[];
   progressColumnId: string | null;
+  ganttStartColumnId?: string | null;
+  ganttDurationColumnId?: string | null;
+  ganttEndColumnId?: string | null;
+  lockedScheduleFields?: Map<string, ScheduleLock>;
   userRole: UserRole;
   currentUserId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialTab?: TabId;
 }) {
-  const [tab, setTab] = useState<TabId>("updates");
+  const [tab, setTab] = useState<TabId>(initialTab);
+  // Reset to initialTab each time the modal transitions open, without
+  // fighting manual tab switches while it's already open — the "adjust
+  // state during render" pattern, not an effect (avoids an extra render).
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setTab(initialTab);
+  }
 
   if (!item) return null;
 
@@ -74,6 +93,10 @@ export function ItemDetailModal({
           columns={columns}
           users={users}
           progressColumnId={progressColumnId}
+          ganttStartColumnId={ganttStartColumnId ?? null}
+          ganttDurationColumnId={ganttDurationColumnId ?? null}
+          ganttEndColumnId={ganttEndColumnId ?? null}
+          lockedScheduleFields={lockedScheduleFields}
           userRole={userRole}
           currentUserId={currentUserId}
         />

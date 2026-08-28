@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { UserRole } from "@prisma/client";
-import { Avatar } from "@/components/ui/Avatar";
-import { getStatusOptions } from "@/types/column";
 import { listTodoItems } from "@/lib/actions/todo";
-import { canEditCellValue } from "@/lib/permissions";
+import { renameItem } from "@/lib/actions/item";
+import { canEditCellValue, canManageStructure, canModifyItemSchedule } from "@/lib/permissions";
 import { isItemAssignedToUser } from "@/lib/itemAssignment";
-import { StatusCell } from "../cell-editors/StatusCell";
-import { NumberCell } from "../cell-editors/NumberCell";
+import type { ScheduleLock } from "@/lib/predecessorLink";
+import { CellEditor } from "../cell-editors/CellEditor";
 import type { ColumnData, ItemData, UserOption } from "@/types/board";
 
 export function ItemCardTab({
@@ -17,6 +16,10 @@ export function ItemCardTab({
   columns,
   users,
   progressColumnId,
+  ganttStartColumnId,
+  ganttDurationColumnId,
+  ganttEndColumnId,
+  lockedScheduleFields,
   userRole,
   currentUserId,
 }: {
@@ -25,10 +28,23 @@ export function ItemCardTab({
   columns: ColumnData[];
   users: UserOption[];
   progressColumnId: string | null;
+  ganttStartColumnId: string | null;
+  ganttDurationColumnId: string | null;
+  ganttEndColumnId: string | null;
+  lockedScheduleFields?: Map<string, ScheduleLock>;
   userRole: UserRole;
   currentUserId: string;
 }) {
   const [todoStats, setTodoStats] = useState<{ done: number; total: number } | null>(null);
+  const [name, setName] = useState(item.name);
+  // Resync the local draft when a different item's name arrives (switching
+  // items, or another user's rename) — adjusted during render, not an
+  // effect, so it doesn't fight the field while the user is mid-edit.
+  const [prevItemName, setPrevItemName] = useState({ id: item.id, name: item.name });
+  if (prevItemName.id !== item.id || prevItemName.name !== item.name) {
+    setPrevItemName({ id: item.id, name: item.name });
+    setName(item.name);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -41,87 +57,70 @@ export function ItemCardTab({
     };
   }, [item.id]);
 
-  const valuesByColumn = new Map(item.cellValues.map((cv) => [cv.columnId, cv.value]));
-  const usersById = new Map(users.map((u) => [u.id, u]));
+  const valuesByColumn = new Map(
+    item.cellValues.map((cv) => [cv.columnId, cv.value as string | number | null])
+  );
+  const canEditStructure = canManageStructure(userRole);
+  const canModifySchedule = canModifyItemSchedule(userRole, item.createdById, currentUserId);
   const personColumnIds = columns.filter((c) => c.type === "PERSON").map((c) => c.id);
   const isAssignedToUser = isItemAssignedToUser(item, personColumnIds, currentUserId);
+  const lock = lockedScheduleFields?.get(item.id);
 
-  function renderValue(column: ColumnData) {
-    const value = valuesByColumn.get(column.id) ?? null;
-    const isProgressColumn = column.id === progressColumnId;
-
-    if (column.type === "STATUS") {
-      if (canEditCellValue(userRole, "STATUS", false, isAssignedToUser)) {
-        return (
-          <StatusCell
-            boardId={boardId}
-            itemId={item.id}
-            columnId={column.id}
-            value={typeof value === "string" ? value : null}
-            options={column.options}
-          />
-        );
-      }
-      if (value === null || value === undefined || value === "") {
-        return <span className="text-neutral-300">—</span>;
-      }
-      const options = getStatusOptions(column.options);
-      const option = options.find((o) => o.id === value);
-      if (!option) return <span className="text-neutral-300">—</span>;
-      return (
-        <span
-          className="rounded-full px-2 py-0.5 text-xs text-white"
-          style={{ backgroundColor: option.color }}
-        >
-          {option.label}
-        </span>
-      );
+  function saveName() {
+    if (name.trim() && name !== item.name) {
+      renameItem(boardId, item.id, name.trim());
+    } else {
+      setName(item.name);
     }
-    if (isProgressColumn && column.type === "NUMBER" && canEditCellValue(userRole, "NUMBER", true, isAssignedToUser)) {
-      return (
-        <NumberCell
-          boardId={boardId}
-          itemId={item.id}
-          columnId={column.id}
-          value={typeof value === "number" ? value : null}
-          percent
-        />
-      );
-    }
-    if (value === null || value === undefined || value === "") {
-      return <span className="text-neutral-300">—</span>;
-    }
-    if (column.type === "PERSON") {
-      const user = usersById.get(String(value));
-      if (!user) return <span className="text-neutral-300">未指派</span>;
-      return (
-        <span className="flex items-center gap-2">
-          <Avatar name={user.name} avatarUrl={user.avatarUrl} size={20} />
-          {user.name}
-        </span>
-      );
-    }
-    if (column.type === "NUMBER" && typeof value === "number") {
-      return <span>{isProgressColumn ? `${Math.round(value * 100)}%` : Math.round(value * 100) / 100}</span>;
-    }
-    return <span>{String(value)}</span>;
   }
 
   return (
     <div className="overflow-hidden rounded-md border border-neutral-200">
       <div className="border-b border-neutral-100 px-4 py-3">
-        <p className="text-xs text-neutral-400">項目名稱</p>
-        <p className="text-sm font-medium text-neutral-900">{item.name}</p>
+        <p className="mb-1 text-xs text-neutral-400">項目名稱</p>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={saveName}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+          }}
+          readOnly={!canEditStructure}
+          className="w-full rounded px-1 py-0.5 text-sm font-medium text-neutral-900 outline-none hover:bg-neutral-100 focus:bg-white focus:ring-1 focus:ring-blue-400"
+        />
       </div>
-      {columns.map((col) => (
-        <div
-          key={col.id}
-          className="flex items-center justify-between border-b border-neutral-100 px-4 py-2.5 last:border-b-0"
-        >
-          <span className="text-xs text-neutral-400">{col.name}</span>
-          <span className="w-40 text-sm text-neutral-800">{renderValue(col)}</span>
-        </div>
-      ))}
+      {columns.map((col) => {
+        const isScheduleColumn =
+          col.id === ganttStartColumnId || col.id === ganttDurationColumnId || col.id === ganttEndColumnId;
+        const isLockedField =
+          (col.id === ganttStartColumnId && lock?.startLocked) ||
+          (col.id === ganttEndColumnId && lock?.endLocked) ||
+          (col.id === ganttDurationColumnId && lock?.daysLocked);
+        const canEdit =
+          canEditCellValue(userRole, col.type, col.id === progressColumnId, isAssignedToUser) &&
+          (!isScheduleColumn || canModifySchedule) &&
+          !isLockedField;
+        return (
+          <div
+            key={col.id}
+            className="flex items-center justify-between border-b border-neutral-100 px-4 py-2.5 last:border-b-0"
+            title={isLockedField ? "由前置依賴或子項目統計自動計算" : undefined}
+          >
+            <span className="text-xs text-neutral-400">{col.name}</span>
+            <span className="w-40 text-sm text-neutral-800">
+              <CellEditor
+                boardId={boardId}
+                itemId={item.id}
+                column={col}
+                value={valuesByColumn.get(col.id) ?? null}
+                users={users}
+                canEdit={canEdit}
+                isProgressColumn={col.id === progressColumnId}
+              />
+            </span>
+          </div>
+        );
+      })}
       {todoStats && (
         <div className="flex items-center justify-between px-4 py-2.5">
           <span className="text-xs text-neutral-400">待辦事項</span>

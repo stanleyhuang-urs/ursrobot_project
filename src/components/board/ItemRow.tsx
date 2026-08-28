@@ -19,7 +19,7 @@ import { CellEditor } from "./cell-editors/CellEditor";
 import { ItemDetailModal } from "./ItemDetailModal";
 import { AssignmentModal } from "./AssignmentModal";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
-import { renameItem, deleteItem, createItem, insertItem } from "@/lib/actions/item";
+import { deleteItem, createItem, insertItem } from "@/lib/actions/item";
 import { computeItemProgress } from "@/lib/progress";
 import type { ScheduleLock } from "@/lib/predecessorLink";
 import { gridTemplate, frozenPaneWidth } from "./gridTemplate";
@@ -77,10 +77,10 @@ export function ItemRow({
   const canModifySchedule = canModifyItemSchedule(userRole, item.createdById, currentUserId);
   const personColumnIds = columns.filter((c) => c.type === "PERSON").map((c) => c.id);
   const isAssignedToCurrentUser = isItemAssignedToUser(item, personColumnIds, currentUserId);
-  const [name, setName] = useState(item.name);
   const isAncestorOfHighlight = expandIds?.has(item.id) ?? false;
   const expanded = !collapsedIds.has(item.id) || isAncestorOfHighlight;
   const [detailOpen, setDetailOpen] = useState(false);
+  const [detailTab, setDetailTab] = useState<"updates" | "card">("updates");
   const [assignOpen, setAssignOpen] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const isHighlighted = item.id === highlightItemId;
@@ -106,14 +106,6 @@ export function ItemRow({
   const valuesByColumn = new Map(
     item.cellValues.map((cv) => [cv.columnId, cv.value as string | number | null])
   );
-
-  function saveName() {
-    if (name.trim() && name !== item.name) {
-      renameItem(boardId, item.id, name.trim());
-    } else {
-      setName(item.name);
-    }
-  }
 
   async function handleAddSubitem() {
     if (collapsedIds.has(item.id)) onToggleCollapse(item.id);
@@ -183,19 +175,23 @@ export function ItemRow({
             {wbsCodes?.get(item.id) && (
               <span className="shrink-0 text-xs font-bold text-black">{wbsCodes.get(item.id)}</span>
             )}
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={saveName}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-              }}
-              readOnly={!canEditStructure}
-              className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-sm outline-none hover:bg-neutral-100 focus:bg-white focus:ring-1 focus:ring-blue-400"
-            />
             <button
               type="button"
-              onClick={() => setDetailOpen(true)}
+              onClick={() => {
+                setDetailTab("card");
+                setDetailOpen(true);
+              }}
+              title="編輯此項目所有欄位"
+              className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm outline-none hover:bg-neutral-100 focus:bg-white focus:ring-1 focus:ring-blue-400"
+            >
+              {item.name}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDetailTab("updates");
+                setDetailOpen(true);
+              }}
               className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
                 commentCount > 0 ? "text-blue-600" : "text-neutral-300"
               }`}
@@ -252,10 +248,15 @@ export function ItemRow({
           columns={columns}
           users={users}
           progressColumnId={progressColumnId}
+          ganttStartColumnId={ganttStartColumnId}
+          ganttDurationColumnId={ganttDurationColumnId}
+          ganttEndColumnId={ganttEndColumnId}
+          lockedScheduleFields={lockedScheduleFields}
           userRole={userRole}
           currentUserId={currentUserId}
           open={detailOpen}
           onOpenChange={setDetailOpen}
+          initialTab={detailTab}
         />
         {canEditStructure && (
           <AssignmentModal

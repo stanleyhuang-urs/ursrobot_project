@@ -6,6 +6,24 @@ import { requireSession } from "@/lib/session";
 import { requireStructureAccess, canModifyItemSchedule } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
+import { getStatusOptions } from "@/types/column";
+
+/**
+ * Resolves the Task/Summary option ids of the board's Type column (if
+ * configured), so a newly created item can default to Task and a newly
+ * childed parent can flip to Summary — matching the Type values already
+ * used by the Gantt's Milestone/Summary rollup logic.
+ */
+async function loadTypeOptionIds(typeColumnId: string | null) {
+  if (!typeColumnId) return null;
+  const column = await prisma.column.findUnique({ where: { id: typeColumnId }, select: { options: true } });
+  if (!column) return null;
+  const options = getStatusOptions(column.options);
+  return {
+    taskId: options.find((o) => o.label === "Task")?.id,
+    summaryId: options.find((o) => o.label === "Summary")?.id,
+  };
+}
 
 export async function createItem(
   boardId: string,
@@ -18,12 +36,33 @@ export async function createItem(
   requireStructureAccess(session.role);
   const trimmed = name.trim() || "未命名項目";
 
-  const count = await prisma.item.count({
-    where: parentId ? { parentId } : { groupId, parentId: null },
-  });
+  const [count, board] = await Promise.all([
+    prisma.item.count({ where: parentId ? { parentId } : { groupId, parentId: null } }),
+    prisma.board.findUnique({ where: { id: boardId }, select: { typeColumnId: true } }),
+  ]);
+  const typeIds = await loadTypeOptionIds(board?.typeColumnId ?? null);
+
   const item = await prisma.item.create({
-    data: { boardId, groupId, name: trimmed, order: count, parentId, createdById: session.userId },
+    data: {
+      boardId,
+      groupId,
+      name: trimmed,
+      order: count,
+      parentId,
+      createdById: session.userId,
+      ...(board?.typeColumnId && typeIds?.taskId
+        ? { cellValues: { create: { columnId: board.typeColumnId, value: typeIds.taskId } } }
+        : {}),
+    },
   });
+
+  if (parentId && board?.typeColumnId && typeIds?.summaryId) {
+    await prisma.cellValue.upsert({
+      where: { itemId_columnId: { itemId: parentId, columnId: board.typeColumnId } },
+      create: { itemId: parentId, columnId: board.typeColumnId, value: typeIds.summaryId },
+      update: { value: typeIds.summaryId },
+    });
+  }
 
   revalidatePath(`/boards/${boardId}`);
   revalidatePath("/dashboard");
@@ -41,10 +80,12 @@ export async function insertItem(
   await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
 
-  const reference = await prisma.item.findUnique({
-    where: { id: referenceItemId },
-  });
+  const [reference, board] = await Promise.all([
+    prisma.item.findUnique({ where: { id: referenceItemId } }),
+    prisma.board.findUnique({ where: { id: boardId }, select: { typeColumnId: true } }),
+  ]);
   if (!reference) throw new Error("找不到參考項目");
+  const typeIds = await loadTypeOptionIds(board?.typeColumnId ?? null);
 
   const targetOrder = position === "before" ? reference.order : reference.order + 1;
 
@@ -61,6 +102,9 @@ export async function insertItem(
         name: "新項目",
         order: targetOrder,
         createdById: session.userId,
+        ...(board?.typeColumnId && typeIds?.taskId
+          ? { cellValues: { create: { columnId: board.typeColumnId, value: typeIds.taskId } } }
+          : {}),
       },
     }),
   ]);
