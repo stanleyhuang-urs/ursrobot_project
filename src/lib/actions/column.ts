@@ -186,6 +186,20 @@ export async function setLinkColumn(
   revalidatePath(`/boards/${boardId}`);
 }
 
+export async function setGanttLagColumn(
+  boardId: string,
+  columnId: string | null
+) {
+  const session = await requireSession();
+  await requireBoardAccess(boardId, session);
+  requireStructureAccess(session.role);
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { lagColumnId: columnId },
+  });
+  revalidatePath(`/boards/${boardId}`);
+}
+
 export async function setReportStatusColumn(
   boardId: string,
   columnId: string | null

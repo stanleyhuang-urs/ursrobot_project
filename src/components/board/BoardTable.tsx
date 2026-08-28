@@ -24,6 +24,7 @@ import type { UserRole } from "@prisma/client";
 import { canManageStructure } from "@/lib/permissions";
 import { computeVisibleItemIds, type ActiveFilter } from "@/lib/filter";
 import { computeAncestorIds } from "@/lib/wbs";
+import { resolveLockedScheduleFields } from "@/lib/predecessorLink";
 import { GroupSection } from "./GroupSection";
 import { FilterBar } from "./FilterBar";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
@@ -175,6 +176,11 @@ export function BoardTable({
     () => computeAncestorIds(board.items, highlightItemId),
     [board.items, highlightItemId]
   );
+  const lockedScheduleFields = useMemo(() => {
+    if (!board.predColumnId || !board.linkColumnId) return new Map();
+    const linkColumn = board.columns.find((c) => c.id === board.linkColumnId);
+    return resolveLockedScheduleFields(board.items, board.predColumnId, board.linkColumnId, linkColumn?.options);
+  }, [board.items, board.columns, board.predColumnId, board.linkColumnId]);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
@@ -370,6 +376,7 @@ export function BoardTable({
                   ganttStartColumnId={board.ganttStartColumnId}
                   ganttDurationColumnId={board.ganttDurationColumnId}
                   ganttEndColumnId={board.ganttEndColumnId}
+                  lockedScheduleFields={lockedScheduleFields}
                   userRole={userRole}
                   currentUserId={currentUserId}
                   visibleIds={visibleIds}

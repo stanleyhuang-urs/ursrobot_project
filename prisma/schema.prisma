@@ -103,6 +103,8 @@ model Board {
   predColumn   Column? @relation("BoardPredColumn", fields: [predColumnId], references: [id], onDelete: SetNull)
   linkColumnId String?
   linkColumn   Column? @relation("BoardLinkColumn", fields: [linkColumnId], references: [id], onDelete: SetNull)
+  lagColumnId  String?
+  lagColumn    Column? @relation("BoardLagColumn", fields: [lagColumnId], references: [id], onDelete: SetNull)
 
   reportStatusColumnId      String?
   reportStatusColumn        Column?  @relation("BoardReportStatusColumn", fields: [reportStatusColumnId], references: [id], onDelete: SetNull)
@@ -160,6 +162,7 @@ model Column {
   ganttEndForBoards      Board[]     @relation("BoardGanttEndColumn")
   predForBoards          Board[]     @relation("BoardPredColumn")
   linkForBoards          Board[]     @relation("BoardLinkColumn")
+  lagForBoards           Board[]     @relation("BoardLagColumn")
   reportStatusForBoards  Board[]     @relation("BoardReportStatusColumn")
   ruleTriggersFor AutomationRule[] @relation("RuleTriggerColumn")
   ruleSetsFor     AutomationRule[] @relation("RuleSetColumn")

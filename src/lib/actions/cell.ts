@@ -7,7 +7,7 @@ import { requireSession } from "@/lib/session";
 import { notifyItemAssignees, notifyEmailIfNeeded } from "@/lib/notify";
 import { executeAutomationRules } from "@/lib/automation";
 import { syncGanttDates } from "@/lib/ganttSync";
-import { syncPredecessorLink } from "@/lib/predecessorLink";
+import { syncPredecessorSchedule, resolveLockedScheduleFields } from "@/lib/predecessorLink";
 import { canEditCellValue, canModifyItemSchedule } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
@@ -39,6 +39,8 @@ export async function upsertCellValue(
         ganttStartColumnId: true,
         ganttDurationColumnId: true,
         ganttEndColumnId: true,
+        predColumnId: true,
+        linkColumnId: true,
       },
     }),
     prisma.column.findMany({ where: { boardId, type: "PERSON" }, select: { id: true } }),
@@ -63,6 +65,27 @@ export async function upsertCellValue(
       column.id === board.ganttEndColumnId);
   if (isScheduleColumn && item && !canModifyItemSchedule(session.role, item.createdById, session.userId)) {
     throw new Error("權限不足:僅建立者或管理者可以修改此項目的時程");
+  }
+
+  if (
+    column &&
+    board &&
+    board.predColumnId &&
+    board.linkColumnId &&
+    (column.id === board.ganttStartColumnId || column.id === board.ganttEndColumnId)
+  ) {
+    const [linkColumn, boardItems] = await Promise.all([
+      prisma.column.findUnique({ where: { id: board.linkColumnId }, select: { options: true } }),
+      prisma.item.findMany({ where: { boardId }, select: { id: true, parentId: true, order: true, cellValues: true } }),
+    ]);
+    const locked = resolveLockedScheduleFields(boardItems, board.predColumnId, board.linkColumnId, linkColumn?.options);
+    const lock = locked.get(itemId);
+    const isLocked =
+      (column.id === board.ganttStartColumnId && lock?.startLocked) ||
+      (column.id === board.ganttEndColumnId && lock?.endLocked);
+    if (isLocked) {
+      throw new Error("此日期由前置依賴自動計算,請改天數或前置依賴設定");
+    }
   }
 
   const jsonValue = value === null ? Prisma.JsonNull : value;
@@ -120,9 +143,7 @@ export async function upsertCellValue(
         if (column.type === "DATE" || column.type === "NUMBER") {
           await syncGanttDates(boardId, itemId, columnId, value);
         }
-        if (column.type === "TEXT" || column.type === "DATE") {
-          await syncPredecessorLink(boardId, itemId, columnId);
-        }
+        await syncPredecessorSchedule(boardId, itemId, columnId);
       }
     }
   }

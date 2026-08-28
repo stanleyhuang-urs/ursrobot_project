@@ -36,6 +36,7 @@ export function ItemRow({
   ganttStartColumnId,
   ganttDurationColumnId,
   ganttEndColumnId,
+  lockedScheduleFields,
   userRole,
   currentUserId,
   visibleIds,
@@ -59,6 +60,7 @@ export function ItemRow({
   ganttStartColumnId: string | null;
   ganttDurationColumnId: string | null;
   ganttEndColumnId: string | null;
+  lockedScheduleFields: Map<string, { startLocked: boolean; endLocked: boolean }>;
   userRole: UserRole;
   currentUserId: string;
   visibleIds: Set<string> | null;
@@ -137,6 +139,7 @@ export function ItemRow({
           ganttStartColumnId={ganttStartColumnId}
           ganttDurationColumnId={ganttDurationColumnId}
           ganttEndColumnId={ganttEndColumnId}
+          lockedScheduleFields={lockedScheduleFields}
           userRole={userRole}
           currentUserId={currentUserId}
           visibleIds={visibleIds}
@@ -285,8 +288,17 @@ export function ItemRow({
             col.id === ganttStartColumnId ||
             col.id === ganttDurationColumnId ||
             col.id === ganttEndColumnId;
+          const lock = lockedScheduleFields.get(item.id);
+          const isLockedByPredecessor =
+            (col.id === ganttStartColumnId && lock?.startLocked) ||
+            (col.id === ganttEndColumnId && lock?.endLocked);
           return (
-            <div key={col.id} className="border-r border-neutral-100 px-1">
+            <div
+              key={col.id}
+              className="border-r border-neutral-100 px-1"
+              style={isLockedByPredecessor ? { backgroundColor: "#f3f4f6" } : undefined}
+              title={isLockedByPredecessor ? "由前置依賴自動計算" : undefined}
+            >
               {hasChildren && col.id === progressColumnId ? (
                 <RollupProgress
                   value={computeItemProgress(item, allGroupItems, col.id)}
@@ -301,7 +313,8 @@ export function ItemRow({
                   users={users}
                   canEdit={
                     canEditCellValue(userRole, col.type, col.id === progressColumnId, isAssignedToCurrentUser) &&
-                    (!isScheduleColumn || canModifySchedule)
+                    (!isScheduleColumn || canModifySchedule) &&
+                    !isLockedByPredecessor
                   }
                   isProgressColumn={col.id === progressColumnId}
                 />

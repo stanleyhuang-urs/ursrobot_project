@@ -12,9 +12,12 @@ import {
   setGanttDurationMode,
   setPredColumn,
   setLinkColumn,
+  setGanttLagColumn,
 } from "@/lib/actions/column";
 import { getItemDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
-import { isNonWorkingDay } from "@/lib/workday";
+import { resolveLockedScheduleFields } from "@/lib/predecessorLink";
+import { resizeItemBar } from "@/lib/actions/ganttResize";
+import { recomputeBoardSchedule } from "@/lib/actions/predecessorSchedule";
 import { AssignmentModal } from "./AssignmentModal";
 import { HolidaySettingsModal } from "@/components/dashboard/HolidaySettingsModal";
 
@@ -70,8 +73,9 @@ function toIsoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function diffDays(a: Date, b: Date) {
-  return Math.round((b.getTime() - a.getTime()) / 86400000);
+function isWeekendDay(date: Date) {
+  const day = date.getDay();
+  return day === 0 || day === 6;
 }
 
 function formatDay(date: Date) {
@@ -100,8 +104,17 @@ export function BoardGantt({
   const isBusinessMode = durationMode === "BUSINESS";
   const holidaySet = useMemo(() => new Set(holidays.map((h) => h.date)), [holidays]);
   const holidayNameByDate = useMemo(() => new Map(holidays.map((h) => [h.date, h.name])), [holidays]);
-  function nonWorking(d: Date) {
-    return isBusinessMode && isNonWorkingDay(d, holidaySet);
+  function isHoliday(d: Date) {
+    return holidaySet.has(toIsoDate(d));
+  }
+  /** Weekend/holiday tint for a day column — shown regardless of duration
+   *  mode as a reference; holidays are additionally removed from the
+   *  timeline entirely in BUSINESS mode (see `days` below), so this only
+   *  ever paints them in CALENDAR mode. */
+  function dayShade(d: Date): string | undefined {
+    if (isHoliday(d)) return "#fde2e2";
+    if (isWeekendDay(d)) return "#e9ecef";
+    return undefined;
   }
   const dayWidth = ZOOM_DAY_WIDTH[zoom];
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -148,10 +161,28 @@ export function BoardGantt({
   const endColumnId = board.ganttEndColumnId;
   const predColumnId = board.predColumnId;
   const linkColumnId = board.linkColumnId;
+  const lagColumnId = board.lagColumnId;
   const dateColumns = board.columns.filter((c) => c.type === "DATE");
   const numberColumns = board.columns.filter((c) => c.type === "NUMBER");
   const textColumns = board.columns.filter((c) => c.type === "TEXT");
   const statusColumns = board.columns.filter((c) => c.type === "STATUS");
+
+  const lockedScheduleFields = useMemo(() => {
+    if (!predColumnId || !linkColumnId) return new Map();
+    const linkColumn = board.columns.find((c) => c.id === linkColumnId);
+    return resolveLockedScheduleFields(board.items, predColumnId, linkColumnId, linkColumn?.options);
+  }, [board.items, board.columns, predColumnId, linkColumnId]);
+
+  const [recomputing, setRecomputing] = useState(false);
+  async function handleRecomputeAll() {
+    if (!window.confirm("將重新計算所有有前置依賴的項目時間,確定繼續?")) return;
+    setRecomputing(true);
+    try {
+      await recomputeBoardSchedule(board.id);
+    } finally {
+      setRecomputing(false);
+    }
+  }
 
   const ranges = useMemo(() => {
     const map = new Map<string, DateRange>();
@@ -163,8 +194,8 @@ export function BoardGantt({
     return map;
   }, [board.items, startColumnId, durationColumnId, durationMode, holidaySet]);
 
-  const { minDate, days } = useMemo(() => {
-    if (ranges.size === 0) return { minDate: new Date(), days: [] as Date[] };
+  const days = useMemo(() => {
+    if (ranges.size === 0) return [] as Date[];
     let min = Infinity;
     let max = -Infinity;
     for (const { start, end } of ranges.values()) {
@@ -181,13 +212,32 @@ export function BoardGantt({
     for (let i = 0; i < totalDays; i++) {
       const d = new Date(minD);
       d.setDate(d.getDate() + i);
+      // In business mode a holiday takes up no width at all — the timeline
+      // jumps straight to the next working/weekend day. Weekends still
+      // render (shaded) as a familiar reference point.
+      if (isBusinessMode && holidaySet.has(toIsoDate(d))) continue;
       list.push(d);
     }
-    return { minDate: minD, days: list };
-  }, [ranges, today]);
+    return list;
+  }, [ranges, today, isBusinessMode, holidaySet]);
+
+  const dayIndexByIso = useMemo(() => new Map(days.map((d, i) => [toIsoDate(d), i])), [days]);
+  /** Column index for a date that may itself have been filtered out of
+   *  `days` (e.g. today falling on a hidden holiday) — falls back to the
+   *  count of visible days strictly before it. */
+  function indexForDate(d: Date): number {
+    const exact = dayIndexByIso.get(toIsoDate(d));
+    if (exact !== undefined) return exact;
+    let idx = 0;
+    for (const day of days) {
+      if (day.getTime() < d.getTime()) idx++;
+      else break;
+    }
+    return idx;
+  }
 
   const headerSegments = useMemo(() => buildHeaderSegments(days, zoom), [days, zoom]);
-  const todayIndex = days.length > 0 ? diffDays(minDate, today) : -1;
+  const todayIndex = days.length > 0 ? indexForDate(today) : -1;
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -268,24 +318,27 @@ export function BoardGantt({
             className="relative shrink-0"
             style={{ width: days.length * dayWidth, height: 34 }}
           >
-            {isBusinessMode && (
-              <div className="absolute inset-0 flex">
-                {days.map((d) => (
-                  <div
-                    key={toIsoDate(d)}
-                    className="shrink-0"
-                    style={{ width: dayWidth, backgroundColor: nonWorking(d) ? "#e9ecef" : "transparent" }}
-                  />
-                ))}
-              </div>
-            )}
+            <div className="absolute inset-0 flex">
+              {days.map((d) => (
+                <div
+                  key={toIsoDate(d)}
+                  className="shrink-0"
+                  style={{ width: dayWidth, backgroundColor: dayShade(d) ?? "transparent" }}
+                />
+              ))}
+            </div>
             {range && (
               <GanttBar
+                boardId={board.id}
                 item={item}
                 range={range}
-                minDate={minDate}
                 dayWidth={dayWidth}
+                dayIndexByIso={dayIndexByIso}
+                days={days}
                 users={users}
+                startLocked={lockedScheduleFields.get(item.id)?.startLocked ?? false}
+                endLocked={lockedScheduleFields.get(item.id)?.endLocked ?? false}
+                canResize={canEditStructure}
                 onClick={canEditStructure ? () => setAssignmentItem(item) : undefined}
               />
             )}
@@ -421,6 +474,32 @@ export function BoardGantt({
             ))}
           </select>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-500">Lag 欄位</span>
+          <select
+            value={lagColumnId ?? ""}
+            onChange={(e) => setGanttLagColumn(board.id, e.target.value || null)}
+            disabled={!canEditStructure}
+            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
+          >
+            <option value="">未設定</option>
+            {numberColumns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {canEditStructure && predColumnId && linkColumnId && (
+          <button
+            type="button"
+            onClick={handleRecomputeAll}
+            disabled={recomputing}
+            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+          >
+            {recomputing ? "重算中..." : "重算全部"}
+          </button>
+        )}
       </div>
       {predColumnId && linkColumnId && startColumnId && endColumnId && (
         <p className="mb-2 text-xs text-neutral-400">
@@ -488,14 +567,13 @@ export function BoardGantt({
               <div className="flex border-b border-neutral-100 bg-neutral-50">
                 {headerSegments.map((seg) => {
                   const segDate = zoom === "day" ? new Date(seg.key) : null;
-                  const nonWork = segDate ? nonWorking(segDate) : false;
                   const holidayName = segDate ? holidayNameByDate.get(toIsoDate(segDate)) : undefined;
                   return (
                     <div
                       key={seg.key}
                       title={holidayName}
                       className="shrink-0 truncate border-r border-neutral-100 py-1.5 text-center text-xs text-neutral-500"
-                      style={{ width: seg.days * dayWidth, backgroundColor: nonWork ? "#e9ecef" : undefined }}
+                      style={{ width: seg.days * dayWidth, backgroundColor: segDate ? dayShade(segDate) : undefined }}
                     >
                       {seg.label}
                     </div>
@@ -524,9 +602,7 @@ export function BoardGantt({
                       const load = dailyLoad.get(u.id)?.get(toIsoDate(d)) ?? 0;
                       const bg =
                         load === 0
-                          ? nonWorking(d)
-                            ? "#e9ecef"
-                            : "transparent"
+                          ? (dayShade(d) ?? "transparent")
                           : load > 100
                             ? "#e2445c"
                             : "#00c875";
@@ -576,49 +652,132 @@ export function BoardGantt({
 }
 
 function GanttBar({
+  boardId,
   item,
   range,
-  minDate,
   dayWidth,
+  dayIndexByIso,
+  days,
   users,
+  startLocked,
+  endLocked,
+  canResize,
   onClick,
 }: {
+  boardId: string;
   item: ItemData;
   range: DateRange;
-  minDate: Date;
   dayWidth: number;
+  dayIndexByIso: Map<string, number>;
+  days: Date[];
   users: UserOption[];
+  startLocked: boolean;
+  endLocked: boolean;
+  canResize: boolean;
   onClick?: () => void;
 }) {
-  const left = diffDays(minDate, range.start) * dayWidth;
-  const width = (diffDays(range.start, range.end) + 1) * dayWidth;
+  const startIndex = dayIndexByIso.get(toIsoDate(range.start)) ?? 0;
+  const endIndex = dayIndexByIso.get(toIsoDate(range.end)) ?? startIndex;
+  const [preview, setPreview] = useState<{ startIndex: number; endIndex: number } | null>(null);
+  const dragRef = useRef<{
+    edge: "start" | "end";
+    originStartIndex: number;
+    originEndIndex: number;
+    originX: number;
+  } | null>(null);
+
+  const displayStart = preview?.startIndex ?? startIndex;
+  const displayEnd = preview?.endIndex ?? endIndex;
+  const left = displayStart * dayWidth;
+  const width = (displayEnd - displayStart + 1) * dayWidth;
   const totalPct = item.assignments.reduce((sum, a) => sum + a.allocationPct, 0);
 
+  function handleResizeDown(edge: "start" | "end", e: React.PointerEvent<HTMLDivElement>) {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { edge, originStartIndex: startIndex, originEndIndex: endIndex, originX: e.clientX };
+    setPreview({ startIndex, endIndex });
+  }
+
+  function handleResizeMove(e: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const deltaIndex = Math.round((e.clientX - drag.originX) / dayWidth);
+    const maxIndex = days.length - 1;
+    if (drag.edge === "start") {
+      const next = Math.max(0, Math.min(drag.originStartIndex + deltaIndex, drag.originEndIndex));
+      setPreview({ startIndex: next, endIndex: drag.originEndIndex });
+    } else {
+      const next = Math.min(maxIndex, Math.max(drag.originEndIndex + deltaIndex, drag.originStartIndex));
+      setPreview({ startIndex: drag.originStartIndex, endIndex: next });
+    }
+  }
+
+  async function handleResizeUp(e: React.PointerEvent<HTMLDivElement>) {
+    e.stopPropagation();
+    const drag = dragRef.current;
+    dragRef.current = null;
+    const result = preview;
+    setPreview(null);
+    if (!drag || !result) return;
+
+    const newIndex = drag.edge === "start" ? result.startIndex : result.endIndex;
+    const originalIndex = drag.edge === "start" ? startIndex : endIndex;
+    if (newIndex === originalIndex) return;
+    const newDate = days[newIndex];
+    if (!newDate) return;
+
+    try {
+      await resizeItemBar(boardId, item.id, drag.edge, toIsoDate(newDate));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "調整失敗");
+    }
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick}
-      className="absolute top-1/2 flex -translate-y-1/2 overflow-hidden rounded disabled:cursor-default"
-      style={{ left, width, height: 20 }}
-      title={item.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
-    >
-      {item.assignments.length === 0 ? (
-        <div className="h-full w-full bg-neutral-300" />
-      ) : (
-        item.assignments.map((a) => (
-          <div
-            key={a.userId}
-            className="flex h-full items-center justify-center overflow-hidden text-[10px] font-medium text-white"
-            style={{
-              width: `${(a.allocationPct / totalPct) * 100}%`,
-              backgroundColor: colorForUser(a.userId, users),
-            }}
-          >
-            {a.user.name.slice(0, 2)}
-          </div>
-        ))
+    <div className="absolute top-1/2 -translate-y-1/2" style={{ left, width, height: 20 }}>
+      {canResize && !startLocked && (
+        <div
+          onPointerDown={(e) => handleResizeDown("start", e)}
+          onPointerMove={handleResizeMove}
+          onPointerUp={handleResizeUp}
+          className="absolute left-0 top-0 z-10 h-full w-1.5 cursor-col-resize rounded-l hover:bg-blue-500/60"
+          title="拖曳調整開始日期"
+        />
       )}
-    </button>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={!onClick}
+        className="absolute inset-0 flex overflow-hidden rounded disabled:cursor-default"
+        title={item.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
+      >
+        {item.assignments.length === 0 ? (
+          <div className="h-full w-full bg-neutral-300" />
+        ) : (
+          item.assignments.map((a) => (
+            <div
+              key={a.userId}
+              className="flex h-full items-center justify-center overflow-hidden text-[10px] font-medium text-white"
+              style={{
+                width: `${(a.allocationPct / totalPct) * 100}%`,
+                backgroundColor: colorForUser(a.userId, users),
+              }}
+            >
+              {a.user.name.slice(0, 2)}
+            </div>
+          ))
+        )}
+      </button>
+      {canResize && !endLocked && (
+        <div
+          onPointerDown={(e) => handleResizeDown("end", e)}
+          onPointerMove={handleResizeMove}
+          onPointerUp={handleResizeUp}
+          className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize rounded-r hover:bg-blue-500/60"
+          title="拖曳調整結束日期"
+        />
+      )}
+    </div>
   );
 }
