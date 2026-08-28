@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, CalendarOff } from "lucide-react";
+import { ChevronDown, ChevronRight, CalendarOff, Star } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { GanttDurationMode, Holiday, UserRole } from "@prisma/client";
 import { canManageStructure, canEditGanttItem } from "@/lib/permissions";
@@ -409,6 +409,7 @@ export function BoardGantt({
                 users={users}
                 durationMode={durationMode}
                 holidaySet={holidaySet}
+                isMilestone={isMilestone(item)}
                 startLocked={lockedScheduleFields.get(item.id)?.startLocked ?? false}
                 endLocked={lockedScheduleFields.get(item.id)?.endLocked ?? false}
                 daysLocked={lockedScheduleFields.get(item.id)?.daysLocked ?? false}
@@ -825,6 +826,7 @@ function GanttBar({
   users,
   durationMode,
   holidaySet,
+  isMilestone,
   startLocked,
   endLocked,
   daysLocked,
@@ -840,6 +842,7 @@ function GanttBar({
   users: UserOption[];
   durationMode: GanttDurationMode;
   holidaySet: Set<string>;
+  isMilestone: boolean;
   startLocked: boolean;
   endLocked: boolean;
   daysLocked: boolean;
@@ -980,9 +983,17 @@ function GanttBar({
         }}
         className="absolute inset-0 flex overflow-hidden rounded"
         style={{ cursor: canMove ? "grab" : onClick ? "pointer" : "default" }}
-        title={item.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
+        title={
+          isMilestone
+            ? `里程碑:${toIsoDate(range.start)}`
+            : item.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")
+        }
       >
-        {item.assignments.length === 0 ? (
+        {isMilestone ? (
+          <div className="flex h-full w-full items-center justify-center">
+            <Star size={16} className="fill-amber-400 text-amber-500" />
+          </div>
+        ) : item.assignments.length === 0 ? (
           <div className="h-full w-full bg-neutral-300" />
         ) : (
           item.assignments.map((a) => (
