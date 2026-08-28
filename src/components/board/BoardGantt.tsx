@@ -851,22 +851,39 @@ function GanttBar({
 }) {
   const startIndex = dayIndexByIso.get(toIsoDate(range.start)) ?? 0;
   const endIndex = dayIndexByIso.get(toIsoDate(range.end)) ?? startIndex;
-  const [preview, setPreview] = useState<{ startIndex: number; endIndex: number } | null>(null);
-  const dragRef = useRef<{
+  // While dragging, offsetPx tracks the pointer continuously (in raw pixels,
+  // not day-quantized) so the bar follows the mouse smoothly; the drag is
+  // only snapped to a day boundary once, at release — see handleDragUp.
+  const [drag, setDrag] = useState<{
     edge: "start" | "end" | "move";
     originStartIndex: number;
     originEndIndex: number;
     originX: number;
+    offsetPx: number;
   } | null>(null);
 
   const canResizeStart = canEdit && !startLocked && !daysLocked;
   const canResizeEnd = canEdit && !endLocked && !daysLocked;
   const canMove = canEdit && !startLocked && !endLocked;
 
-  const displayStart = preview?.startIndex ?? startIndex;
-  const displayEnd = preview?.endIndex ?? endIndex;
-  const left = displayStart * dayWidth;
-  const width = (displayEnd - displayStart + 1) * dayWidth;
+  let left = startIndex * dayWidth;
+  let width = (endIndex - startIndex + 1) * dayWidth;
+  if (drag) {
+    const baseLeft = drag.originStartIndex * dayWidth;
+    const baseWidth = (drag.originEndIndex - drag.originStartIndex + 1) * dayWidth;
+    const timelineWidth = days.length * dayWidth;
+    if (drag.edge === "start") {
+      const clamped = Math.max(-baseLeft, Math.min(drag.offsetPx, baseWidth - dayWidth));
+      left = baseLeft + clamped;
+      width = baseWidth - clamped;
+    } else if (drag.edge === "end") {
+      const clamped = Math.max(dayWidth - baseWidth, Math.min(drag.offsetPx, timelineWidth - baseLeft - baseWidth));
+      width = baseWidth + clamped;
+    } else {
+      const clamped = Math.max(-baseLeft, Math.min(drag.offsetPx, timelineWidth - baseLeft - baseWidth));
+      left = baseLeft + clamped;
+    }
+  }
   const totalPct = item.assignments.reduce((sum, a) => sum + a.allocationPct, 0);
   // The bar's current Days value, held fixed while moving — a move must
   // preserve it exactly, even though a fixed calendar-day span can cover a
@@ -876,86 +893,70 @@ function GanttBar({
   function handleResizeDown(edge: "start" | "end", e: React.PointerEvent<HTMLDivElement>) {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
-    dragRef.current = { edge, originStartIndex: startIndex, originEndIndex: endIndex, originX: e.clientX };
-    setPreview({ startIndex, endIndex });
+    setDrag({ edge, originStartIndex: startIndex, originEndIndex: endIndex, originX: e.clientX, offsetPx: 0 });
   }
 
   function handleBodyPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (!onClick) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    dragRef.current = { edge: "move", originStartIndex: startIndex, originEndIndex: endIndex, originX: e.clientX };
-    setPreview({ startIndex, endIndex });
+    setDrag({ edge: "move", originStartIndex: startIndex, originEndIndex: endIndex, originX: e.clientX, offsetPx: 0 });
   }
 
-  function handleResizeMove(e: React.PointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current;
-    if (!drag) return;
-    const deltaIndex = Math.round((e.clientX - drag.originX) / dayWidth);
-    const maxIndex = days.length - 1;
-    if (drag.edge === "start") {
-      const next = Math.max(0, Math.min(drag.originStartIndex + deltaIndex, drag.originEndIndex));
-      setPreview({ startIndex: next, endIndex: drag.originEndIndex });
-    } else if (drag.edge === "end") {
-      const next = Math.min(maxIndex, Math.max(drag.originEndIndex + deltaIndex, drag.originStartIndex));
-      setPreview({ startIndex: drag.originStartIndex, endIndex: next });
-    } else {
-      if (!canMove) return;
-      const newStartIndex = Math.max(0, drag.originStartIndex + deltaIndex);
-      const newStartDate = days[newStartIndex];
-      if (!newStartDate) return;
-      const trueEnd = endFromStartAndDays(newStartDate, fixedDurationDays, durationMode, holidaySet);
-      const trueEndIndex = dayIndexByIso.get(toIsoDate(trueEnd));
-      if (trueEndIndex === undefined || trueEndIndex > maxIndex) return;
-      setPreview({ startIndex: newStartIndex, endIndex: trueEndIndex });
-    }
+  function handleDragMove(e: React.PointerEvent<HTMLDivElement>) {
+    setDrag((prev) => (prev ? { ...prev, offsetPx: e.clientX - prev.originX } : prev));
   }
 
-  async function handleResizeUp(e: React.PointerEvent<HTMLDivElement>) {
+  async function handleDragUp(e: React.PointerEvent<HTMLDivElement>) {
     e.stopPropagation();
-    const drag = dragRef.current;
-    dragRef.current = null;
-    const result = preview;
-    setPreview(null);
-    if (!drag || !result) return;
+    const current = drag;
+    setDrag(null);
+    if (!current) return;
+    const deltaIndex = Math.round(current.offsetPx / dayWidth);
 
-    if (drag.edge === "move") {
-      if (!canMove || result.startIndex === drag.originStartIndex) {
+    if (current.edge === "move") {
+      if (!canMove || deltaIndex === 0) {
         onClick?.();
         return;
       }
-      const newStart = days[result.startIndex];
-      const newEnd = days[result.endIndex];
-      if (!newStart || !newEnd) return;
+      const span = current.originEndIndex - current.originStartIndex;
+      const newStartIndex = Math.max(0, Math.min(current.originStartIndex + deltaIndex, days.length - 1 - span));
+      const newStartDate = days[newStartIndex];
+      if (!newStartDate || newStartIndex === current.originStartIndex) return;
+      const newEndDate = endFromStartAndDays(newStartDate, fixedDurationDays, durationMode, holidaySet);
       const message = describeScheduleChange(
         range.start,
         range.end,
-        newStart,
-        newEnd,
+        newStartDate,
+        newEndDate,
         durationMode,
         holidaySet,
         fixedDurationDays
       );
       if (!window.confirm(message)) return;
       try {
-        await moveItemBar(boardId, item.id, toIsoDate(newStart));
+        await moveItemBar(boardId, item.id, toIsoDate(newStartDate));
       } catch (err) {
         alert(err instanceof Error ? err.message : "調整失敗");
       }
       return;
     }
 
-    const newIndex = drag.edge === "start" ? result.startIndex : result.endIndex;
-    const originalIndex = drag.edge === "start" ? startIndex : endIndex;
+    const maxIndex = days.length - 1;
+    const newIndex =
+      current.edge === "start"
+        ? Math.max(0, Math.min(current.originStartIndex + deltaIndex, current.originEndIndex))
+        : Math.min(maxIndex, Math.max(current.originEndIndex + deltaIndex, current.originStartIndex));
+    const originalIndex = current.edge === "start" ? startIndex : endIndex;
     if (newIndex === originalIndex) return;
     const newDate = days[newIndex];
     if (!newDate) return;
-    const newStart = drag.edge === "start" ? newDate : range.start;
-    const newEnd = drag.edge === "end" ? newDate : range.end;
+    const newStart = current.edge === "start" ? newDate : range.start;
+    const newEnd = current.edge === "end" ? newDate : range.end;
     const message = describeScheduleChange(range.start, range.end, newStart, newEnd, durationMode, holidaySet);
     if (!window.confirm(message)) return;
 
     try {
-      await resizeItemBar(boardId, item.id, drag.edge, toIsoDate(newDate));
+      await resizeItemBar(boardId, item.id, current.edge, toIsoDate(newDate));
     } catch (err) {
       alert(err instanceof Error ? err.message : "調整失敗");
     }
@@ -966,9 +967,10 @@ function GanttBar({
       {canResizeStart && (
         <div
           onPointerDown={(e) => handleResizeDown("start", e)}
-          onPointerMove={handleResizeMove}
-          onPointerUp={handleResizeUp}
+          onPointerMove={handleDragMove}
+          onPointerUp={handleDragUp}
           className="absolute left-0 top-0 z-10 h-full w-1.5 cursor-col-resize rounded-l hover:bg-blue-500/60"
+          style={{ touchAction: "none" }}
           title="拖曳調整開始日期"
         />
       )}
@@ -976,13 +978,16 @@ function GanttBar({
         role={onClick ? "button" : undefined}
         tabIndex={onClick ? 0 : undefined}
         onPointerDown={handleBodyPointerDown}
-        onPointerMove={handleResizeMove}
-        onPointerUp={handleResizeUp}
+        onPointerMove={handleDragMove}
+        onPointerUp={handleDragUp}
         onKeyDown={(e) => {
           if (onClick && (e.key === "Enter" || e.key === " ")) onClick();
         }}
         className="absolute inset-0 flex overflow-hidden rounded"
-        style={{ cursor: canMove ? "grab" : onClick ? "pointer" : "default" }}
+        style={{
+          cursor: drag?.edge === "move" ? "grabbing" : canMove ? "grab" : onClick ? "pointer" : "default",
+          touchAction: "none",
+        }}
         title={
           isMilestone
             ? `里程碑:${toIsoDate(range.start)}`
@@ -1013,9 +1018,10 @@ function GanttBar({
       {canResizeEnd && (
         <div
           onPointerDown={(e) => handleResizeDown("end", e)}
-          onPointerMove={handleResizeMove}
-          onPointerUp={handleResizeUp}
+          onPointerMove={handleDragMove}
+          onPointerUp={handleDragUp}
           className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize rounded-r hover:bg-blue-500/60"
+          style={{ touchAction: "none" }}
           title="拖曳調整結束日期"
         />
       )}

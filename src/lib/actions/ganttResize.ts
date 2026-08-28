@@ -12,6 +12,7 @@ import { countDaysInRange } from "@/lib/workday";
 import { resolveLockedScheduleFields, syncPredecessorSchedule, type ScheduleLock } from "@/lib/predecessorLink";
 import { logActivity } from "@/lib/activityLog";
 import { listHolidays, toHolidaySet } from "@/lib/holidays";
+import { notifyItemAssignees } from "@/lib/notify";
 
 /**
  * Shared setup for both drag interactions: loads the board's Gantt column
@@ -108,6 +109,8 @@ export async function resizeItemBar(
     throw new Error("拖曳後的時間範圍不合理,結束日期不能早於開始日期");
   }
 
+  const oldStartIso = currentRange.start.toISOString().slice(0, 10);
+  const oldEndIso = currentRange.end.toISOString().slice(0, 10);
   const startIso = newStart.toISOString().slice(0, 10);
   const endIso = newEnd.toISOString().slice(0, 10);
 
@@ -133,7 +136,14 @@ export async function resizeItemBar(
       : []),
   ]);
 
-  await logActivity(itemId, session.userId, `拖曳調整時程為 ${startIso} ~ ${endIso}`);
+  await logActivity(itemId, session.userId, `拖曳調整時程:${oldStartIso}~${oldEndIso} → ${startIso}~${endIso}`);
+  await notifyItemAssignees(
+    prisma,
+    itemId,
+    session.userId,
+    "UPDATED",
+    `「${item.name}」的時程已調整:${oldStartIso}~${oldEndIso} → ${startIso}~${endIso}`
+  );
   await syncPredecessorSchedule(boardId, itemId, board.ganttStartColumnId!);
 
   revalidatePath(`/boards/${boardId}`);
@@ -177,6 +187,8 @@ export async function moveItemBar(boardId: string, itemId: string, newStartIso: 
   );
   if (!newRange) throw new Error("此項目尚未填寫開始日期與天數");
 
+  const oldStartIso = currentRange.start.toISOString().slice(0, 10);
+  const oldEndIso = currentRange.end.toISOString().slice(0, 10);
   const startIso = newRange.start.toISOString().slice(0, 10);
   const endIso = newRange.end.toISOString().slice(0, 10);
 
@@ -197,7 +209,14 @@ export async function moveItemBar(boardId: string, itemId: string, newStartIso: 
       : []),
   ]);
 
-  await logActivity(itemId, session.userId, `拖曳整體搬移時程為 ${startIso} ~ ${endIso}`);
+  await logActivity(itemId, session.userId, `拖曳整體搬移時程:${oldStartIso}~${oldEndIso} → ${startIso}~${endIso}`);
+  await notifyItemAssignees(
+    prisma,
+    itemId,
+    session.userId,
+    "UPDATED",
+    `「${item.name}」的時程已搬移:${oldStartIso}~${oldEndIso} → ${startIso}~${endIso}`
+  );
   await syncPredecessorSchedule(boardId, itemId, startColumnId);
 
   revalidatePath(`/boards/${boardId}`);

@@ -20,8 +20,10 @@ export async function notifyEmailIfNeeded(
 }
 
 /**
- * Notifies everyone assigned to an item (via any PERSON column) plus the
- * board owner, excluding whoever triggered the change.
+ * Notifies everyone assigned to an item — via any PERSON column or a Gantt
+ * Assignment (the two mechanisms isItemAssignedToUser treats as equivalent
+ * everywhere else) — plus the board owner, excluding whoever triggered the
+ * change.
  */
 export async function notifyItemAssignees(
   tx: Prisma.TransactionClient,
@@ -36,14 +38,16 @@ export async function notifyItemAssignees(
   });
   if (!item) return;
 
-  const personCellValues = await tx.cellValue.findMany({
-    where: { itemId, column: { type: "PERSON" } },
-  });
+  const [personCellValues, assignments] = await Promise.all([
+    tx.cellValue.findMany({ where: { itemId, column: { type: "PERSON" } } }),
+    tx.assignment.findMany({ where: { itemId }, select: { userId: true } }),
+  ]);
 
   const recipientIds = new Set<string>();
   for (const cv of personCellValues) {
     for (const userId of getPersonIds(cv.value)) recipientIds.add(userId);
   }
+  for (const a of assignments) recipientIds.add(a.userId);
   recipientIds.add(item.board.ownerId);
   recipientIds.delete(actorId);
 
