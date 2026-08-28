@@ -86,39 +86,51 @@ export async function applyResourceMapping(
       const userIdByValue = new Map(mapping.map((m) => [m.value, m.userId]));
 
       // Mapping targets can be Resources (tools/vendors), which have no
-      // account to notify — only real Users can be notification recipients.
+      // account to notify or hold a real Assignment — but their 負責窗口
+      // (the real person who manages that resource) should still see the
+      // resource's items as their own workload, so allocation goes to the
+      // manager instead when the target is a Resource.
       const uniqueMappedIds = [...new Set(mapping.map((m) => m.userId))];
-      const realUsers = await tx.user.findMany({
-        where: { id: { in: uniqueMappedIds } },
-        select: { id: true },
-      });
+      const [realUsers, mappedResources, existingAssignments] = await Promise.all([
+        tx.user.findMany({ where: { id: { in: uniqueMappedIds } }, select: { id: true } }),
+        tx.resource.findMany({ where: { id: { in: uniqueMappedIds } }, select: { id: true, managerId: true } }),
+        tx.assignment.findMany({ where: { item: { boardId } }, select: { itemId: true, userId: true } }),
+      ]);
       const realUserIds = new Set(realUsers.map((u) => u.id));
+      const managerIdByResourceId = new Map(mappedResources.map((r) => [r.id, r.managerId]));
+      const existingAssignmentKeys = new Set(existingAssignments.map((a) => `${a.itemId}:${a.userId}`));
 
       let updatedCount = 0;
 
       for (const cell of sourceCells) {
         if (typeof cell.value !== "string") continue;
         const userId = userIdByValue.get(cell.value);
-        if (!userId || existingByItem.get(cell.itemId) === userId) continue;
+        if (!userId) continue;
+        const alreadyMapped = existingByItem.get(cell.itemId) === userId;
 
-        await tx.cellValue.upsert({
-          where: { itemId_columnId: { itemId: cell.itemId, columnId } },
-          create: { itemId: cell.itemId, columnId, value: userId },
-          update: { value: userId },
-        });
-        updatedCount++;
-
-        // Resources (tools/vendors) have no User account, so they can't
-        // carry a real Assignment — only real users get one.
-        if (assignAllocation && realUserIds.has(userId)) {
-          await tx.assignment.upsert({
-            where: { itemId_userId: { itemId: cell.itemId, userId } },
-            create: { itemId: cell.itemId, userId, allocationPct: clampedAllocationPct },
-            update: { allocationPct: clampedAllocationPct },
+        if (!alreadyMapped) {
+          await tx.cellValue.upsert({
+            where: { itemId_columnId: { itemId: cell.itemId, columnId } },
+            create: { itemId: cell.itemId, columnId, value: userId },
+            update: { value: userId },
           });
+          updatedCount++;
         }
 
-        if (userId !== session.userId && realUserIds.has(userId)) {
+        if (assignAllocation) {
+          const allocationUserId = realUserIds.has(userId) ? userId : (managerIdByResourceId.get(userId) ?? null);
+          const key = allocationUserId ? `${cell.itemId}:${allocationUserId}` : null;
+          // Only fill in a missing allocation — never overwrite one someone
+          // already set (manually, or from an earlier mapping run).
+          if (allocationUserId && key && !existingAssignmentKeys.has(key)) {
+            await tx.assignment.create({
+              data: { itemId: cell.itemId, userId: allocationUserId, allocationPct: clampedAllocationPct },
+            });
+            existingAssignmentKeys.add(key);
+          }
+        }
+
+        if (!alreadyMapped && userId !== session.userId && realUserIds.has(userId)) {
           const itemName = nameByItem.get(cell.itemId);
           if (itemName) {
             notifications.push({
