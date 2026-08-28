@@ -873,6 +873,19 @@ function GanttBar({
   const canResizeEnd = canEdit && !endLocked && !daysLocked;
   const canMove = canEdit && !startLocked && !endLocked;
 
+  // Explains why a drag can't proceed — shown as a prompt the moment the
+  // user actually attempts it (not just hidden with no feedback), and also
+  // as the handle's hover title. Permission is checked first since it's the
+  // more fundamental reason when both apply.
+  function blockedReason(field: "start" | "end" | "move"): string | null {
+    if (!canEdit) return "權限不足:僅該項目的負責人或其主管可以調整此項目的人員與時程";
+    const locked = field === "start" ? startLocked || daysLocked : field === "end" ? endLocked || daysLocked : startLocked || endLocked;
+    if (!locked) return null;
+    return field === "move"
+      ? "此時程由前置依賴或子項目統計自動計算,無法整體搬移"
+      : "此日期由前置依賴、子項目統計或里程碑規則自動計算,請改天數、前置依賴或子項目設定";
+  }
+
   let left = startIndex * dayWidth;
   let width = (endIndex - startIndex + 1) * dayWidth;
   if (drag) {
@@ -886,10 +899,13 @@ function GanttBar({
     } else if (drag.edge === "end") {
       const clamped = Math.max(dayWidth - baseWidth, Math.min(drag.offsetPx, timelineWidth - baseLeft - baseWidth));
       width = baseWidth + clamped;
-    } else {
+    } else if (canMove) {
       const clamped = Math.max(-baseLeft, Math.min(drag.offsetPx, timelineWidth - baseLeft - baseWidth));
       left = baseLeft + clamped;
     }
+    // else (a blocked move): stay put while dragging — the bar doesn't
+    // visually slide for a move it can't actually make; the reason shows
+    // as a prompt once the user releases (see handleDragUp).
   }
   const totalPct = item.assignments.reduce((sum, a) => sum + a.allocationPct, 0);
   // The bar's current Days value, held fixed while moving — a move must
@@ -899,18 +915,24 @@ function GanttBar({
 
   function handleResizeDown(edge: "start" | "end", e: React.PointerEvent<HTMLDivElement>) {
     e.stopPropagation();
+    const reason = blockedReason(edge);
+    if (reason) {
+      alert(reason);
+      return;
+    }
     e.currentTarget.setPointerCapture(e.pointerId);
     setDrag({ edge, originStartIndex: startIndex, originEndIndex: endIndex, originX: e.clientX, offsetPx: 0 });
   }
 
   function handleBodyPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (!onClick) return;
     // The bar body is a div (not a real <button>) since a real button's
     // native click would fire alongside our own drag-vs-click detection —
     // but that means the outer chart's whole-timeline pan handler no longer
     // recognizes it via closest("button") and would otherwise also start
     // panning on the same pointerdown, stealing pointer capture from this
-    // bar and making the drag fight itself.
+    // bar and making the drag fight itself. Always capture (even when the
+    // move itself is blocked) so a real drag attempt is distinguishable
+    // from a plain click at pointerup — see handleDragUp.
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     setDrag({ edge: "move", originStartIndex: startIndex, originEndIndex: endIndex, originX: e.clientX, offsetPx: 0 });
@@ -928,10 +950,17 @@ function GanttBar({
     const deltaIndex = Math.round(current.offsetPx / dayWidth);
 
     if (current.edge === "move") {
-      if (!canMove || deltaIndex === 0) {
+      const draggedFar = Math.abs(current.offsetPx) > 3;
+      if (!draggedFar) {
         onClick?.();
         return;
       }
+      const moveReason = blockedReason("move");
+      if (moveReason) {
+        alert(moveReason);
+        return;
+      }
+      if (deltaIndex === 0) return;
       const span = current.originEndIndex - current.originStartIndex;
       const newStartIndex = Math.max(0, Math.min(current.originStartIndex + deltaIndex, days.length - 1 - span));
       const newStartDate = days[newStartIndex];
@@ -978,16 +1007,16 @@ function GanttBar({
 
   return (
     <div className="absolute top-1/2 -translate-y-1/2" style={{ left, width, height: 20 }}>
-      {canResizeStart && (
-        <div
-          onPointerDown={(e) => handleResizeDown("start", e)}
-          onPointerMove={handleDragMove}
-          onPointerUp={handleDragUp}
-          className="absolute left-0 top-0 z-10 h-full w-1.5 cursor-col-resize rounded-l hover:bg-blue-500/60"
-          style={{ touchAction: "none" }}
-          title="拖曳調整開始日期"
-        />
-      )}
+      <div
+        onPointerDown={(e) => handleResizeDown("start", e)}
+        onPointerMove={handleDragMove}
+        onPointerUp={handleDragUp}
+        className={`absolute left-0 top-0 z-10 h-full w-1.5 rounded-l ${
+          canResizeStart ? "cursor-col-resize hover:bg-blue-500/60" : "cursor-not-allowed"
+        }`}
+        style={{ touchAction: "none" }}
+        title={canResizeStart ? "拖曳調整開始日期" : (blockedReason("start") ?? undefined)}
+      />
       <div
         role={onClick ? "button" : undefined}
         tabIndex={onClick ? 0 : undefined}
@@ -999,7 +1028,7 @@ function GanttBar({
         }}
         className="absolute inset-0 flex overflow-hidden rounded"
         style={{
-          cursor: drag?.edge === "move" ? "grabbing" : canMove ? "grab" : onClick ? "pointer" : "default",
+          cursor: drag?.edge === "move" ? "grabbing" : canMove ? "grab" : onClick ? "pointer" : "not-allowed",
           touchAction: "none",
         }}
         title={
@@ -1029,16 +1058,16 @@ function GanttBar({
           ))
         )}
       </div>
-      {canResizeEnd && (
-        <div
-          onPointerDown={(e) => handleResizeDown("end", e)}
-          onPointerMove={handleDragMove}
-          onPointerUp={handleDragUp}
-          className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize rounded-r hover:bg-blue-500/60"
-          style={{ touchAction: "none" }}
-          title="拖曳調整結束日期"
-        />
-      )}
+      <div
+        onPointerDown={(e) => handleResizeDown("end", e)}
+        onPointerMove={handleDragMove}
+        onPointerUp={handleDragUp}
+        className={`absolute right-0 top-0 z-10 h-full w-1.5 rounded-r ${
+          canResizeEnd ? "cursor-col-resize hover:bg-blue-500/60" : "cursor-not-allowed"
+        }`}
+        style={{ touchAction: "none" }}
+        title={canResizeEnd ? "拖曳調整結束日期" : (blockedReason("end") ?? undefined)}
+      />
     </div>
   );
 }
