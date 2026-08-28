@@ -33,6 +33,11 @@ export function BoardView({
   holidays: Holiday[];
 }) {
   const [view, setView] = useState<"table" | "kanban" | "gantt" | "report">("table");
+  const [ganttNavigateHighlight, setGanttNavigateHighlight] = useState<string | null>(null);
+  function goToItemInTable(itemId: string) {
+    setGanttNavigateHighlight(itemId);
+    setView("table");
+  }
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [resourceMappingOpen, setResourceMappingOpen] = useState(false);
@@ -180,7 +185,7 @@ export function BoardView({
             userRole={userRole}
             currentUserId={currentUserId}
             onAddColumn={() => setAddColumnOpen(true)}
-            highlightItemId={highlightItemId}
+            highlightItemId={ganttNavigateHighlight ?? highlightItemId}
           />
         )}
         {view === "kanban" && (
@@ -201,6 +206,7 @@ export function BoardView({
             userRole={userRole}
             currentUserId={currentUserId}
             holidays={holidays}
+            onNavigateToItem={goToItemInTable}
           />
         )}
         {view === "report" && (

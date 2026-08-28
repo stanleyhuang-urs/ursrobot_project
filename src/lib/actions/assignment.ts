@@ -3,10 +3,27 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { requireStructureAccess } from "@/lib/permissions";
+import { canEditGanttItem } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import { notifyEmailIfNeeded } from "@/lib/notify";
 import { logActivity } from "@/lib/activityLog";
+import { isItemAssignedToUser } from "@/lib/itemAssignment";
+import type { SessionPayload } from "@/lib/jwt";
+
+/**
+ * Managing an item's Gantt Assignments is limited to the item's own
+ * assignee(s) or a manager — see canEditGanttItem.
+ */
+async function assertCanEditAssignment(boardId: string, itemId: string, session: SessionPayload) {
+  const [item, personColumns] = await Promise.all([
+    prisma.item.findUnique({ where: { id: itemId }, include: { cellValues: true, assignments: true } }),
+    prisma.column.findMany({ where: { boardId, type: "PERSON" }, select: { id: true } }),
+  ]);
+  const isAssigned = item ? isItemAssignedToUser(item, personColumns.map((c) => c.id), session.userId) : false;
+  if (!canEditGanttItem(session.role, isAssigned)) {
+    throw new Error("權限不足:僅該項目的負責人或管理者可以調整人員分配");
+  }
+}
 
 export async function listAssignments(itemId: string) {
   const session = await requireSession();
@@ -26,7 +43,7 @@ export async function upsertAssignment(
 ) {
   const session = await requireSession();
   await requireBoardAccess(boardId, session);
-  requireStructureAccess(session.role);
+  await assertCanEditAssignment(boardId, itemId, session);
   const pct = Math.max(5, Math.min(100, Math.round(allocationPct / 5) * 5));
 
   if (session.role === "SUPERVISOR" && userId !== session.userId) {
@@ -78,7 +95,7 @@ export async function upsertAssignment(
 export async function removeAssignment(boardId: string, itemId: string, userId: string) {
   const session = await requireSession();
   await requireBoardAccess(boardId, session);
-  requireStructureAccess(session.role);
+  await assertCanEditAssignment(boardId, itemId, session);
   const assignee = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
   await prisma.assignment.delete({
     where: { itemId_userId: { itemId, userId } },

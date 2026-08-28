@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, CalendarOff } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
-import type { Holiday, UserRole } from "@prisma/client";
-import { canManageStructure } from "@/lib/permissions";
+import type { GanttDurationMode, Holiday, UserRole } from "@prisma/client";
+import { canManageStructure, canEditGanttItem } from "@/lib/permissions";
+import { isItemAssignedToUser } from "@/lib/itemAssignment";
 import {
   setGanttStartColumn,
   setGanttDurationColumn,
@@ -16,11 +17,14 @@ import {
   setGanttTypeColumn,
 } from "@/lib/actions/column";
 import { computeRolledUpDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
+import { countDaysInRange, endFromStartAndDays } from "@/lib/workday";
 import { resolveLockedScheduleFields } from "@/lib/predecessorLink";
-import { resizeItemBar } from "@/lib/actions/ganttResize";
+import { resizeItemBar, moveItemBar } from "@/lib/actions/ganttResize";
 import { recomputeBoardSchedule } from "@/lib/actions/predecessorSchedule";
 import { getStatusOptions } from "@/types/column";
+import { computeVisibleItemIds, type ActiveFilter } from "@/lib/filter";
 import { AssignmentModal } from "./AssignmentModal";
+import { FilterBar } from "./FilterBar";
 import { HolidaySettingsModal } from "@/components/dashboard/HolidaySettingsModal";
 
 type Zoom = "day" | "week" | "month";
@@ -90,18 +94,23 @@ export function BoardGantt({
   userRole,
   currentUserId,
   holidays,
+  onNavigateToItem,
 }: {
   board: BoardWithData;
   users: UserOption[];
   userRole: UserRole;
   currentUserId: string;
   holidays: Holiday[];
+  onNavigateToItem?: (itemId: string) => void;
 }) {
   const canEditStructure = canManageStructure(userRole);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [assignmentItem, setAssignmentItem] = useState<ItemData | null>(null);
   const [holidaySettingsOpen, setHolidaySettingsOpen] = useState(false);
   const [zoom, setZoom] = useState<Zoom>("day");
+  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const [groupFilterId, setGroupFilterId] = useState("");
+  const [parentFilterId, setParentFilterId] = useState("");
   const durationMode = board.ganttDurationMode;
   const isBusinessMode = durationMode === "BUSINESS";
   const holidaySet = useMemo(() => new Set(holidays.map((h) => h.date)), [holidays]);
@@ -292,8 +301,35 @@ export function BoardGantt({
 
   const usersWithLoad = users.filter((u) => (dailyLoad.get(u.id)?.size ?? 0) > 0);
 
+  const itemById = useMemo(() => new Map(board.items.map((i) => [i.id, i])), [board.items]);
+
+  const visibleIds = useMemo(() => {
+    let ids = computeVisibleItemIds(board.items, filters);
+    if (groupFilterId) {
+      const groupIds = new Set(board.items.filter((i) => i.groupId === groupFilterId).map((i) => i.id));
+      ids = ids ? new Set([...ids].filter((id) => groupIds.has(id))) : groupIds;
+    }
+    if (parentFilterId) {
+      const subtree = new Set<string>();
+      const collect = (id: string) => {
+        subtree.add(id);
+        for (const child of board.items) {
+          if (child.parentId === id) collect(child.id);
+        }
+      };
+      collect(parentFilterId);
+      ids = ids ? new Set([...ids].filter((id) => subtree.has(id))) : subtree;
+    }
+    return ids;
+  }, [board.items, filters, groupFilterId, parentFilterId]);
+
+  function canEditItem(item: ItemData): boolean {
+    return canEditGanttItem(userRole, isItemAssignedToUser(item, personColumnIds, currentUserId));
+  }
+
   const itemsByParent = new Map<string | null, ItemData[]>();
   for (const item of board.items) {
+    if (visibleIds !== null && !visibleIds.has(item.id)) continue;
     const list = itemsByParent.get(item.parentId) ?? [];
     list.push(item);
     itemsByParent.set(item.parentId, list);
@@ -301,6 +337,7 @@ export function BoardGantt({
   for (const list of itemsByParent.values()) {
     list.sort((a, b) => a.order - b.order);
   }
+  const renderRootParentId = parentFilterId ? (itemById.get(parentFilterId)?.parentId ?? null) : null;
 
   function toggleCollapsed(itemId: string) {
     setCollapsed((prev) => {
@@ -335,7 +372,18 @@ export function BoardGantt({
             ) : (
               <span className="w-3.5" />
             )}
-            <span className="truncate">{item.name}</span>
+            {onNavigateToItem ? (
+              <button
+                type="button"
+                onClick={() => onNavigateToItem(item.id)}
+                title="在表格中查看此項目"
+                className="truncate text-left hover:text-blue-600 hover:underline"
+              >
+                {item.name}
+              </button>
+            ) : (
+              <span className="truncate">{item.name}</span>
+            )}
           </div>
           <div
             className="relative shrink-0"
@@ -359,16 +407,13 @@ export function BoardGantt({
                 dayIndexByIso={dayIndexByIso}
                 days={days}
                 users={users}
-                startLocked={
-                  (lockedScheduleFields.get(item.id)?.startLocked ?? false) ||
-                  (lockedScheduleFields.get(item.id)?.daysLocked ?? false)
-                }
-                endLocked={
-                  (lockedScheduleFields.get(item.id)?.endLocked ?? false) ||
-                  (lockedScheduleFields.get(item.id)?.daysLocked ?? false)
-                }
-                canResize={canEditStructure}
-                onClick={canEditStructure ? () => setAssignmentItem(item) : undefined}
+                durationMode={durationMode}
+                holidaySet={holidaySet}
+                startLocked={lockedScheduleFields.get(item.id)?.startLocked ?? false}
+                endLocked={lockedScheduleFields.get(item.id)?.endLocked ?? false}
+                daysLocked={lockedScheduleFields.get(item.id)?.daysLocked ?? false}
+                canEdit={canEditItem(item)}
+                onClick={canEditItem(item) ? () => setAssignmentItem(item) : undefined}
               />
             )}
           </div>
@@ -546,6 +591,51 @@ export function BoardGantt({
           </button>
         )}
       </div>
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-500">專案(分組)</span>
+          <select
+            value={groupFilterId}
+            onChange={(e) => setGroupFilterId(e.target.value)}
+            className="rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+          >
+            <option value="">全部</option>
+            {board.groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-500">父項目</span>
+          <select
+            value={parentFilterId}
+            onChange={(e) => setParentFilterId(e.target.value)}
+            className="max-w-[200px] rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+          >
+            <option value="">全部</option>
+            {board.items.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {(groupFilterId || parentFilterId) && (
+          <button
+            type="button"
+            onClick={() => {
+              setGroupFilterId("");
+              setParentFilterId("");
+            }}
+            className="text-xs text-neutral-400 hover:text-neutral-700"
+          >
+            清除
+          </button>
+        )}
+      </div>
+      <FilterBar columns={board.columns} users={users} filters={filters} onChange={setFilters} />
       {predColumnId && linkColumnId && startColumnId && endColumnId && (
         <p className="mb-2 text-xs text-neutral-400">
           已啟用前置依賴自動計算:依前置依賴欄位與日期自動判斷 FS/FF/SS/SF 並寫入關聯類型欄位。
@@ -627,7 +717,7 @@ export function BoardGantt({
               </div>
             </div>
 
-            {renderRows(null, 0)}
+            {renderRows(renderRootParentId, 0)}
 
           {usersWithLoad.length > 0 && (
             <div>
@@ -696,6 +786,35 @@ export function BoardGantt({
   );
 }
 
+/** Builds the confirm-dialog text for a Gantt drag: the day range before and
+ *  after, and the resulting change in Days — shown before any drag (resize
+ *  or whole-bar move) is actually applied. For a whole-bar move, `fixedDays`
+ *  is the Days value the move is known to preserve exactly — passing it
+ *  skips re-deriving a business-day count from the raw dates, which can
+ *  disagree with the stored Days value when the (unmoved) Start itself
+ *  falls on a non-working day. */
+function describeScheduleChange(
+  oldStart: Date,
+  oldEnd: Date,
+  newStart: Date,
+  newEnd: Date,
+  mode: GanttDurationMode,
+  holidays: Set<string>,
+  fixedDays?: number
+): string {
+  const oldDays = fixedDays ?? countDaysInRange(oldStart, oldEnd, mode, holidays);
+  const newDays = fixedDays ?? countDaysInRange(newStart, newEnd, mode, holidays);
+  const delta = (newDays ?? 0) - (oldDays ?? 0);
+  const deltaLabel = delta === 0 ? "天數不變" : delta > 0 ? `增加 ${delta} 天` : `減少 ${Math.abs(delta)} 天`;
+  return [
+    `開始日期:${toIsoDate(oldStart)} → ${toIsoDate(newStart)}`,
+    `結束日期:${toIsoDate(oldEnd)} → ${toIsoDate(newEnd)}`,
+    `天數:${oldDays ?? "-"} → ${newDays ?? "-"}(${deltaLabel})`,
+    "",
+    "確定要套用這個時程調整嗎?",
+  ].join("\n");
+}
+
 function GanttBar({
   boardId,
   item,
@@ -704,9 +823,12 @@ function GanttBar({
   dayIndexByIso,
   days,
   users,
+  durationMode,
+  holidaySet,
   startLocked,
   endLocked,
-  canResize,
+  daysLocked,
+  canEdit,
   onClick,
 }: {
   boardId: string;
@@ -716,31 +838,49 @@ function GanttBar({
   dayIndexByIso: Map<string, number>;
   days: Date[];
   users: UserOption[];
+  durationMode: GanttDurationMode;
+  holidaySet: Set<string>;
   startLocked: boolean;
   endLocked: boolean;
-  canResize: boolean;
+  daysLocked: boolean;
+  canEdit: boolean;
   onClick?: () => void;
 }) {
   const startIndex = dayIndexByIso.get(toIsoDate(range.start)) ?? 0;
   const endIndex = dayIndexByIso.get(toIsoDate(range.end)) ?? startIndex;
   const [preview, setPreview] = useState<{ startIndex: number; endIndex: number } | null>(null);
   const dragRef = useRef<{
-    edge: "start" | "end";
+    edge: "start" | "end" | "move";
     originStartIndex: number;
     originEndIndex: number;
     originX: number;
   } | null>(null);
+
+  const canResizeStart = canEdit && !startLocked && !daysLocked;
+  const canResizeEnd = canEdit && !endLocked && !daysLocked;
+  const canMove = canEdit && !startLocked && !endLocked;
 
   const displayStart = preview?.startIndex ?? startIndex;
   const displayEnd = preview?.endIndex ?? endIndex;
   const left = displayStart * dayWidth;
   const width = (displayEnd - displayStart + 1) * dayWidth;
   const totalPct = item.assignments.reduce((sum, a) => sum + a.allocationPct, 0);
+  // The bar's current Days value, held fixed while moving — a move must
+  // preserve it exactly, even though a fixed calendar-day span can cover a
+  // different number of business days once it crosses a weekend/holiday.
+  const fixedDurationDays = countDaysInRange(range.start, range.end, durationMode, holidaySet) ?? 1;
 
   function handleResizeDown(edge: "start" | "end", e: React.PointerEvent<HTMLDivElement>) {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     dragRef.current = { edge, originStartIndex: startIndex, originEndIndex: endIndex, originX: e.clientX };
+    setPreview({ startIndex, endIndex });
+  }
+
+  function handleBodyPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (!onClick) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { edge: "move", originStartIndex: startIndex, originEndIndex: endIndex, originX: e.clientX };
     setPreview({ startIndex, endIndex });
   }
 
@@ -752,9 +892,18 @@ function GanttBar({
     if (drag.edge === "start") {
       const next = Math.max(0, Math.min(drag.originStartIndex + deltaIndex, drag.originEndIndex));
       setPreview({ startIndex: next, endIndex: drag.originEndIndex });
-    } else {
+    } else if (drag.edge === "end") {
       const next = Math.min(maxIndex, Math.max(drag.originEndIndex + deltaIndex, drag.originStartIndex));
       setPreview({ startIndex: drag.originStartIndex, endIndex: next });
+    } else {
+      if (!canMove) return;
+      const newStartIndex = Math.max(0, drag.originStartIndex + deltaIndex);
+      const newStartDate = days[newStartIndex];
+      if (!newStartDate) return;
+      const trueEnd = endFromStartAndDays(newStartDate, fixedDurationDays, durationMode, holidaySet);
+      const trueEndIndex = dayIndexByIso.get(toIsoDate(trueEnd));
+      if (trueEndIndex === undefined || trueEndIndex > maxIndex) return;
+      setPreview({ startIndex: newStartIndex, endIndex: trueEndIndex });
     }
   }
 
@@ -766,11 +915,41 @@ function GanttBar({
     setPreview(null);
     if (!drag || !result) return;
 
+    if (drag.edge === "move") {
+      if (!canMove || result.startIndex === drag.originStartIndex) {
+        onClick?.();
+        return;
+      }
+      const newStart = days[result.startIndex];
+      const newEnd = days[result.endIndex];
+      if (!newStart || !newEnd) return;
+      const message = describeScheduleChange(
+        range.start,
+        range.end,
+        newStart,
+        newEnd,
+        durationMode,
+        holidaySet,
+        fixedDurationDays
+      );
+      if (!window.confirm(message)) return;
+      try {
+        await moveItemBar(boardId, item.id, toIsoDate(newStart));
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "調整失敗");
+      }
+      return;
+    }
+
     const newIndex = drag.edge === "start" ? result.startIndex : result.endIndex;
     const originalIndex = drag.edge === "start" ? startIndex : endIndex;
     if (newIndex === originalIndex) return;
     const newDate = days[newIndex];
     if (!newDate) return;
+    const newStart = drag.edge === "start" ? newDate : range.start;
+    const newEnd = drag.edge === "end" ? newDate : range.end;
+    const message = describeScheduleChange(range.start, range.end, newStart, newEnd, durationMode, holidaySet);
+    if (!window.confirm(message)) return;
 
     try {
       await resizeItemBar(boardId, item.id, drag.edge, toIsoDate(newDate));
@@ -781,7 +960,7 @@ function GanttBar({
 
   return (
     <div className="absolute top-1/2 -translate-y-1/2" style={{ left, width, height: 20 }}>
-      {canResize && !startLocked && (
+      {canResizeStart && (
         <div
           onPointerDown={(e) => handleResizeDown("start", e)}
           onPointerMove={handleResizeMove}
@@ -790,11 +969,17 @@ function GanttBar({
           title="拖曳調整開始日期"
         />
       )}
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={!onClick}
-        className="absolute inset-0 flex overflow-hidden rounded disabled:cursor-default"
+      <div
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onPointerDown={handleBodyPointerDown}
+        onPointerMove={handleResizeMove}
+        onPointerUp={handleResizeUp}
+        onKeyDown={(e) => {
+          if (onClick && (e.key === "Enter" || e.key === " ")) onClick();
+        }}
+        className="absolute inset-0 flex overflow-hidden rounded"
+        style={{ cursor: canMove ? "grab" : onClick ? "pointer" : "default" }}
         title={item.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
       >
         {item.assignments.length === 0 ? (
@@ -813,8 +998,8 @@ function GanttBar({
             </div>
           ))
         )}
-      </button>
-      {canResize && !endLocked && (
+      </div>
+      {canResizeEnd && (
         <div
           onPointerDown={(e) => handleResizeDown("end", e)}
           onPointerMove={handleResizeMove}

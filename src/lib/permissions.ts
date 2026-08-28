@@ -50,3 +50,13 @@ export function canModifyItemSchedule(
   if (role === "ADMIN") return true;
   return itemCreatedById !== null && itemCreatedById === currentUserId;
 }
+
+/**
+ * Gantt bar editing (人員分配、拖曳調整時程) is limited to the item's own
+ * assignee(s) — via a Gantt Assignment or a PERSON-column value naming them
+ * — or a manager. Mirrors canEditCellValue's assignee carve-out, but for
+ * schedule/assignment changes rather than status/progress cells.
+ */
+export function canEditGanttItem(role: UserRole, isAssignedToUser: boolean): boolean {
+  return canManageStructure(role) || isAssignedToUser;
+}

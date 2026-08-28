@@ -45,6 +45,44 @@ export function countBusinessDays(start: Date, end: Date, holidays: Set<string> 
 }
 
 /**
+ * The end date for an item spanning `days` days starting at `start`, per the
+ * board's calendar vs business-day duration mode — the same formula
+ * getItemDateRange applies to a stored Start+Days pair. Used to preview and
+ * apply a whole-bar Gantt drag, where Days must stay exactly what it was
+ * before the drag (weekends/holidays crossed by the move should not
+ * silently shrink or grow it).
+ */
+export function endFromStartAndDays(
+  start: Date,
+  days: number,
+  mode: GanttDurationMode,
+  holidays: Set<string> = new Set()
+): Date {
+  if (mode === "BUSINESS") return addBusinessDays(start, Math.max(days, 1), holidays);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + Math.max(days - 1, 0));
+  return end;
+}
+
+/**
+ * Days (inclusive of both ends) between two dates, per the board's calendar
+ * vs business-day duration mode. Returns null if end is before start (in
+ * CALENDAR mode; countBusinessDays already returns null for that in BUSINESS
+ * mode). Mirrors getItemDateRange's own duration semantics so a round-trip
+ * through Days stays consistent — used to preview and apply Gantt bar drags.
+ */
+export function countDaysInRange(
+  start: Date,
+  end: Date,
+  mode: GanttDurationMode,
+  holidays: Set<string> = new Set()
+): number | null {
+  if (mode === "BUSINESS") return countBusinessDays(start, end, holidays);
+  if (end.getTime() < start.getTime()) return null;
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+}
+
+/**
  * Shifts a date forward or backward by deltaDays (negative shifts backward).
  * In CALENDAR mode this is plain date arithmetic; in BUSINESS mode it walks
  * day by day, only counting working days (skipping weekends/holidays) — used
