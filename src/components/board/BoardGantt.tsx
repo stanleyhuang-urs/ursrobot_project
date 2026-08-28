@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, CalendarOff, Star } from "lucide-react";
+import { ChevronDown, ChevronRight, CalendarOff, Star, MessageSquare, UserPlus, Plus } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { GanttDurationMode, Holiday, UserRole } from "@prisma/client";
 import { canManageStructure, canEditGanttItem } from "@/lib/permissions";
@@ -24,7 +24,9 @@ import { recomputeBoardSchedule } from "@/lib/actions/predecessorSchedule";
 import { getStatusOptions } from "@/types/column";
 import { computeVisibleItemIds, type ActiveFilter } from "@/lib/filter";
 import { AssignmentModal } from "./AssignmentModal";
+import { ItemDetailModal } from "./ItemDetailModal";
 import { FilterBar } from "./FilterBar";
+import { createItem } from "@/lib/actions/item";
 import { HolidaySettingsModal } from "@/components/dashboard/HolidaySettingsModal";
 
 type Zoom = "day" | "week" | "month";
@@ -106,6 +108,7 @@ export function BoardGantt({
   const canEditStructure = canManageStructure(userRole);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [assignmentItem, setAssignmentItem] = useState<ItemData | null>(null);
+  const [detailItem, setDetailItem] = useState<ItemData | null>(null);
   const [holidaySettingsOpen, setHolidaySettingsOpen] = useState(false);
   const [zoom, setZoom] = useState<Zoom>("day");
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
@@ -355,6 +358,16 @@ export function BoardGantt({
     });
   }
 
+  async function handleAddSubitem(item: ItemData) {
+    setCollapsed((prev) => {
+      if (!prev.has(item.id)) return prev;
+      const next = new Set(prev);
+      next.delete(item.id);
+      return next;
+    });
+    await createItem(board.id, item.groupId, "新子項目", item.id);
+  }
+
   function renderRows(parentId: string | null, depth: number): ReactNode[] {
     const children = itemsByParent.get(parentId) ?? [];
     return children.flatMap((item) => {
@@ -384,12 +397,47 @@ export function BoardGantt({
                 type="button"
                 onClick={() => onNavigateToItem(item.id)}
                 title="在表格中查看此項目"
-                className="truncate text-left hover:text-blue-600 hover:underline"
+                className="min-w-0 flex-1 truncate text-left hover:text-blue-600 hover:underline"
               >
                 {item.name}
               </button>
             ) : (
-              <span className="truncate">{item.name}</span>
+              <span className="min-w-0 flex-1 truncate">{item.name}</span>
+            )}
+            <button
+              type="button"
+              onClick={() => setDetailItem(item)}
+              className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
+                item._count.comments > 0 ? "text-blue-600" : "text-neutral-300"
+              }`}
+              aria-label="留言"
+            >
+              <MessageSquare size={12} />
+              {item._count.comments > 0 && <span>{item._count.comments}</span>}
+            </button>
+            {canEditStructure && (
+              <button
+                type="button"
+                onClick={() => setAssignmentItem(item)}
+                title={item.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
+                className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
+                  item.assignments.length > 0 ? "text-blue-600" : "text-neutral-300"
+                }`}
+                aria-label="指派"
+              >
+                <UserPlus size={12} />
+                {item.assignments.length > 0 && <span>{item.assignments.length}</span>}
+              </button>
+            )}
+            {canEditStructure && (
+              <button
+                type="button"
+                onClick={() => handleAddSubitem(item)}
+                className="flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs text-neutral-300 hover:bg-neutral-100 hover:text-neutral-600"
+                aria-label="新增子項目"
+              >
+                <Plus size={12} />
+              </button>
             )}
           </div>
           <div
@@ -781,6 +829,22 @@ export function BoardGantt({
         userRole={userRole}
         open={assignmentItem !== null}
         onOpenChange={(open) => !open && setAssignmentItem(null)}
+      />
+
+      <ItemDetailModal
+        boardId={board.id}
+        item={detailItem}
+        columns={board.columns}
+        users={users}
+        progressColumnId={board.progressColumnId}
+        ganttStartColumnId={startColumnId}
+        ganttDurationColumnId={durationColumnId}
+        ganttEndColumnId={endColumnId}
+        lockedScheduleFields={lockedScheduleFields}
+        userRole={userRole}
+        currentUserId={currentUserId}
+        open={detailItem !== null}
+        onOpenChange={(open) => !open && setDetailItem(null)}
       />
 
       {userRole === "ADMIN" && (
