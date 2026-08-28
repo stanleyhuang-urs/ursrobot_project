@@ -118,10 +118,9 @@ export function BoardGantt({
   function isHoliday(d: Date) {
     return holidaySet.has(toIsoDate(d));
   }
-  /** Weekend/holiday tint for a day column — shown regardless of duration
-   *  mode as a reference; holidays are additionally removed from the
+  /** Weekend/holiday tint for a day column — both are removed from the
    *  timeline entirely in BUSINESS mode (see `days` below), so this only
-   *  ever paints them in CALENDAR mode. */
+   *  ever paints them in CALENDAR mode, where every calendar day is shown. */
   function dayShade(d: Date): string | undefined {
     if (isHoliday(d)) return "#fde2e2";
     if (isWeekendDay(d)) return "#e9ecef";
@@ -244,10 +243,9 @@ export function BoardGantt({
     for (let i = 0; i < totalDays; i++) {
       const d = new Date(minD);
       d.setDate(d.getDate() + i);
-      // In business mode a holiday takes up no width at all — the timeline
-      // jumps straight to the next working/weekend day. Weekends still
-      // render (shaded) as a familiar reference point.
-      if (isBusinessMode && holidaySet.has(toIsoDate(d))) continue;
+      // In business mode a weekend or holiday takes up no width at all — the
+      // timeline jumps straight to the next working day.
+      if (isBusinessMode && (isWeekendDay(d) || holidaySet.has(toIsoDate(d)))) continue;
       list.push(d);
     }
     return list;
