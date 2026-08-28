@@ -7,20 +7,34 @@ import { canEditGanttItem } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import { notifyEmailIfNeeded } from "@/lib/notify";
 import { logActivity } from "@/lib/activityLog";
-import { isItemAssignedToUser } from "@/lib/itemAssignment";
+import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
 import type { SessionPayload } from "@/lib/jwt";
 
 /**
  * Managing an item's Gantt Assignments is limited to the item's own
- * assignee(s) or a manager — see canEditGanttItem.
+ * assignee(s), an ADMIN, or a SUPERVISOR whose team includes an assignee —
+ * see canEditGanttItem.
  */
 async function assertCanEditAssignment(boardId: string, itemId: string, session: SessionPayload) {
   const [item, personColumns] = await Promise.all([
     prisma.item.findUnique({ where: { id: itemId }, include: { cellValues: true, assignments: true } }),
     prisma.column.findMany({ where: { boardId, type: "PERSON" }, select: { id: true } }),
   ]);
-  const isAssigned = item ? isItemAssignedToUser(item, personColumns.map((c) => c.id), session.userId) : false;
-  if (!canEditGanttItem(session.role, isAssigned)) {
+  const personColumnIds = personColumns.map((c) => c.id);
+  const isAssigned = item ? isItemAssignedToUser(item, personColumnIds, session.userId) : false;
+  const isTeamAssigned =
+    item && session.role === "SUPERVISOR"
+      ? isItemAssignedToTeam(
+          item,
+          personColumnIds,
+          new Set(
+            (await prisma.user.findMany({ where: { supervisorId: session.userId }, select: { id: true } })).map(
+              (u) => u.id
+            )
+          )
+        )
+      : false;
+  if (!canEditGanttItem(session.role, isAssigned, isTeamAssigned)) {
     throw new Error("權限不足:僅該項目的負責人或管理者可以調整人員分配");
   }
 }

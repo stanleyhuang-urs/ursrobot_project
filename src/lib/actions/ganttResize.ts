@@ -6,7 +6,7 @@ import { requireSession } from "@/lib/session";
 import type { SessionPayload } from "@/lib/jwt";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import { canEditGanttItem } from "@/lib/permissions";
-import { isItemAssignedToUser } from "@/lib/itemAssignment";
+import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
 import { getItemDateRange } from "@/lib/gantt";
 import { countDaysInRange } from "@/lib/workday";
 import { resolveLockedScheduleFields, syncPredecessorSchedule, type ScheduleLock } from "@/lib/predecessorLink";
@@ -41,8 +41,21 @@ async function loadGanttEditContext(boardId: string, itemId: string, session: Se
   if (!board?.ganttStartColumnId || !board.ganttDurationColumnId || !item) {
     throw new Error("此看板尚未設定甘特圖「開始日期」與「天數」欄位");
   }
-  const isAssigned = isItemAssignedToUser(item, personColumns.map((c) => c.id), session.userId);
-  if (!canEditGanttItem(session.role, isAssigned)) {
+  const personColumnIds = personColumns.map((c) => c.id);
+  const isAssigned = isItemAssignedToUser(item, personColumnIds, session.userId);
+  const isTeamAssigned =
+    session.role === "SUPERVISOR"
+      ? isItemAssignedToTeam(
+          item,
+          personColumnIds,
+          new Set(
+            (await prisma.user.findMany({ where: { supervisorId: session.userId }, select: { id: true } })).map(
+              (u) => u.id
+            )
+          )
+        )
+      : false;
+  if (!canEditGanttItem(session.role, isAssigned, isTeamAssigned)) {
     throw new Error("權限不足:僅該項目的負責人或管理者可以調整人員分配與時程");
   }
 

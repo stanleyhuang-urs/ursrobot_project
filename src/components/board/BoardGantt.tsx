@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight, CalendarOff, Star } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { GanttDurationMode, Holiday, UserRole } from "@prisma/client";
 import { canManageStructure, canEditGanttItem } from "@/lib/permissions";
-import { isItemAssignedToUser } from "@/lib/itemAssignment";
+import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
 import {
   setGanttStartColumn,
   setGanttDurationColumn,
@@ -321,8 +321,17 @@ export function BoardGantt({
     return ids;
   }, [board.items, filters, groupFilterId, parentFilterId]);
 
+  const teamUserIds = useMemo(
+    () => new Set(users.filter((u) => u.supervisorId === currentUserId).map((u) => u.id)),
+    [users, currentUserId]
+  );
+
   function canEditItem(item: ItemData): boolean {
-    return canEditGanttItem(userRole, isItemAssignedToUser(item, personColumnIds, currentUserId));
+    return canEditGanttItem(
+      userRole,
+      isItemAssignedToUser(item, personColumnIds, currentUserId),
+      isItemAssignedToTeam(item, personColumnIds, teamUserIds)
+    );
   }
 
   const itemsByParent = new Map<string | null, ItemData[]>();

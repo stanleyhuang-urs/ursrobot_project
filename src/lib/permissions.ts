@@ -54,9 +54,19 @@ export function canModifyItemSchedule(
 /**
  * Gantt bar editing (人員分配、拖曳調整時程) is limited to the item's own
  * assignee(s) — via a Gantt Assignment or a PERSON-column value naming them
- * — or a manager. Mirrors canEditCellValue's assignee carve-out, but for
- * schedule/assignment changes rather than status/progress cells.
+ * — an ADMIN, or a SUPERVISOR whose own team includes an assignee. Unlike
+ * canEditCellValue/canManageStructure, a SUPERVISOR does NOT get a blanket
+ * bypass here — e.g. Henry (SUPERVISOR) editing a task assigned only to
+ * Stanley (not on Henry's team) must be refused, matching the same
+ * team-scoping AssignmentModal already applies to who a supervisor can
+ * assign work to.
  */
-export function canEditGanttItem(role: UserRole, isAssignedToUser: boolean): boolean {
-  return canManageStructure(role) || isAssignedToUser;
+export function canEditGanttItem(
+  role: UserRole,
+  isAssignedToUser: boolean,
+  isAssignedToTeam: boolean = false
+): boolean {
+  if (role === "ADMIN") return true;
+  if (role === "SUPERVISOR") return isAssignedToUser || isAssignedToTeam;
+  return isAssignedToUser;
 }
