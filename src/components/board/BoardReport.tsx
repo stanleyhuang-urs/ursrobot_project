@@ -42,7 +42,7 @@ export function BoardReport({
 }) {
   const isSupervisor = userRole === "SUPERVISOR";
   const teamIds = isSupervisor
-    ? users.filter((u) => u.supervisorId === currentUserId).map((u) => u.id)
+    ? [currentUserId, ...users.filter((u) => u.supervisorId === currentUserId).map((u) => u.id)]
     : null;
   const [scope, setScope] = useState<"team" | "all">(isSupervisor ? "team" : "all");
   const [settingsOpen, setSettingsOpen] = useState(false);
