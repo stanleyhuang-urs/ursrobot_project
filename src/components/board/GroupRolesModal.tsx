@@ -3,9 +3,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
-import type { GroupData, UserOption } from "@/types/board";
+import type { UserOption } from "@/types/board";
 import type { GroupDiscipline, GroupRole } from "@prisma/client";
 import { setGroupRoleAssignments, setGroupMembers, setGroupResourceMembers } from "@/lib/actions/groupRoles";
+
+/** The slice of Group data this modal actually needs — kept structural
+ *  (rather than importing the full GroupData) so both the board page's
+ *  BoardWithData groups AND the leaner /group-roles listing query satisfy it. */
+export type GroupRolesData = {
+  id: string;
+  name: string;
+  roleAssignments: { role: GroupRole; userId: string }[];
+  members: { discipline: GroupDiscipline; userId: string }[];
+  resourceMembers: { resourceId: string }[];
+};
 
 const ROLE_LABELS: Record<GroupRole, string> = {
   TEAM_LEADER: "Team Leader",
@@ -62,7 +73,7 @@ export function GroupRolesModal({
   onOpenChange,
 }: {
   boardId: string;
-  group: GroupData;
+  group: GroupRolesData;
   users: UserOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;

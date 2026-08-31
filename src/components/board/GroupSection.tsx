@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, ChevronRight, GripVertical, Trash2, Shield } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, Trash2 } from "lucide-react";
 import type { GroupData, ColumnData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageStructure, canManageGroupStructure } from "@/lib/permissions";
@@ -15,7 +15,6 @@ import { createItem } from "@/lib/actions/item";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import { computeWbsCodes } from "@/lib/wbs";
 import type { ScheduleLock } from "@/lib/predecessorLink";
-import { GroupRolesModal } from "./GroupRolesModal";
 
 export function GroupSection({
   boardId,
@@ -73,13 +72,11 @@ export function GroupSection({
     [group.members, myGroupAccess]
   );
   const canCreateItems = canManageGroupStructure(userRole, myGroupAccess.disciplines.size > 0);
-  const isAdmin = userRole === "ADMIN";
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: group.id, disabled: !canEditStructure });
   const [collapsed, setCollapsed] = useState(false);
   const [name, setName] = useState(group.name);
   const [newItemName, setNewItemName] = useState("");
-  const [rolesModalOpen, setRolesModalOpen] = useState(false);
   const scrollPaneKey = `group:${group.id}`;
 
   const style = {
@@ -151,34 +148,16 @@ export function GroupSection({
             : `${items.filter((i) => visibleIds.has(i.id)).length} / ${items.length}`}{" "}
           項目
         </span>
-        {(canEditStructure || isAdmin) && (
+        {canEditStructure && (
           <RowMenu>
-            {isAdmin && (
-              <RowMenuItem onSelect={() => setRolesModalOpen(true)}>
-                <span className="flex items-center gap-2">
-                  <Shield size={14} /> 分組角色設定
-                </span>
-              </RowMenuItem>
-            )}
-            {canEditStructure && (
-              <RowMenuItem danger onSelect={() => deleteGroup(boardId, group.id)}>
-                <span className="flex items-center gap-2">
-                  <Trash2 size={14} /> 刪除分組
-                </span>
-              </RowMenuItem>
-            )}
+            <RowMenuItem danger onSelect={() => deleteGroup(boardId, group.id)}>
+              <span className="flex items-center gap-2">
+                <Trash2 size={14} /> 刪除分組
+              </span>
+            </RowMenuItem>
           </RowMenu>
         )}
       </div>
-      {isAdmin && (
-        <GroupRolesModal
-          boardId={boardId}
-          group={group}
-          users={users}
-          open={rolesModalOpen}
-          onOpenChange={setRolesModalOpen}
-        />
-      )}
 
       {!collapsed && (
         <div className="flex items-start">
