@@ -23,7 +23,7 @@ const ROLE_LABELS: Record<GroupRole, string> = {
   SW_DM: "SW DM",
   HW_DM: "HW DM",
   ME_DM: "ME DM",
-  QA: "QA",
+  QA: "QA DM",
   PMM: "PMM",
   PMD: "PMD",
 };
@@ -127,8 +127,8 @@ export function GroupRolesModal({
         <section>
           <h3 className="mb-1 text-sm font-semibold text-neutral-800">角色</h3>
           <p className="mb-2 text-xs text-neutral-400">
-            Team Leader、PMD 可調整此分組任何項目的時程(拖曳甘特圖、改起訖日)。SW/HW/ME
-            DM、QA 可在此分組新增/指派項目、管理各自領域成員的進度,範圍僅限此分組。PMM 目前僅作花名冊,不授予額外權限。
+            Team Leader、PMD 可調整此分組任何項目的時程(拖曳甘特圖、改起訖日)。SW/HW/ME/QA
+            DM 可在此分組新增/指派項目、管理各自領域成員的進度,範圍僅限此分組。PMM 目前僅作花名冊,不授予額外權限。
           </p>
           <div className="space-y-2">
             {ROLES.map((role) => (
@@ -148,7 +148,7 @@ export function GroupRolesModal({
 
         <section>
           <h3 className="mb-1 text-sm font-semibold text-neutral-800">實作成員</h3>
-          <p className="mb-2 text-xs text-neutral-400">SW/HW/ME DM、QA 只能管理各自欄位底下列出的成員。</p>
+          <p className="mb-2 text-xs text-neutral-400">SW/HW/ME/QA DM 只能管理各自欄位底下列出的成員。</p>
           <div className="space-y-2">
             {DISCIPLINES.map((discipline) => (
               <div key={discipline} className="flex items-start gap-2">
