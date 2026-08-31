@@ -8,12 +8,14 @@ import { requireBoardAccess } from "@/lib/boardAccess";
 import { notifyEmailIfNeeded } from "@/lib/notify";
 import { logActivity } from "@/lib/activityLog";
 import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
+import { loadGroupRoleContext } from "@/lib/groupRoleContext";
 import type { SessionPayload } from "@/lib/jwt";
 
 /**
  * Managing an item's Gantt Assignments is limited to the item's own
- * assignee(s), an ADMIN, or a SUPERVISOR whose team includes an assignee —
- * see canEditGanttItem.
+ * assignee(s), an ADMIN, a SUPERVISOR whose team includes an assignee, or a
+ * group role — TEAM_LEADER/PMD (schedule role, group-wide) or a discipline DM
+ * whose GroupMember roster includes an assignee — see canEditGanttItem.
  */
 async function assertCanEditAssignment(boardId: string, itemId: string, session: SessionPayload) {
   const [item, personColumns] = await Promise.all([
@@ -34,7 +36,17 @@ async function assertCanEditAssignment(boardId: string, itemId: string, session:
           )
         )
       : false;
-  if (!canEditGanttItem(session.role, isAssigned, isTeamAssigned)) {
+  const groupRole = item ? await loadGroupRoleContext(item.groupId, session.userId) : null;
+  const isGroupTeamAssigned =
+    item && groupRole ? isItemAssignedToTeam(item, personColumnIds, groupRole.teamUserIds) : false;
+  if (
+    !canEditGanttItem(
+      session.role,
+      isAssigned,
+      isTeamAssigned || isGroupTeamAssigned,
+      groupRole?.access.hasScheduleRole ?? false
+    )
+  ) {
     throw new Error("權限不足:僅該項目的負責人或管理者可以調整人員分配");
   }
 }

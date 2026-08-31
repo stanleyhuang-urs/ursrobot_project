@@ -31,6 +31,27 @@ enum GanttDurationMode {
   BUSINESS
 }
 
+// Per-Group leadership roles. TEAM_LEADER and PMD get schedule-edit rights
+// across the whole group; SW_DM/HW_DM/ME_DM/QA get item-create/assign/
+// progress-management rights scoped to their own discipline's GroupMember
+// roster; PMM is roster-only (no extra permissions).
+enum GroupRole {
+  TEAM_LEADER
+  SW_DM
+  HW_DM
+  ME_DM
+  QA
+  PMM
+  PMD
+}
+
+enum GroupDiscipline {
+  SW
+  HW
+  ME
+  QA
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -60,6 +81,8 @@ model User {
   activityLogEntries  ActivityLogEntry[]
   createdItems        Item[]              @relation("ItemCreatedBy")
   managedResources    Resource[]          @relation("ResourceManager")
+  groupRoleAssignments GroupRoleAssignment[] @relation("GroupRoleAssignments")
+  groupMemberships     GroupMember[]         @relation("GroupMembers")
 }
 
 // A non-login entity (tool, equipment, external vendor/supplier) that can be
@@ -78,6 +101,8 @@ model Resource {
 
   managerId String?
   manager   User?   @relation("ResourceManager", fields: [managerId], references: [id], onDelete: SetNull)
+
+  groupMemberships GroupResourceMember[]
 }
 
 model Board {
@@ -146,6 +171,53 @@ model Group {
 
   items Item[]
   automationMoveTargets AutomationRule[]
+  roleAssignments GroupRoleAssignment[]
+  members         GroupMember[]
+  resourceMembers GroupResourceMember[]
+}
+
+// A user holding TEAM_LEADER or PMD for a Group can edit the schedule
+// (Start/Days/Finish, Gantt drag) of any item in that group, regardless of
+// their board-wide UserRole or item assignment — see canEditGanttItem's
+// `hasGroupScheduleRole` param. SW_DM/HW_DM/ME_DM/QA instead act as a
+// discipline-scoped supervisor (see GroupMember) with no schedule rights.
+model GroupRoleAssignment {
+  id      String    @id @default(cuid())
+  groupId String
+  group   Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  role    GroupRole
+  userId  String
+  user    User      @relation("GroupRoleAssignments", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, role, userId])
+}
+
+// The roster of users actually doing SW/HW/ME/QA work in a Group — this is
+// what a matching discipline DM (see GroupRoleAssignment) is scoped to
+// manage: item creation/assignment/progress for items assigned to these
+// users, within this group only.
+model GroupMember {
+  id         String          @id @default(cuid())
+  groupId    String
+  group      Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  discipline GroupDiscipline
+  userId     String
+  user       User            @relation("GroupMembers", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, discipline, userId])
+}
+
+// Resources (tools/vendors, no login) rostered to a Group — informational
+// only, mirrors GroupMember but grants no permissions since Resources can't
+// authenticate.
+model GroupResourceMember {
+  id         String   @id @default(cuid())
+  groupId    String
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, resourceId])
 }
 
 model Column {

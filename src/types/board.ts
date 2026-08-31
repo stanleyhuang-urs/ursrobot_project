@@ -2,7 +2,14 @@ import { Prisma } from "@prisma/client";
 
 export const boardWithDataArgs = Prisma.validator<Prisma.BoardDefaultArgs>()({
   include: {
-    groups: { orderBy: { order: "asc" } },
+    groups: {
+      orderBy: { order: "asc" },
+      include: {
+        roleAssignments: { include: { user: { select: { id: true, name: true } } } },
+        members: { include: { user: { select: { id: true, name: true } } } },
+        resourceMembers: { include: { resource: { select: { id: true, name: true } } } },
+      },
+    },
     columns: { orderBy: { order: "asc" } },
     items: {
       orderBy: { order: "asc" },

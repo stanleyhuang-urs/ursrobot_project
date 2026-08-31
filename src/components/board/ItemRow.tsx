@@ -13,8 +13,8 @@ import {
 } from "lucide-react";
 import type { ItemData, ColumnData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
-import { canManageStructure, canEditCellValue, canModifyItemSchedule } from "@/lib/permissions";
-import { isItemAssignedToUser } from "@/lib/itemAssignment";
+import { canManageGroupStructure, canEditCellValue, canModifyItemSchedule } from "@/lib/permissions";
+import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
 import { CellEditor } from "./cell-editors/CellEditor";
 import { ItemDetailModal } from "./ItemDetailModal";
 import { AssignmentModal } from "./AssignmentModal";
@@ -48,6 +48,9 @@ export function ItemRow({
   levelColors,
   collapsedIds,
   onToggleCollapse,
+  hasGroupScheduleRole = false,
+  hasGroupStructureRole = false,
+  groupTeamUserIds,
 }: {
   pane: "frozen" | "data";
   boardId: string;
@@ -72,11 +75,25 @@ export function ItemRow({
   levelColors?: string[];
   collapsedIds: Set<string>;
   onToggleCollapse: (itemId: string) => void;
+  /** Group role bypasses — see resolveGroupRoleAccess. hasGroupScheduleRole
+   *  (TEAM_LEADER/PMD) unlocks schedule columns group-wide;
+   *  hasGroupStructureRole (a discipline DM) unlocks add/insert/assign, and
+   *  groupTeamUserIds (that DM's discipline roster) unlocks progress editing
+   *  for items assigned to those members. */
+  hasGroupScheduleRole?: boolean;
+  hasGroupStructureRole?: boolean;
+  groupTeamUserIds?: Set<string>;
 }) {
-  const canEditStructure = canManageStructure(userRole);
-  const canModifySchedule = canModifyItemSchedule(userRole, item.createdById, currentUserId);
+  const canEditStructure = canManageGroupStructure(userRole, hasGroupStructureRole);
+  const canModifySchedule = canModifyItemSchedule(userRole, item.createdById, currentUserId, hasGroupScheduleRole);
+  // Deletion deliberately does NOT get the group-role bypass — a group's
+  // TEAM_LEADER/PMD/DM can adjust schedule and add/assign items, but only an
+  // ADMIN or the item's own creator can delete it (unchanged from before).
+  const canDeleteItem = canModifyItemSchedule(userRole, item.createdById, currentUserId);
   const personColumnIds = columns.filter((c) => c.type === "PERSON").map((c) => c.id);
   const isAssignedToCurrentUser = isItemAssignedToUser(item, personColumnIds, currentUserId);
+  const isAssignedToGroupDiscipline =
+    !!groupTeamUserIds && groupTeamUserIds.size > 0 && isItemAssignedToTeam(item, personColumnIds, groupTeamUserIds);
   const isAncestorOfHighlight = expandIds?.has(item.id) ?? false;
   const expanded = !collapsedIds.has(item.id) || isAncestorOfHighlight;
   const [detailOpen, setDetailOpen] = useState(false);
@@ -231,7 +248,7 @@ export function ItemRow({
                     <ArrowDownToLine size={14} /> 下方插入項目
                   </span>
                 </RowMenuItem>
-                {canModifySchedule && (
+                {canDeleteItem && (
                   <RowMenuItem danger onSelect={() => deleteItem(boardId, item.id)}>
                     <span className="flex items-center gap-2">
                       <Trash2 size={14} /> 刪除
@@ -315,7 +332,13 @@ export function ItemRow({
                   value={valuesByColumn.get(col.id) ?? null}
                   users={users}
                   canEdit={
-                    canEditCellValue(userRole, col.type, col.id === progressColumnId, isAssignedToCurrentUser) &&
+                    canEditCellValue(
+                      userRole,
+                      col.type,
+                      col.id === progressColumnId,
+                      isAssignedToCurrentUser,
+                      isAssignedToGroupDiscipline
+                    ) &&
                     (!isScheduleColumn || canModifySchedule) &&
                     !isLockedField
                   }

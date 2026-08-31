@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Star, MessageSquare, UserPlus, Plus } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { GanttDurationMode, Holiday, UserRole } from "@prisma/client";
-import { canManageStructure, canEditGanttItem } from "@/lib/permissions";
+import { canManageStructure, canManageGroupStructure, canEditGanttItem } from "@/lib/permissions";
+import { resolveGroupRoleAccess, groupDisciplineTeamUserIds, type GroupRoleAccess } from "@/lib/groupRoles";
 import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
 import {
   setGanttStartColumn,
@@ -326,12 +327,38 @@ export function BoardGantt({
     [users, currentUserId]
   );
 
+  const myGroupAccessByGroupId = useMemo(() => {
+    const map = new Map<string, GroupRoleAccess>();
+    for (const g of board.groups) {
+      map.set(g.id, resolveGroupRoleAccess(g.roleAssignments.filter((a) => a.userId === currentUserId)));
+    }
+    return map;
+  }, [board.groups, currentUserId]);
+
+  const groupTeamUserIdsByGroupId = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const g of board.groups) {
+      const access = myGroupAccessByGroupId.get(g.id);
+      map.set(g.id, access ? groupDisciplineTeamUserIds(g.members, access) : new Set());
+    }
+    return map;
+  }, [board.groups, myGroupAccessByGroupId]);
+
   function canEditItem(item: ItemData): boolean {
+    const access = myGroupAccessByGroupId.get(item.groupId);
+    const groupTeamUserIds = groupTeamUserIdsByGroupId.get(item.groupId);
     return canEditGanttItem(
       userRole,
       isItemAssignedToUser(item, personColumnIds, currentUserId),
-      isItemAssignedToTeam(item, personColumnIds, teamUserIds)
+      isItemAssignedToTeam(item, personColumnIds, teamUserIds) ||
+        (!!groupTeamUserIds && isItemAssignedToTeam(item, personColumnIds, groupTeamUserIds)),
+      access?.hasScheduleRole ?? false
     );
+  }
+
+  function canEditItemStructure(item: ItemData): boolean {
+    const access = myGroupAccessByGroupId.get(item.groupId);
+    return canManageGroupStructure(userRole, (access?.disciplines.size ?? 0) > 0);
   }
 
   const itemsByParent = new Map<string | null, ItemData[]>();
@@ -412,7 +439,7 @@ export function BoardGantt({
               <MessageSquare size={12} />
               {item._count.comments > 0 && <span>{item._count.comments}</span>}
             </button>
-            {canEditStructure && (
+            {canEditItemStructure(item) && (
               <button
                 type="button"
                 onClick={() => setAssignmentItem(item)}
@@ -426,7 +453,7 @@ export function BoardGantt({
                 {item.assignments.length > 0 && <span>{item.assignments.length}</span>}
               </button>
             )}
-            {canEditStructure && (
+            {canEditItemStructure(item) && (
               <button
                 type="button"
                 onClick={() => handleAddSubitem(item)}

@@ -11,7 +11,8 @@ import { syncPredecessorSchedule, resolveLockedScheduleFields } from "@/lib/pred
 import { canEditCellValue, canModifyItemSchedule } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
-import { isItemAssignedToUser } from "@/lib/itemAssignment";
+import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
+import { loadGroupRoleContext } from "@/lib/groupRoleContext";
 import { getPersonIds, type CellValueJson } from "@/types/column";
 
 export async function upsertCellValue(
@@ -47,13 +48,21 @@ export async function upsertCellValue(
     prisma.column.findMany({ where: { boardId, type: "PERSON" }, select: { id: true } }),
   ]);
 
-  const isAssignedToUser = item
-    ? isItemAssignedToUser(item, personColumns.map((c) => c.id), session.userId)
-    : false;
+  const personColumnIds = personColumns.map((c) => c.id);
+  const isAssignedToUser = item ? isItemAssignedToUser(item, personColumnIds, session.userId) : false;
+  const groupRole = item ? await loadGroupRoleContext(item.groupId, session.userId) : null;
+  const isAssignedToGroupDiscipline =
+    item && groupRole ? isItemAssignedToTeam(item, personColumnIds, groupRole.teamUserIds) : false;
 
   if (
     column &&
-    !canEditCellValue(session.role, column.type, column.id === board?.progressColumnId, isAssignedToUser)
+    !canEditCellValue(
+      session.role,
+      column.type,
+      column.id === board?.progressColumnId,
+      isAssignedToUser,
+      isAssignedToGroupDiscipline
+    )
   ) {
     throw new Error("權限不足:你只能編輯自己被指派或負責項目的狀態與進度欄位");
   }
@@ -64,7 +73,11 @@ export async function upsertCellValue(
     (column.id === board.ganttStartColumnId ||
       column.id === board.ganttDurationColumnId ||
       column.id === board.ganttEndColumnId);
-  if (isScheduleColumn && item && !canModifyItemSchedule(session.role, item.createdById, session.userId)) {
+  if (
+    isScheduleColumn &&
+    item &&
+    !canModifyItemSchedule(session.role, item.createdById, session.userId, groupRole?.access.hasScheduleRole ?? false)
+  ) {
     throw new Error("權限不足:僅建立者或管理者可以修改此項目的時程");
   }
 

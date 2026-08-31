@@ -7,6 +7,7 @@ import type { SessionPayload } from "@/lib/jwt";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import { canEditGanttItem } from "@/lib/permissions";
 import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
+import { loadGroupRoleContext } from "@/lib/groupRoleContext";
 import { getItemDateRange } from "@/lib/gantt";
 import { countDaysInRange } from "@/lib/workday";
 import { resolveLockedScheduleFields, syncPredecessorSchedule, type ScheduleLock } from "@/lib/predecessorLink";
@@ -55,7 +56,16 @@ async function loadGanttEditContext(boardId: string, itemId: string, session: Se
           )
         )
       : false;
-  if (!canEditGanttItem(session.role, isAssigned, isTeamAssigned)) {
+  const groupRole = await loadGroupRoleContext(item.groupId, session.userId);
+  const isGroupTeamAssigned = isItemAssignedToTeam(item, personColumnIds, groupRole.teamUserIds);
+  if (
+    !canEditGanttItem(
+      session.role,
+      isAssigned,
+      isTeamAssigned || isGroupTeamAssigned,
+      groupRole.access.hasScheduleRole
+    )
+  ) {
     throw new Error("權限不足:僅該項目的負責人或管理者可以調整人員分配與時程");
   }
 

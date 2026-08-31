@@ -3,10 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { requireStructureAccess, canModifyItemSchedule } from "@/lib/permissions";
+import { canManageGroupStructure, canModifyItemSchedule, requireStructureAccess } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
 import { getStatusOptions } from "@/types/column";
+import { loadGroupRoleContext } from "@/lib/groupRoleContext";
+import type { SessionPayload } from "@/lib/jwt";
+
+/** Item creation/structure edits are normally ADMIN/SUPERVISOR-only, but a
+ *  group's TEAM_LEADER/SW_DM/HW_DM/ME_DM/QA also gets structure rights
+ *  scoped to that one group — see canManageGroupStructure. */
+async function requireGroupStructureAccess(session: SessionPayload, groupId: string) {
+  const { access } = await loadGroupRoleContext(groupId, session.userId);
+  if (!canManageGroupStructure(session.role, access.disciplines.size > 0)) {
+    throw new Error("權限不足:僅管理者、主管或此分組的負責角色可以執行此操作");
+  }
+}
 
 /**
  * Resolves the Task/Summary option ids of the board's Type column (if
@@ -33,7 +45,7 @@ export async function createItem(
 ) {
   const session = await requireSession();
   await requireBoardAccess(boardId, session);
-  requireStructureAccess(session.role);
+  await requireGroupStructureAccess(session, groupId);
   const trimmed = name.trim() || "未命名項目";
 
   const [count, board] = await Promise.all([
@@ -78,7 +90,7 @@ export async function insertItem(
 ) {
   const session = await requireSession();
   await requireBoardAccess(boardId, session);
-  requireStructureAccess(session.role);
+  await requireGroupStructureAccess(session, groupId);
 
   const [reference, board] = await Promise.all([
     prisma.item.findUnique({ where: { id: referenceItemId } }),
@@ -119,10 +131,10 @@ export async function renameItem(
 ) {
   const session = await requireSession();
   await requireBoardAccess(boardId, session);
-  requireStructureAccess(session.role);
   const trimmed = name.trim() || "未命名項目";
 
-  const existing = await prisma.item.findUnique({ where: { id: itemId }, select: { name: true } });
+  const existing = await prisma.item.findUnique({ where: { id: itemId }, select: { name: true, groupId: true } });
+  if (existing) await requireGroupStructureAccess(session, existing.groupId);
   await prisma.item.update({ where: { id: itemId }, data: { name: trimmed } });
   if (existing && existing.name !== trimmed) {
     await logActivity(itemId, session.userId, `項目名稱從「${existing.name}」改為「${trimmed}」`);

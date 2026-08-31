@@ -30,11 +30,12 @@ export function canEditCellValue(
   role: UserRole,
   columnType: ColumnType,
   isProgressColumn: boolean,
-  isAssignedToUser: boolean
+  isAssignedToUser: boolean,
+  isAssignedToGroupDiscipline: boolean = false
 ): boolean {
   if (canManageStructure(role)) return true;
   if (columnType !== "STATUS" && !isProgressColumn) return false;
-  return isAssignedToUser;
+  return isAssignedToUser || isAssignedToGroupDiscipline;
 }
 
 /**
@@ -45,8 +46,10 @@ export function canEditCellValue(
 export function canModifyItemSchedule(
   role: UserRole,
   itemCreatedById: string | null,
-  currentUserId: string
+  currentUserId: string,
+  hasGroupScheduleRole: boolean = false
 ): boolean {
+  if (hasGroupScheduleRole) return true;
   if (role === "ADMIN") return true;
   return itemCreatedById !== null && itemCreatedById === currentUserId;
 }
@@ -64,9 +67,25 @@ export function canModifyItemSchedule(
 export function canEditGanttItem(
   role: UserRole,
   isAssignedToUser: boolean,
-  isAssignedToTeam: boolean = false
+  isAssignedToTeam: boolean = false,
+  hasGroupScheduleRole: boolean = false
 ): boolean {
+  if (hasGroupScheduleRole) return true;
   if (role === "ADMIN") return true;
   if (role === "SUPERVISOR") return isAssignedToUser || isAssignedToTeam;
   return isAssignedToUser;
+}
+
+/**
+ * Whether a user may create/assign items and manage a group's own item
+ * structure (add subitem, open assignment modal) — either via the board-wide
+ * ADMIN/SUPERVISOR grant, or as a Group's TEAM_LEADER/SW_DM/HW_DM/ME_DM/QA
+ * (see resolveGroupRoleAccess — `hasGroupStructureRole` is true whenever
+ * that user's `disciplines` set for the group is non-empty).
+ */
+export function canManageGroupStructure(
+  role: UserRole,
+  hasGroupStructureRole: boolean
+): boolean {
+  return canManageStructure(role) || hasGroupStructureRole;
 }
