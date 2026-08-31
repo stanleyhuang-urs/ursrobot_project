@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, CalendarOff, Star, MessageSquare, UserPlus, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, MessageSquare, UserPlus, Plus } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { GanttDurationMode, Holiday, UserRole } from "@prisma/client";
 import { canManageStructure, canEditGanttItem } from "@/lib/permissions";
@@ -10,7 +10,6 @@ import {
   setGanttStartColumn,
   setGanttDurationColumn,
   setGanttEndColumn,
-  setGanttDurationMode,
   setPredColumn,
   setLinkColumn,
   setGanttLagColumn,
@@ -27,7 +26,6 @@ import { AssignmentModal } from "./AssignmentModal";
 import { ItemDetailModal } from "./ItemDetailModal";
 import { FilterBar } from "./FilterBar";
 import { createItem } from "@/lib/actions/item";
-import { HolidaySettingsModal } from "@/components/dashboard/HolidaySettingsModal";
 
 type Zoom = "day" | "week" | "month";
 const ZOOM_DAY_WIDTH: Record<Zoom, number> = { day: 34, week: 10, month: 3 };
@@ -109,7 +107,6 @@ export function BoardGantt({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [assignmentItem, setAssignmentItem] = useState<ItemData | null>(null);
   const [detailItem, setDetailItem] = useState<ItemData | null>(null);
-  const [holidaySettingsOpen, setHolidaySettingsOpen] = useState(false);
   const [zoom, setZoom] = useState<Zoom>("day");
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
   const [groupFilterId, setGroupFilterId] = useState("");
@@ -537,25 +534,11 @@ export function BoardGantt({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-neutral-500">計算方式</span>
-          <select
-            value={durationMode}
-            onChange={(e) => setGanttDurationMode(board.id, e.target.value as "CALENDAR" | "BUSINESS")}
-            disabled={!canEditStructure}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
-          >
-            <option value="CALENDAR">日曆天</option>
-            <option value="BUSINESS">工作天</option>
-          </select>
+          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
+            {isBusinessMode ? "工作天" : "日曆天"}
+          </span>
+          <span className="text-xs text-neutral-400">(與國定假日設定同在「系統設定」調整)</span>
         </div>
-        {userRole === "ADMIN" && (
-          <button
-            type="button"
-            onClick={() => setHolidaySettingsOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-600 hover:bg-neutral-50"
-          >
-            <CalendarOff size={13} /> 國定假日設定
-          </button>
-        )}
         <div className="flex items-center gap-2">
           <span className="text-neutral-500">結束日期欄位</span>
           <select
@@ -846,14 +829,6 @@ export function BoardGantt({
         open={detailItem !== null}
         onOpenChange={(open) => !open && setDetailItem(null)}
       />
-
-      {userRole === "ADMIN" && (
-        <HolidaySettingsModal
-          holidays={holidays}
-          open={holidaySettingsOpen}
-          onOpenChange={setHolidaySettingsOpen}
-        />
-      )}
     </div>
   );
 }

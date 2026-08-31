@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Table2, LayoutGrid, Upload, Download, GanttChartSquare, Users2, Zap, Share2, BarChart3, Palette } from "lucide-react";
+import { Table2, LayoutGrid, Upload, Download, GanttChartSquare, Users2, Zap, Share2, BarChart3 } from "lucide-react";
 import type { BoardWithData, UserOption } from "@/types/board";
 import type { Holiday, UserRole } from "@prisma/client";
 import { canManageBoard, canManageStructure } from "@/lib/permissions";
@@ -14,7 +14,6 @@ import { ImportWizard } from "./ImportWizard";
 import { ResourceMappingModal } from "./ResourceMappingModal";
 import { AutomationRulesModal } from "./AutomationRulesModal";
 import { BoardSharingModal } from "./BoardSharingModal";
-import { LevelColorSettingsModal } from "./LevelColorSettingsModal";
 import { ExportGanttModal } from "./ExportGanttModal";
 
 export function BoardView({
@@ -43,7 +42,6 @@ export function BoardView({
   const [resourceMappingOpen, setResourceMappingOpen] = useState(false);
   const [automationOpen, setAutomationOpen] = useState(false);
   const [sharingOpen, setSharingOpen] = useState(false);
-  const [levelColorOpen, setLevelColorOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const canManageSharing = canManageBoard(userRole) || board.ownerId === currentUserId;
 
@@ -117,15 +115,6 @@ export function BoardView({
               className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
             >
               <Share2 size={14} /> 分享設定
-            </button>
-          )}
-          {canManageStructure(userRole) && (
-            <button
-              type="button"
-              onClick={() => setLevelColorOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
-            >
-              <Palette size={14} /> 階層顏色
             </button>
           )}
           <div className="flex overflow-hidden rounded-md border border-neutral-200">
@@ -274,15 +263,6 @@ export function BoardView({
           users={users}
           open={sharingOpen}
           onOpenChange={setSharingOpen}
-        />
-      )}
-
-      {canManageStructure(userRole) && (
-        <LevelColorSettingsModal
-          boardId={board.id}
-          levelColors={board.levelColors}
-          open={levelColorOpen}
-          onOpenChange={setLevelColorOpen}
         />
       )}
     </div>

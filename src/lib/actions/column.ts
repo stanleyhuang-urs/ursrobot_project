@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireStructureAccess } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
-import type { GanttDurationMode } from "@prisma/client";
 import type { ColumnType, StatusColumnOptions } from "@/types/column";
 import { DEFAULT_STATUSES } from "@/types/column";
 
@@ -143,20 +142,6 @@ export async function setGanttEndColumn(
   revalidatePath(`/boards/${boardId}`);
 }
 
-export async function setGanttDurationMode(
-  boardId: string,
-  mode: GanttDurationMode
-) {
-  const session = await requireSession();
-  await requireBoardAccess(boardId, session);
-  requireStructureAccess(session.role);
-  await prisma.board.update({
-    where: { id: boardId },
-    data: { ganttDurationMode: mode },
-  });
-  revalidatePath(`/boards/${boardId}`);
-  revalidatePath("/dashboard");
-}
 
 export async function setPredColumn(
   boardId: string,
@@ -261,13 +246,3 @@ export async function setReportStatusBuckets(
   revalidatePath(`/boards/${boardId}`);
 }
 
-export async function setLevelColors(boardId: string, colors: string[]) {
-  const session = await requireSession();
-  await requireBoardAccess(boardId, session);
-  requireStructureAccess(session.role);
-  await prisma.board.update({
-    where: { id: boardId },
-    data: { levelColors: colors },
-  });
-  revalidatePath(`/boards/${boardId}`);
-}

@@ -21,6 +21,7 @@ export async function addHoliday(date: string, name: string) {
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/settings");
   revalidatePath("/boards/[boardId]", "page");
 }
 
@@ -31,5 +32,6 @@ export async function removeHoliday(id: string) {
   await prisma.holiday.delete({ where: { id } });
 
   revalidatePath("/dashboard");
+  revalidatePath("/settings");
   revalidatePath("/boards/[boardId]", "page");
 }
