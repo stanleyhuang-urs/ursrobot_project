@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWbsIndexFromItems, computeScheduledRange } from "./predecessorLink";
+import { buildWbsIndexFromItems, resolveWbsCode, computeScheduledRange } from "./predecessorLink";
 
 function iso(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -59,16 +59,36 @@ describe("computeScheduledRange", () => {
 describe("buildWbsIndexFromItems", () => {
   it("assigns dotted WBS codes matching parent/order structure", () => {
     const items = [
-      { id: "a", parentId: null, order: 0 },
-      { id: "a1", parentId: "a", order: 0 },
-      { id: "a2", parentId: "a", order: 1 },
-      { id: "b", parentId: null, order: 1 },
+      { id: "a", parentId: null, order: 0, groupId: "g1" },
+      { id: "a1", parentId: "a", order: 0, groupId: "g1" },
+      { id: "a2", parentId: "a", order: 1, groupId: "g1" },
+      { id: "b", parentId: null, order: 1, groupId: "g1" },
     ];
-    const { wbsByItemId, itemIdByWbs } = buildWbsIndexFromItems(items);
-    expect(wbsByItemId.get("a")).toBe("1");
-    expect(wbsByItemId.get("a1")).toBe("1.1");
-    expect(wbsByItemId.get("a2")).toBe("1.2");
-    expect(wbsByItemId.get("b")).toBe("2");
-    expect(itemIdByWbs.get("1.2")).toBe("a2");
+    const index = buildWbsIndexFromItems(items);
+    expect(index.wbsByItemId.get("a")).toBe("1");
+    expect(index.wbsByItemId.get("a1")).toBe("1.1");
+    expect(index.wbsByItemId.get("a2")).toBe("1.2");
+    expect(index.wbsByItemId.get("b")).toBe("2");
+    expect(resolveWbsCode(index, "g1", "1.2")).toBe("a2");
+  });
+
+  it("numbers each group independently, so the same code never crosses groups", () => {
+    // Two groups whose top-level items both start at order 0 — reproduces
+    // the board-wide-numbering bug where a Pred value like "1.1" typed by
+    // looking at one group's displayed WBS code could silently resolve to
+    // the OTHER group's item once numbering was shared across groups.
+    const items = [
+      { id: "g1-a", parentId: null, order: 0, groupId: "g1" },
+      { id: "g1-a1", parentId: "g1-a", order: 0, groupId: "g1" },
+      { id: "g2-a", parentId: null, order: 0, groupId: "g2" },
+      { id: "g2-a1", parentId: "g2-a", order: 0, groupId: "g2" },
+    ];
+    const index = buildWbsIndexFromItems(items);
+    expect(index.wbsByItemId.get("g1-a")).toBe("1");
+    expect(index.wbsByItemId.get("g2-a")).toBe("1");
+    expect(resolveWbsCode(index, "g1", "1.1")).toBe("g1-a1");
+    expect(resolveWbsCode(index, "g2", "1.1")).toBe("g2-a1");
+    // Same code, wrong group — must not resolve to the other group's item.
+    expect(resolveWbsCode(index, "g2", "1.1")).not.toBe("g1-a1");
   });
 });

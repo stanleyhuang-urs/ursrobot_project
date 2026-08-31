@@ -9,43 +9,75 @@ import { listHolidays, toHolidaySet } from "@/lib/holidays";
 export type RelationshipType = "FS" | "FF" | "SS" | "SF";
 const RELATIONSHIP_TYPES: RelationshipType[] = ["FS", "FF", "SS", "SF"];
 
+export type WbsIndex = {
+  /** itemId -> its WBS code, LOCAL to its own group (e.g. "1.3.4") — unique
+   *  per item, but the same code string is reused by every group (each
+   *  group's own top-level items start back at "1"), so this alone is not
+   *  enough to resolve a Pred reference; use resolveWbsCode for that. */
+  wbsByItemId: Map<string, string>;
+  /** `${groupId}:${code}` -> itemId. Internal — use resolveWbsCode. */
+  itemIdByGroupWbs: Map<string, string>;
+};
+
 /**
  * Rebuilds each item's WBS-style code (e.g. "1.3.4") from its parent/order
- * structure — pure, no DB access, so it can run identically client-side
- * (against already-loaded board.items) or server-side.
+ * structure, one independent tree PER GROUP — matching exactly what
+ * computeWbsCodes shows the user in the table (each group's own top-level
+ * items restart at "1"). A Pred reference like "1.2.2.4" is only meaningful
+ * within the referencing item's own group, so codes are intentionally NOT
+ * unique board-wide — always resolve them via resolveWbsCode, passing the
+ * referencing item's groupId, never by reading itemIdByGroupWbs directly.
+ * Pure — no DB access, so it can run identically client-side (against
+ * already-loaded board.items) or server-side.
  */
 export function buildWbsIndexFromItems(
-  items: { id: string; parentId: string | null; order: number }[]
-): { wbsByItemId: Map<string, string>; itemIdByWbs: Map<string, string> } {
-  const childrenByParent = new Map<string | null, typeof items>();
-  for (const item of items) {
-    const list = childrenByParent.get(item.parentId) ?? [];
-    list.push(item);
-    childrenByParent.set(item.parentId, list);
-  }
-  for (const list of childrenByParent.values()) list.sort((a, b) => a.order - b.order);
-
+  items: { id: string; parentId: string | null; order: number; groupId: string }[]
+): WbsIndex {
   const wbsByItemId = new Map<string, string>();
-  function assign(parentId: string | null, prefix: string) {
-    const kids = childrenByParent.get(parentId) ?? [];
-    kids.forEach((kid, idx) => {
-      const code = prefix ? `${prefix}.${idx + 1}` : String(idx + 1);
-      wbsByItemId.set(kid.id, code);
-      assign(kid.id, code);
-    });
+  const itemIdByGroupWbs = new Map<string, string>();
+
+  const itemsByGroup = new Map<string, typeof items>();
+  for (const item of items) {
+    const list = itemsByGroup.get(item.groupId) ?? [];
+    list.push(item);
+    itemsByGroup.set(item.groupId, list);
   }
-  assign(null, "");
 
-  const itemIdByWbs = new Map<string, string>();
-  for (const [id, code] of wbsByItemId) itemIdByWbs.set(code, id);
+  for (const [groupId, groupItems] of itemsByGroup) {
+    const childrenByParent = new Map<string | null, typeof items>();
+    for (const item of groupItems) {
+      const list = childrenByParent.get(item.parentId) ?? [];
+      list.push(item);
+      childrenByParent.set(item.parentId, list);
+    }
+    for (const list of childrenByParent.values()) list.sort((a, b) => a.order - b.order);
 
-  return { wbsByItemId, itemIdByWbs };
+    function assign(parentId: string | null, prefix: string) {
+      const kids = childrenByParent.get(parentId) ?? [];
+      kids.forEach((kid, idx) => {
+        const code = prefix ? `${prefix}.${idx + 1}` : String(idx + 1);
+        wbsByItemId.set(kid.id, code);
+        itemIdByGroupWbs.set(`${groupId}:${code}`, kid.id);
+        assign(kid.id, code);
+      });
+    }
+    assign(null, "");
+  }
+
+  return { wbsByItemId, itemIdByGroupWbs };
+}
+
+/** Resolves a Pred cell's raw WBS-code string to an item id, scoped to
+ *  `groupId` (always the referencing item's own group — a Pred reference
+ *  can't cross groups, matching the codes as actually displayed per-group). */
+export function resolveWbsCode(index: WbsIndex, groupId: string, code: string): string | undefined {
+  return index.itemIdByGroupWbs.get(`${groupId}:${code}`);
 }
 
 export async function buildWbsIndex(boardId: string) {
   const items = await prisma.item.findMany({
     where: { boardId },
-    select: { id: true, parentId: true, order: true },
+    select: { id: true, parentId: true, order: true, groupId: true },
   });
   return buildWbsIndexFromItems(items);
 }
@@ -99,14 +131,14 @@ export type ScheduleLock = { startLocked: boolean; endLocked: boolean; daysLocke
  * board configures a Type column.
  */
 export function resolveLockedScheduleFields(
-  items: Pick<ItemData, "id" | "parentId" | "order" | "cellValues">[],
+  items: Pick<ItemData, "id" | "parentId" | "order" | "cellValues" | "groupId">[],
   predColumnId?: string | null,
   linkColumnId?: string | null,
   linkColumnOptions?: unknown,
   typeColumnId?: string | null,
   typeColumnOptions?: unknown
 ): Map<string, ScheduleLock> {
-  const { itemIdByWbs } = buildWbsIndexFromItems(items);
+  const wbsIndex = buildWbsIndexFromItems(items);
   const linkOptions = linkColumnId ? getStatusOptions(linkColumnOptions) : [];
   const typeOptions = typeColumnId ? getStatusOptions(typeColumnOptions) : [];
 
@@ -135,7 +167,7 @@ export function resolveLockedScheduleFields(
     if (predColumnId && linkColumnId) {
       const predValue = item.cellValues.find((cv) => cv.columnId === predColumnId)?.value;
       if (typeof predValue === "string" && predValue) {
-        const predItemId = itemIdByWbs.get(predValue);
+        const predItemId = resolveWbsCode(wbsIndex, item.groupId, predValue);
         if (predItemId && predItemId !== item.id) {
           const linkValue = item.cellValues.find((cv) => cv.columnId === linkColumnId)?.value;
           const label = linkOptions.find((o) => o.id === linkValue)?.label;
@@ -188,13 +220,14 @@ async function buildScheduleContext(boardId: string) {
     prisma.column.findUnique({ where: { id: linkColumnId }, select: { options: true } }),
     prisma.item.findMany({
       where: { boardId },
-      select: { id: true, parentId: true, order: true, cellValues: true },
+      select: { id: true, parentId: true, order: true, cellValues: true, groupId: true },
     }),
     listHolidays(),
   ]);
   const linkOptions = getStatusOptions(linkColumn?.options);
   const holidays = toHolidaySet(holidayRows);
-  const { itemIdByWbs, wbsByItemId } = buildWbsIndexFromItems(items);
+  const wbsIndex = buildWbsIndexFromItems(items);
+  const { wbsByItemId } = wbsIndex;
   const itemsById = new Map(items.map((i) => [i.id, i]));
 
   // Freshly-computed dates, so a dependent further down the chain reads its
@@ -229,14 +262,20 @@ async function buildScheduleContext(boardId: string) {
   function predecessorOf(id: string): string | undefined {
     const item = itemsById.get(id);
     const predValue = item?.cellValues.find((cv) => cv.columnId === predColumnId)?.value;
-    return typeof predValue === "string" ? itemIdByWbs.get(predValue) : undefined;
+    return item && typeof predValue === "string" ? resolveWbsCode(wbsIndex, item.groupId, predValue) : undefined;
   }
 
   function dependentsOf(id: string): string[] {
-    const wbs = wbsByItemId.get(id);
-    if (!wbs) return [];
+    const item = itemsById.get(id);
+    const wbs = item ? wbsByItemId.get(id) : undefined;
+    if (!item || !wbs) return [];
     return items
-      .filter((i) => i.id !== id && i.cellValues.some((cv) => cv.columnId === predColumnId && cv.value === wbs))
+      .filter(
+        (i) =>
+          i.id !== id &&
+          i.groupId === item.groupId &&
+          i.cellValues.some((cv) => cv.columnId === predColumnId && cv.value === wbs)
+      )
       .map((i) => i.id);
   }
 

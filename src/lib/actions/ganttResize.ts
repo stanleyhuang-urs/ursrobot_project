@@ -76,7 +76,10 @@ async function loadGanttEditContext(boardId: string, itemId: string, session: Se
     board.typeColumnId
       ? prisma.column.findUnique({ where: { id: board.typeColumnId }, select: { options: true } })
       : null,
-    prisma.item.findMany({ where: { boardId }, select: { id: true, parentId: true, order: true, cellValues: true } }),
+    prisma.item.findMany({
+      where: { boardId },
+      select: { id: true, parentId: true, order: true, cellValues: true, groupId: true },
+    }),
   ]);
   const lock: ScheduleLock | undefined = resolveLockedScheduleFields(
     boardItems,
