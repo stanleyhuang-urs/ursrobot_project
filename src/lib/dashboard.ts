@@ -299,6 +299,7 @@ export type PersonalItemEntry = {
   itemId: string;
   itemName: string;
   groupId: string;
+  groupName: string;
   createdById: string | null;
   status: StatusOption | null;
   progressPct: number | null;
@@ -335,6 +336,7 @@ export function computePersonalItems(
       board.columns.find((c) => c.type === "STATUS" && c.name === "Status") ??
       board.columns.find((c) => c.type === "STATUS");
     const statusOptions = statusColumn ? getStatusOptions(statusColumn.options) : [];
+    const groupNameById = new Map(board.groups.map((g) => [g.id, g.name]));
 
     for (const item of board.items) {
       const personIds = item.cellValues
@@ -374,6 +376,7 @@ export function computePersonalItems(
         itemId: item.id,
         itemName: item.name,
         groupId: item.groupId,
+        groupName: groupNameById.get(item.groupId) ?? "",
         createdById: item.createdById,
         status,
         progressPct,

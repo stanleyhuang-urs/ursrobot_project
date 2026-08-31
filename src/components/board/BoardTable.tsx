@@ -134,6 +134,7 @@ export function BoardTable({
     setColumnOrder(board.columns.map((c) => c.id));
   }
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const [groupFilterId, setGroupFilterId] = useState("");
   const [nameWidth, setNameWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const hasAutoSizedRef = useRef(false);
@@ -301,6 +302,30 @@ export function BoardTable({
 
   return (
     <div className="flex h-full flex-col">
+      <div className="mb-2 flex items-center gap-2 text-sm">
+        <span className="text-neutral-500">專案(分組)</span>
+        <select
+          value={groupFilterId}
+          onChange={(e) => setGroupFilterId(e.target.value)}
+          className="rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+        >
+          <option value="">全部</option>
+          {board.groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+        {groupFilterId && (
+          <button
+            type="button"
+            onClick={() => setGroupFilterId("")}
+            className="text-xs text-neutral-400 hover:text-neutral-700"
+          >
+            清除
+          </button>
+        )}
+      </div>
       <FilterBar columns={orderedColumns} users={users} filters={filters} onChange={setFilters} />
 
       <div className="flex flex-1 flex-col overflow-hidden rounded-lg border-2 border-neutral-800">
@@ -371,6 +396,7 @@ export function BoardTable({
             {groupOrder.map((groupId) => {
               const group = groupsById.get(groupId);
               if (!group) return null;
+              if (groupFilterId && groupId !== groupFilterId) return null;
               return (
                 <GroupSection
                   key={group.id}

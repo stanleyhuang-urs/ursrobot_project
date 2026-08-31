@@ -7,6 +7,7 @@ import type { UserOption } from "@/types/board";
 import { PersonalItemRow } from "./PersonalItemRow";
 
 type ColKey = "name" | "window" | "board" | "status" | "progress" | "date";
+type FilterKey = ColKey | "group";
 
 const MIN_WIDTH = 60;
 const DEFAULT_WIDTHS: Record<ColKey, number> = {
@@ -58,14 +59,14 @@ export function PersonalItemsList({
   emptyText: string;
 }) {
   const [widths, setWidths] = useState<Record<ColKey, number>>(DEFAULT_WIDTHS);
-  const [filterField, setFilterField] = useState<ColKey | "">("");
+  const [filterField, setFilterField] = useState<FilterKey | "">("");
   const [filterValue, setFilterValue] = useState("");
 
   const columns: ColKey[] = showAssignees
     ? ["name", "window", "board", "status", "progress", "date"]
     : ["name", "board", "status", "progress", "date"];
 
-  function fieldValue(item: PersonalItemEntry, field: ColKey): string {
+  function fieldValue(item: PersonalItemEntry, field: FilterKey): string {
     switch (field) {
       case "board":
         return item.boardName;
@@ -73,6 +74,8 @@ export function PersonalItemsList({
         return item.status?.label ?? "狀態未設置";
       case "window":
         return item.assignees.map((a) => a.name).join(", ") || "—";
+      case "group":
+        return item.groupName || "—";
       default:
         return "";
     }
@@ -127,13 +130,14 @@ export function PersonalItemsList({
         <select
           value={filterField}
           onChange={(e) => {
-            setFilterField(e.target.value as ColKey | "");
+            setFilterField(e.target.value as FilterKey | "");
             setFilterValue("");
           }}
           className="rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
         >
           <option value="">不篩選</option>
           <option value="board">看板</option>
+          <option value="group">分項</option>
           <option value="status">狀態</option>
           {showAssignees && <option value="window">窗口</option>}
         </select>
