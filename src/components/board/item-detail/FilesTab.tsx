@@ -87,7 +87,7 @@ export function FilesTab({ boardId, itemId }: { boardId: string; itemId: string 
           >
             <FileIcon size={16} className="shrink-0 text-neutral-400" />
             <a
-              href={a.url}
+              href={`/api/attachments/${a.id}`}
               target="_blank"
               rel="noopener noreferrer"
               className="min-w-0 flex-1 truncate text-sm text-blue-600 hover:underline"
