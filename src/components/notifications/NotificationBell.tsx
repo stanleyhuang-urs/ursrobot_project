@@ -57,7 +57,7 @@ export function NotificationBell() {
       setUnreadCount((c) => Math.max(0, c - 1));
     }
     setOpen(false);
-    router.push(`/boards/${n.item.boardId}`);
+    router.push(`/boards/${n.item.boardId}?highlight=${n.item.id}`);
   }
 
   return (
