@@ -203,6 +203,24 @@ export function BoardGantt({
     return typeOptions.find((o) => o.id === value)?.label === "Milestone";
   }
 
+  // Changing which column drives Start/Days/Finish/Pred/Link/Type/Lag affects
+  // every item's displayed schedule and lock state board-wide, so confirm
+  // before applying — same spirit as the drag confirm, just for config
+  // instead of one item's dates.
+  function confirmGanttConfigChange(
+    fieldLabel: string,
+    currentId: string | null,
+    nextValue: string,
+    columns: { id: string; name: string }[]
+  ): boolean {
+    const currentLabel = currentId ? (columns.find((c) => c.id === currentId)?.name ?? currentId) : "未設定";
+    const nextLabel = nextValue ? (columns.find((c) => c.id === nextValue)?.name ?? nextValue) : "未設定";
+    if (currentLabel === nextLabel) return true;
+    return window.confirm(
+      `確定要將「${fieldLabel}」從「${currentLabel}」改為「${nextLabel}」嗎?這會影響整個看板的甘特圖計算(時程顯示、鎖定判斷、自動排程)。`
+    );
+  }
+
   const [recomputing, setRecomputing] = useState(false);
   async function handleRecomputeAll() {
     if (!window.confirm("將重新計算所有有前置依賴的項目時間,確定繼續?")) return;
@@ -531,7 +549,10 @@ export function BoardGantt({
           <span className="text-neutral-500">開始日期欄位</span>
           <select
             value={startColumnId ?? ""}
-            onChange={(e) => setGanttStartColumn(board.id, e.target.value || null)}
+            onChange={(e) => {
+              if (!confirmGanttConfigChange("開始日期欄位", startColumnId, e.target.value, dateColumns)) return;
+              setGanttStartColumn(board.id, e.target.value || null);
+            }}
             disabled={!canEditStructure}
             className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
           >
@@ -547,7 +568,10 @@ export function BoardGantt({
           <span className="text-neutral-500">天數欄位</span>
           <select
             value={durationColumnId ?? ""}
-            onChange={(e) => setGanttDurationColumn(board.id, e.target.value || null)}
+            onChange={(e) => {
+              if (!confirmGanttConfigChange("天數欄位", durationColumnId, e.target.value, numberColumns)) return;
+              setGanttDurationColumn(board.id, e.target.value || null);
+            }}
             disabled={!canEditStructure}
             className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
           >
@@ -570,7 +594,10 @@ export function BoardGantt({
           <span className="text-neutral-500">結束日期欄位</span>
           <select
             value={endColumnId ?? ""}
-            onChange={(e) => setGanttEndColumn(board.id, e.target.value || null)}
+            onChange={(e) => {
+              if (!confirmGanttConfigChange("結束日期欄位", endColumnId, e.target.value, dateColumns)) return;
+              setGanttEndColumn(board.id, e.target.value || null);
+            }}
             disabled={!canEditStructure}
             className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
           >
@@ -586,7 +613,10 @@ export function BoardGantt({
           <span className="text-neutral-500">前置依賴欄位</span>
           <select
             value={predColumnId ?? ""}
-            onChange={(e) => setPredColumn(board.id, e.target.value || null)}
+            onChange={(e) => {
+              if (!confirmGanttConfigChange("前置依賴欄位", predColumnId, e.target.value, textColumns)) return;
+              setPredColumn(board.id, e.target.value || null);
+            }}
             disabled={!canEditStructure}
             className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
           >
@@ -602,7 +632,10 @@ export function BoardGantt({
           <span className="text-neutral-500">關聯類型欄位</span>
           <select
             value={linkColumnId ?? ""}
-            onChange={(e) => setLinkColumn(board.id, e.target.value || null)}
+            onChange={(e) => {
+              if (!confirmGanttConfigChange("關聯類型欄位", linkColumnId, e.target.value, statusColumns)) return;
+              setLinkColumn(board.id, e.target.value || null);
+            }}
             disabled={!canEditStructure}
             className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
           >
@@ -618,7 +651,10 @@ export function BoardGantt({
           <span className="text-neutral-500">Type 欄位</span>
           <select
             value={typeColumnId ?? ""}
-            onChange={(e) => setGanttTypeColumn(board.id, e.target.value || null)}
+            onChange={(e) => {
+              if (!confirmGanttConfigChange("Type 欄位", typeColumnId, e.target.value, statusColumns)) return;
+              setGanttTypeColumn(board.id, e.target.value || null);
+            }}
             disabled={!canEditStructure}
             className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
           >
@@ -634,7 +670,10 @@ export function BoardGantt({
           <span className="text-neutral-500">Lag 欄位</span>
           <select
             value={lagColumnId ?? ""}
-            onChange={(e) => setGanttLagColumn(board.id, e.target.value || null)}
+            onChange={(e) => {
+              if (!confirmGanttConfigChange("Lag 欄位", lagColumnId, e.target.value, numberColumns)) return;
+              setGanttLagColumn(board.id, e.target.value || null);
+            }}
             disabled={!canEditStructure}
             className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
           >
