@@ -112,6 +112,7 @@ export async function setGanttStartColumn(
     data: { ganttStartColumnId: columnId },
   });
   revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/settings");
 }
 
 export async function setGanttDurationColumn(
@@ -126,6 +127,7 @@ export async function setGanttDurationColumn(
     data: { ganttDurationColumnId: columnId },
   });
   revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/settings");
 }
 
 export async function setGanttEndColumn(
@@ -140,6 +142,7 @@ export async function setGanttEndColumn(
     data: { ganttEndColumnId: columnId },
   });
   revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/settings");
 }
 
 
@@ -155,6 +158,7 @@ export async function setPredColumn(
     data: { predColumnId: columnId },
   });
   revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/settings");
 }
 
 export async function setLinkColumn(
@@ -169,6 +173,7 @@ export async function setLinkColumn(
     data: { linkColumnId: columnId },
   });
   revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/settings");
 }
 
 export async function setGanttLagColumn(
@@ -183,6 +188,7 @@ export async function setGanttLagColumn(
     data: { lagColumnId: columnId },
   });
   revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/settings");
 }
 
 export async function setGanttTypeColumn(
@@ -197,6 +203,7 @@ export async function setGanttTypeColumn(
     data: { typeColumnId: columnId },
   });
   revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/settings");
 }
 
 export async function setReportStatusColumn(

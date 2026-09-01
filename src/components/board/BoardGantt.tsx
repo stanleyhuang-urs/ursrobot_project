@@ -1,26 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { ChevronDown, ChevronRight, Star, MessageSquare, UserPlus, Plus } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { GanttDurationMode, Holiday, UserRole } from "@prisma/client";
-import { canManageStructure, canManageGroupStructure, canEditGanttItem } from "@/lib/permissions";
+import { canManageGroupStructure, canEditGanttItem } from "@/lib/permissions";
 import { resolveGroupRoleAccess, groupDisciplineTeamUserIds, type GroupRoleAccess } from "@/lib/groupRoles";
 import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
-import {
-  setGanttStartColumn,
-  setGanttDurationColumn,
-  setGanttEndColumn,
-  setPredColumn,
-  setLinkColumn,
-  setGanttLagColumn,
-  setGanttTypeColumn,
-} from "@/lib/actions/column";
 import { computeRolledUpDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
 import { countDaysInRange, endFromStartAndDays } from "@/lib/workday";
 import { resolveLockedScheduleFields } from "@/lib/predecessorLink";
 import { resizeItemBar, moveItemBar } from "@/lib/actions/ganttResize";
-import { recomputeBoardSchedule } from "@/lib/actions/predecessorSchedule";
 import { getStatusOptions } from "@/types/column";
 import { computeVisibleItemIds, type ActiveFilter } from "@/lib/filter";
 import { AssignmentModal } from "./AssignmentModal";
@@ -104,7 +95,6 @@ export function BoardGantt({
   holidays: Holiday[];
   onNavigateToItem?: (itemId: string) => void;
 }) {
-  const canEditStructure = canManageStructure(userRole);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [assignmentItem, setAssignmentItem] = useState<ItemData | null>(null);
   const [detailItem, setDetailItem] = useState<ItemData | null>(null);
@@ -174,10 +164,6 @@ export function BoardGantt({
   const linkColumnId = board.linkColumnId;
   const lagColumnId = board.lagColumnId;
   const typeColumnId = board.typeColumnId;
-  const dateColumns = board.columns.filter((c) => c.type === "DATE");
-  const numberColumns = board.columns.filter((c) => c.type === "NUMBER");
-  const textColumns = board.columns.filter((c) => c.type === "TEXT");
-  const statusColumns = board.columns.filter((c) => c.type === "STATUS");
 
   const lockedScheduleFields = useMemo(() => {
     const linkColumn = board.columns.find((c) => c.id === linkColumnId);
@@ -201,35 +187,6 @@ export function BoardGantt({
     if (!typeColumnId) return false;
     const value = item.cellValues.find((cv) => cv.columnId === typeColumnId)?.value;
     return typeOptions.find((o) => o.id === value)?.label === "Milestone";
-  }
-
-  // Changing which column drives Start/Days/Finish/Pred/Link/Type/Lag affects
-  // every item's displayed schedule and lock state board-wide, so confirm
-  // before applying — same spirit as the drag confirm, just for config
-  // instead of one item's dates.
-  function confirmGanttConfigChange(
-    fieldLabel: string,
-    currentId: string | null,
-    nextValue: string,
-    columns: { id: string; name: string }[]
-  ): boolean {
-    const currentLabel = currentId ? (columns.find((c) => c.id === currentId)?.name ?? currentId) : "未設定";
-    const nextLabel = nextValue ? (columns.find((c) => c.id === nextValue)?.name ?? nextValue) : "未設定";
-    if (currentLabel === nextLabel) return true;
-    return window.confirm(
-      `確定要將「${fieldLabel}」從「${currentLabel}」改為「${nextLabel}」嗎?這會影響整個看板的甘特圖計算(時程顯示、鎖定判斷、自動排程)。`
-    );
-  }
-
-  const [recomputing, setRecomputing] = useState(false);
-  async function handleRecomputeAll() {
-    if (!window.confirm("將重新計算所有有前置依賴的項目時間,確定繼續?")) return;
-    setRecomputing(true);
-    try {
-      await recomputeBoardSchedule(board.id);
-    } finally {
-      setRecomputing(false);
-    }
   }
 
   const ranges = useMemo(() => {
@@ -547,154 +504,55 @@ export function BoardGantt({
       <div className="mb-4 flex flex-wrap items-center gap-4 rounded-md border border-neutral-200 bg-white px-4 py-3 text-sm">
         <div className="flex items-center gap-2">
           <span className="text-neutral-500">開始日期欄位</span>
-          <select
-            value={startColumnId ?? ""}
-            onChange={(e) => {
-              if (!confirmGanttConfigChange("開始日期欄位", startColumnId, e.target.value, dateColumns)) return;
-              setGanttStartColumn(board.id, e.target.value || null);
-            }}
-            disabled={!canEditStructure}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
-          >
-            <option value="">未設定</option>
-            {dateColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
+            {board.columns.find((c) => c.id === startColumnId)?.name ?? "未設定"}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-neutral-500">天數欄位</span>
-          <select
-            value={durationColumnId ?? ""}
-            onChange={(e) => {
-              if (!confirmGanttConfigChange("天數欄位", durationColumnId, e.target.value, numberColumns)) return;
-              setGanttDurationColumn(board.id, e.target.value || null);
-            }}
-            disabled={!canEditStructure}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
-          >
-            <option value="">未設定</option>
-            {numberColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
+            {board.columns.find((c) => c.id === durationColumnId)?.name ?? "未設定"}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-neutral-500">計算方式</span>
           <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
             {isBusinessMode ? "工作天" : "日曆天"}
           </span>
-          <span className="text-xs text-neutral-400">(與國定假日設定同在「系統設定」調整)</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-neutral-500">結束日期欄位</span>
-          <select
-            value={endColumnId ?? ""}
-            onChange={(e) => {
-              if (!confirmGanttConfigChange("結束日期欄位", endColumnId, e.target.value, dateColumns)) return;
-              setGanttEndColumn(board.id, e.target.value || null);
-            }}
-            disabled={!canEditStructure}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
-          >
-            <option value="">未設定</option>
-            {dateColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
+            {board.columns.find((c) => c.id === endColumnId)?.name ?? "未設定"}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-neutral-500">前置依賴欄位</span>
-          <select
-            value={predColumnId ?? ""}
-            onChange={(e) => {
-              if (!confirmGanttConfigChange("前置依賴欄位", predColumnId, e.target.value, textColumns)) return;
-              setPredColumn(board.id, e.target.value || null);
-            }}
-            disabled={!canEditStructure}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
-          >
-            <option value="">未設定</option>
-            {textColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
+            {board.columns.find((c) => c.id === predColumnId)?.name ?? "未設定"}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-neutral-500">關聯類型欄位</span>
-          <select
-            value={linkColumnId ?? ""}
-            onChange={(e) => {
-              if (!confirmGanttConfigChange("關聯類型欄位", linkColumnId, e.target.value, statusColumns)) return;
-              setLinkColumn(board.id, e.target.value || null);
-            }}
-            disabled={!canEditStructure}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
-          >
-            <option value="">未設定</option>
-            {statusColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
+            {board.columns.find((c) => c.id === linkColumnId)?.name ?? "未設定"}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-neutral-500">Type 欄位</span>
-          <select
-            value={typeColumnId ?? ""}
-            onChange={(e) => {
-              if (!confirmGanttConfigChange("Type 欄位", typeColumnId, e.target.value, statusColumns)) return;
-              setGanttTypeColumn(board.id, e.target.value || null);
-            }}
-            disabled={!canEditStructure}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
-          >
-            <option value="">未設定</option>
-            {statusColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
+            {board.columns.find((c) => c.id === typeColumnId)?.name ?? "未設定"}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-neutral-500">Lag 欄位</span>
-          <select
-            value={lagColumnId ?? ""}
-            onChange={(e) => {
-              if (!confirmGanttConfigChange("Lag 欄位", lagColumnId, e.target.value, numberColumns)) return;
-              setGanttLagColumn(board.id, e.target.value || null);
-            }}
-            disabled={!canEditStructure}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500 disabled:opacity-50"
-          >
-            <option value="">未設定</option>
-            {numberColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
+            {board.columns.find((c) => c.id === lagColumnId)?.name ?? "未設定"}
+          </span>
         </div>
-        {canEditStructure && predColumnId && linkColumnId && (
-          <button
-            type="button"
-            onClick={handleRecomputeAll}
-            disabled={recomputing}
-            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
-          >
-            {recomputing ? "重算中..." : "重算全部"}
-          </button>
-        )}
+        <Link href="/settings" className="text-xs text-blue-600 hover:underline">
+          前往「系統設定」調整這些欄位
+        </Link>
       </div>
       <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
         <div className="flex items-center gap-2">
@@ -878,6 +736,11 @@ export function BoardGantt({
         userRole={userRole}
         open={assignmentItem !== null}
         onOpenChange={(open) => !open && setAssignmentItem(null)}
+        columns={board.columns}
+        predColumnId={predColumnId}
+        linkColumnId={linkColumnId}
+        lagColumnId={lagColumnId}
+        canEditSchedule={assignmentItem ? canEditItem(assignmentItem) : false}
       />
 
       <ItemDetailModal

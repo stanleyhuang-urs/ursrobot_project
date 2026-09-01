@@ -13,5 +13,6 @@ export async function recomputeBoardSchedule(boardId: string): Promise<number> {
 
   const recomputedCount = await recomputeAllSchedules(boardId);
   revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/settings");
   return recomputedCount;
 }

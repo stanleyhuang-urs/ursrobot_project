@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { getSystemSettings } from "@/lib/actions/systemSettings";
 import { listHolidays } from "@/lib/holidays";
@@ -10,7 +11,25 @@ export default async function SettingsPage() {
     redirect("/boards");
   }
 
-  const [settings, holidays] = await Promise.all([getSystemSettings(), listHolidays()]);
+  const [settings, holidays, boards] = await Promise.all([
+    getSystemSettings(),
+    listHolidays(),
+    prisma.board.findMany({
+      select: {
+        id: true,
+        name: true,
+        columns: true,
+        ganttStartColumnId: true,
+        ganttDurationColumnId: true,
+        ganttEndColumnId: true,
+        predColumnId: true,
+        linkColumnId: true,
+        lagColumnId: true,
+        typeColumnId: true,
+      },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   return (
     <div className="p-6">
@@ -20,6 +39,7 @@ export default async function SettingsPage() {
         ganttDurationMode={settings.ganttDurationMode}
         levelColors={settings.levelColors}
         holidays={holidays}
+        ganttMappingBoards={boards}
       />
     </div>
   );

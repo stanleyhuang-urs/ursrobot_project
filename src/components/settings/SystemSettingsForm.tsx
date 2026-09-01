@@ -9,6 +9,7 @@ import {
   setLevelColors,
 } from "@/lib/actions/systemSettings";
 import { HolidaySettingsModal } from "@/components/dashboard/HolidaySettingsModal";
+import { GanttColumnMappingCard, type GanttMappingBoard } from "./GanttColumnMappingCard";
 
 const MAX_LEVELS = 6;
 
@@ -191,11 +192,13 @@ export function SystemSettingsForm({
   ganttDurationMode,
   levelColors,
   holidays,
+  ganttMappingBoards,
 }: {
   emailNotificationsEnabled: boolean;
   ganttDurationMode: GanttDurationMode;
   levelColors: string[];
   holidays: Holiday[];
+  ganttMappingBoards: GanttMappingBoard[];
 }) {
   return (
     <div className="space-y-4">
@@ -203,6 +206,7 @@ export function SystemSettingsForm({
       <GanttModeCard initial={ganttDurationMode} />
       <HolidayCard holidays={holidays} />
       <LevelColorCard initial={levelColors} />
+      <GanttColumnMappingCard boards={ganttMappingBoards} />
     </div>
   );
 }

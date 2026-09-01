@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Trash2 } from "lucide-react";
-import type { ItemData, UserOption } from "@/types/board";
+import type { ColumnData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { listAssignments, upsertAssignment, removeAssignment } from "@/lib/actions/assignment";
 import { Avatar } from "@/components/ui/Avatar";
 import { PersonPicker } from "@/components/ui/PersonPicker";
+import { CellEditor } from "./cell-editors/CellEditor";
 
 export function AssignmentModal({
   boardId,
@@ -17,6 +18,11 @@ export function AssignmentModal({
   userRole,
   open,
   onOpenChange,
+  columns,
+  predColumnId,
+  linkColumnId,
+  lagColumnId,
+  canEditSchedule = false,
 }: {
   boardId: string;
   item: ItemData | null;
@@ -25,6 +31,16 @@ export function AssignmentModal({
   userRole: UserRole;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Pred/Link/Lag columns, shown as an extra "時程設定" section when
+   *  provided — used by the Gantt view so clicking a bar can edit these
+   *  alongside people, instead of needing the full item-detail card. Gated
+   *  by canEditSchedule (the same permission that let the modal open at
+   *  all), not a separate per-field check. */
+  columns?: ColumnData[];
+  predColumnId?: string | null;
+  linkColumnId?: string | null;
+  lagColumnId?: string | null;
+  canEditSchedule?: boolean;
 }) {
   const [assignments, setAssignments] = useState<
     Awaited<ReturnType<typeof listAssignments>>
@@ -51,6 +67,10 @@ export function AssignmentModal({
   }, [open, item]);
 
   if (!item) return null;
+
+  const scheduleColumns = [predColumnId, linkColumnId, lagColumnId]
+    .map((id) => columns?.find((c) => c.id === id))
+    .filter((c): c is ColumnData => !!c);
 
   // Gantt Assignments reference a real User row (foreign key) — Resources
   // (tools/vendors) can be a PERSON-column 負責人 but not a %-allocation here.
@@ -160,6 +180,33 @@ export function AssignmentModal({
         userRole === "SUPERVISOR" && (
           <p className="text-sm text-neutral-400">你的團隊目前沒有可指派的成員。</p>
         )
+      )}
+
+      {scheduleColumns.length > 0 && (
+        <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4">
+          <h3 className="text-xs font-semibold text-neutral-500">時程設定</h3>
+          {scheduleColumns.map((col) => (
+            <div key={col.id} className="flex items-center justify-between gap-3">
+              <span className="shrink-0 text-xs text-neutral-500">{col.name}</span>
+              <div className="w-40">
+                <CellEditor
+                  boardId={boardId}
+                  itemId={item.id}
+                  column={col}
+                  value={
+                    (item.cellValues.find((cv) => cv.columnId === col.id)?.value as
+                      | string
+                      | number
+                      | null
+                      | undefined) ?? null
+                  }
+                  users={users}
+                  canEdit={canEditSchedule}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </Modal>
   );
