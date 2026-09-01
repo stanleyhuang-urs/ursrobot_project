@@ -1,9 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, LayoutGrid, Plus, Pencil, Trash2, Users, Settings, Shield } from "lucide-react";
+import {
+  LayoutDashboard,
+  LayoutGrid,
+  Plus,
+  Pencil,
+  Trash2,
+  Users,
+  Settings,
+  Shield,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 import type { UserRole } from "@prisma/client";
 import { canManageBoard } from "@/lib/permissions";
 import { Modal } from "@/components/ui/Modal";
@@ -13,6 +24,13 @@ import { createBoard, renameBoard, deleteBoard } from "@/lib/actions/board";
 import { logout } from "@/lib/actions/auth";
 
 type Board = { id: string; name: string };
+
+const DEFAULT_WIDTH = 256;
+const MIN_WIDTH = 180;
+const MAX_WIDTH = 420;
+const COLLAPSED_WIDTH = 44;
+const STORAGE_KEY_COLLAPSED = "sidebar-collapsed";
+const STORAGE_KEY_WIDTH = "sidebar-width";
 
 export function BoardSidebar({
   boards,
@@ -33,6 +51,63 @@ export function BoardSidebar({
 
   const [renameTarget, setRenameTarget] = useState<Board | null>(null);
   const [renameValue, setRenameValue] = useState("");
+
+  // Per-browser UI preference, not app data — localStorage isn't available
+  // during SSR, so start from the default (matches the server-rendered
+  // markup) and pick up the stored value after mount to avoid a hydration
+  // mismatch.
+  const [collapsed, setCollapsed] = useState(false);
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  useEffect(() => {
+    try {
+      // Reading a real external system (localStorage, unavailable during
+      // SSR) on mount and syncing it into state once is exactly what this
+      // effect is for; there's no prop/render-time value to derive it from.
+      const storedCollapsed = localStorage.getItem(STORAGE_KEY_COLLAPSED);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (storedCollapsed === "true") setCollapsed(true);
+      const storedWidth = Number(localStorage.getItem(STORAGE_KEY_WIDTH));
+      if (storedWidth >= MIN_WIDTH && storedWidth <= MAX_WIDTH) setWidth(storedWidth);
+    } catch {
+      // localStorage unavailable (private mode etc.) — just keep defaults.
+    }
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(STORAGE_KEY_COLLAPSED, String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
+
+  function startResize(e: React.PointerEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = width;
+    function onMove(ev: PointerEvent) {
+      const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + (ev.clientX - startX)));
+      setWidth(next);
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setWidth((current) => {
+        try {
+          localStorage.setItem(STORAGE_KEY_WIDTH, String(current));
+        } catch {
+          // ignore
+        }
+        return current;
+      });
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
 
   function handleCreate() {
     if (!newName.trim()) return;
@@ -62,10 +137,43 @@ export function BoardSidebar({
     });
   }
 
+  if (collapsed) {
+    return (
+      <div
+        className="flex shrink-0 flex-col items-center border-r border-neutral-200 bg-white py-4"
+        style={{ width: COLLAPSED_WIDTH }}
+      >
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+          aria-label="展開看板選單"
+          title="展開看板選單"
+        >
+          <PanelLeftOpen size={16} />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex w-64 shrink-0 flex-col border-r border-neutral-200 bg-white">
+    <div
+      className="relative flex shrink-0 flex-col border-r border-neutral-200 bg-white"
+      style={{ width }}
+    >
       <div className="flex items-center justify-between px-4 py-4">
-        <span className="text-sm font-semibold text-neutral-900">看板</span>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+            aria-label="隱藏看板選單"
+            title="隱藏看板選單"
+          >
+            <PanelLeftClose size={15} />
+          </button>
+          <span className="text-sm font-semibold text-neutral-900">看板</span>
+        </div>
         {canManage && (
           <button
             type="button"
@@ -188,6 +296,12 @@ export function BoardSidebar({
           </button>
         </form>
       </div>
+
+      <div
+        onPointerDown={startResize}
+        className="absolute right-0 top-0 z-10 h-full w-1 cursor-col-resize hover:bg-blue-400"
+        style={{ touchAction: "none" }}
+      />
 
       <Modal open={createOpen} onOpenChange={setCreateOpen} title="新增看板">
         <input
