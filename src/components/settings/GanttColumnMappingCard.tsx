@@ -11,6 +11,8 @@ import {
   setLinkColumn,
   setGanttLagColumn,
   setGanttTypeColumn,
+  setManualStartColumn,
+  setManualDurationColumn,
 } from "@/lib/actions/column";
 import { recomputeBoardSchedule } from "@/lib/actions/predecessorSchedule";
 
@@ -25,6 +27,8 @@ export type GanttMappingBoard = {
   linkColumnId: string | null;
   lagColumnId: string | null;
   typeColumnId: string | null;
+  manualStartColumnId: string | null;
+  manualDurationColumnId: string | null;
 };
 
 function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
@@ -188,7 +192,44 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
             ))}
           </select>
         </div>
-        {board.predColumnId && board.linkColumnId && (
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-500">手動開始日期欄位</span>
+          <select
+            value={board.manualStartColumnId ?? ""}
+            onChange={(e) => {
+              if (!confirmChange("手動開始日期欄位", board.manualStartColumnId, e.target.value, dateColumns)) return;
+              setManualStartColumn(board.id, e.target.value || null).then(() => router.refresh());
+            }}
+            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+          >
+            <option value="">未設定</option>
+            {dateColumns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-500">手動天數欄位</span>
+          <select
+            value={board.manualDurationColumnId ?? ""}
+            onChange={(e) => {
+              if (!confirmChange("手動天數欄位", board.manualDurationColumnId, e.target.value, numberColumns)) return;
+              setManualDurationColumn(board.id, e.target.value || null).then(() => router.refresh());
+            }}
+            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+          >
+            <option value="">未設定</option>
+            {numberColumns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {(board.predColumnId && board.linkColumnId) ||
+        (board.manualStartColumnId && board.manualDurationColumnId) ? (
           <button
             type="button"
             onClick={handleRecomputeAll}
@@ -197,8 +238,13 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
           >
             {recomputing ? "重算中..." : "重算全部"}
           </button>
-        )}
+        ) : null}
       </div>
+      {board.manualStartColumnId && board.manualDurationColumnId && (
+        <p className="mt-2 text-xs text-amber-700">
+          已啟用:開始日期/天數/結束日期欄位改為唯讀,由手動開始日期/手動天數欄位 + 前置依賴計算。
+        </p>
+      )}
     </div>
   );
 }

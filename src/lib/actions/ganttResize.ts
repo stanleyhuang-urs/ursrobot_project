@@ -34,6 +34,8 @@ async function loadGanttEditContext(boardId: string, itemId: string, session: Se
         predColumnId: true,
         linkColumnId: true,
         typeColumnId: true,
+        manualStartColumnId: true,
+        manualDurationColumnId: true,
       },
     }),
     prisma.item.findUnique({ where: { id: itemId }, include: { cellValues: true, assignments: true } }),
@@ -87,7 +89,9 @@ async function loadGanttEditContext(boardId: string, itemId: string, session: Se
     board.linkColumnId,
     linkColumn?.options,
     board.typeColumnId,
-    typeColumn?.options
+    typeColumn?.options,
+    board.manualStartColumnId,
+    board.manualDurationColumnId
   ).get(itemId);
 
   const holidays = toHolidaySet(await listHolidays());

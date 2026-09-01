@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/activityLog";
 import { getStatusOptions } from "@/types/column";
 import { loadGroupRoleContext } from "@/lib/groupRoleContext";
 import { computeWbsCodes } from "@/lib/wbs";
+import { syncPredecessorSchedule } from "@/lib/predecessorLink";
 import type { SessionPayload } from "@/lib/jwt";
 
 /** Item creation/structure edits are normally ADMIN/SUPERVISOR-only, but a
@@ -61,6 +62,7 @@ async function buildNewItemCellValues(
 ): Promise<{
   typeColumnId: string | null;
   summaryOptionId: string | undefined;
+  alwaysComputedTrigger: string | null;
   cellValues: { columnId: string; value: string | number }[];
 }> {
   const [board, parent, groupItems] = await Promise.all([
@@ -70,6 +72,8 @@ async function buildNewItemCellValues(
         typeColumnId: true,
         ganttStartColumnId: true,
         predColumnId: true,
+        manualStartColumnId: true,
+        manualDurationColumnId: true,
         columns: { select: { id: true, name: true, type: true, options: true } },
       },
     }),
@@ -117,14 +121,24 @@ async function buildNewItemCellValues(
     if (planned) cellValues.push({ columnId: statusColumn.id, value: planned.id });
   }
 
+  // In "always computed" boards, Start/Days/Finish are locked and derived
+  // from manualStartColumnId/manualDurationColumnId — writing Start directly
+  // here would just get overwritten (and violate the lock's own invariant).
+  // Only start(set) gets today; syncPredecessorSchedule below computes the rest.
+  const alwaysComputed = !!board?.manualStartColumnId && !!board?.manualDurationColumnId;
   const today = new Date().toISOString().slice(0, 10);
-  if (board?.ganttStartColumnId) {
+  if (board?.ganttStartColumnId && !alwaysComputed) {
     cellValues.push({ columnId: board.ganttStartColumnId, value: today });
   }
   const startSetColumn = columns.find((c) => c.name === "start(set)" && c.type === "DATE");
   if (startSetColumn) cellValues.push({ columnId: startSetColumn.id, value: today });
 
-  return { typeColumnId: board?.typeColumnId ?? null, summaryOptionId: typeIds?.summaryId, cellValues };
+  return {
+    typeColumnId: board?.typeColumnId ?? null,
+    summaryOptionId: typeIds?.summaryId,
+    alwaysComputedTrigger: alwaysComputed ? board!.manualStartColumnId : null,
+    cellValues,
+  };
 }
 
 export async function createItem(
@@ -138,12 +152,12 @@ export async function createItem(
   await requireGroupStructureAccess(session, groupId);
   const trimmed = name.trim() || "未命名項目";
 
-  const [count, { typeColumnId, summaryOptionId, cellValues }] = await Promise.all([
+  const [count, { typeColumnId, summaryOptionId, alwaysComputedTrigger, cellValues }] = await Promise.all([
     prisma.item.count({ where: parentId ? { parentId } : { groupId, parentId: null } }),
     buildNewItemCellValues(boardId, groupId, parentId, session.userId),
   ]);
 
-  const item = await prisma.item.create({
+  let item = await prisma.item.create({
     data: {
       boardId,
       groupId,
@@ -162,6 +176,11 @@ export async function createItem(
       create: { itemId: parentId, columnId: typeColumnId, value: summaryOptionId },
       update: { value: summaryOptionId },
     });
+  }
+
+  if (alwaysComputedTrigger) {
+    await syncPredecessorSchedule(boardId, item.id, alwaysComputedTrigger);
+    item = await prisma.item.findUniqueOrThrow({ where: { id: item.id }, include: itemDetailInclude });
   }
 
   revalidatePath(`/boards/${boardId}`);

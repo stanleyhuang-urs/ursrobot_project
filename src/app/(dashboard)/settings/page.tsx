@@ -26,6 +26,8 @@ export default async function SettingsPage() {
         linkColumnId: true,
         lagColumnId: true,
         typeColumnId: true,
+        manualStartColumnId: true,
+        manualDurationColumnId: true,
       },
       orderBy: { name: "asc" },
     }),

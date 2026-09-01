@@ -43,6 +43,8 @@ export async function upsertCellValue(
         predColumnId: true,
         linkColumnId: true,
         typeColumnId: true,
+        manualStartColumnId: true,
+        manualDurationColumnId: true,
       },
     }),
     prisma.column.findMany({ where: { boardId, type: "PERSON" }, select: { id: true } }),
@@ -106,7 +108,9 @@ export async function upsertCellValue(
       board.linkColumnId,
       linkColumn?.options,
       board.typeColumnId,
-      typeColumn?.options
+      typeColumn?.options,
+      board.manualStartColumnId,
+      board.manualDurationColumnId
     );
     const lock = locked.get(itemId);
     const isLocked =

@@ -133,6 +133,13 @@ model Board {
   typeColumnId String?
   typeColumn   Column? @relation("BoardTypeColumn", fields: [typeColumnId], references: [id], onDelete: SetNull)
 
+  // When both are set, Start/Days/Finish become read-only and are always
+  // computed from these + Pred/Link/Lag — see resolveLockedScheduleFields.
+  manualStartColumnId    String?
+  manualStartColumn      Column? @relation("BoardManualStartColumn", fields: [manualStartColumnId], references: [id], onDelete: SetNull)
+  manualDurationColumnId String?
+  manualDurationColumn   Column? @relation("BoardManualDurationColumn", fields: [manualDurationColumnId], references: [id], onDelete: SetNull)
+
   reportStatusColumnId      String?
   reportStatusColumn        Column?  @relation("BoardReportStatusColumn", fields: [reportStatusColumnId], references: [id], onDelete: SetNull)
   reportNotStartedOptionIds String[] @default([])
@@ -239,6 +246,8 @@ model Column {
   lagForBoards           Board[]     @relation("BoardLagColumn")
   typeForBoards          Board[]     @relation("BoardTypeColumn")
   reportStatusForBoards  Board[]     @relation("BoardReportStatusColumn")
+  manualStartForBoards    Board[]     @relation("BoardManualStartColumn")
+  manualDurationForBoards Board[]     @relation("BoardManualDurationColumn")
   ruleTriggersFor AutomationRule[] @relation("RuleTriggerColumn")
   ruleSetsFor     AutomationRule[] @relation("RuleSetColumn")
 }

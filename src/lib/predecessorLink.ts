@@ -120,15 +120,19 @@ export type ScheduleLock = { startLocked: boolean; endLocked: boolean; daysLocke
 /**
  * For every item, which of its Start/Finish/Days is computed elsewhere and
  * therefore not manually editable:
- *  - an item with children has its Start+Finish rolled up from its subtree
- *    (a "Summary" row), regardless of its own Type value
- *  - an item whose Pred resolves to a real predecessor and whose Link
- *    resolves to a valid relationship type has the date that relationship
- *    determines locked (FS/SS -> Start, FF/SF -> Finish)
- *  - an item whose Type resolves to "Milestone" has Days locked at 0
+ *  - when the board has both a manual-start and manual-duration column
+ *    configured, Start/Finish/Days are unconditionally locked for every
+ *    item — they're always computed from those + Pred/Link/Lag (see
+ *    syncPredecessorSchedule), never a free manual input
+ *  - otherwise (the pre-existing behavior): an item with children has its
+ *    Start+Finish rolled up from its subtree (a "Summary" row) regardless of
+ *    its own Type value; an item whose Pred resolves to a real predecessor
+ *    and whose Link resolves to a valid relationship type has the date that
+ *    relationship determines locked (FS/SS -> Start, FF/SF -> Finish); an
+ *    item whose Type resolves to "Milestone" has Days locked at 0
  * Pure — safe to call client-side against already-loaded items, or
- * server-side. typeColumnId/typeColumnOptions are optional since not every
- * board configures a Type column.
+ * server-side. All params past `items` are optional since not every board
+ * configures them.
  */
 export function resolveLockedScheduleFields(
   items: Pick<ItemData, "id" | "parentId" | "order" | "cellValues" | "groupId">[],
@@ -136,8 +140,19 @@ export function resolveLockedScheduleFields(
   linkColumnId?: string | null,
   linkColumnOptions?: unknown,
   typeColumnId?: string | null,
-  typeColumnOptions?: unknown
+  typeColumnOptions?: unknown,
+  manualStartColumnId?: string | null,
+  manualDurationColumnId?: string | null
 ): Map<string, ScheduleLock> {
+  const result = new Map<string, ScheduleLock>();
+
+  if (manualStartColumnId && manualDurationColumnId) {
+    for (const item of items) {
+      result.set(item.id, { startLocked: true, endLocked: true, daysLocked: true });
+    }
+    return result;
+  }
+
   const wbsIndex = buildWbsIndexFromItems(items);
   const linkOptions = linkColumnId ? getStatusOptions(linkColumnOptions) : [];
   const typeOptions = typeColumnId ? getStatusOptions(typeColumnOptions) : [];
@@ -147,7 +162,6 @@ export function resolveLockedScheduleFields(
     if (item.parentId) childCount.set(item.parentId, (childCount.get(item.parentId) ?? 0) + 1);
   }
 
-  const result = new Map<string, ScheduleLock>();
   function ensure(id: string): ScheduleLock {
     let lock = result.get(id);
     if (!lock) {
@@ -190,12 +204,18 @@ export function resolveLockedScheduleFields(
 /**
  * Loads everything needed to schedule a board's Pred/Link-driven items and
  * returns a `recompute(id, visited)` walker: computes that item's own
- * Start/Finish from its predecessor (if it has a valid one), writes it, then
- * cascades to every item whose Pred points back at it — transitively, with
- * the shared `visited` set guarding against circular references. Shared by
- * `syncPredecessorSchedule` (recompute from one edited item) and
- * `recomputeAllSchedules` (recompute the whole board). Returns null if the
- * board hasn't configured Pred/Link/Start/Days columns.
+ * Start/Finish (and, in "always computed" boards, Days too) from its
+ * predecessor if it has a valid one, else — only for "always computed"
+ * boards — from its own manual-start/manual-duration columns; writes the
+ * result, then cascades to every item whose Pred points back at it —
+ * transitively, with the shared `visited` set guarding against circular
+ * references. Shared by `syncPredecessorSchedule` (recompute from one edited
+ * item) and `recomputeAllSchedules` (recompute the whole board). Returns
+ * null if the board hasn't configured enough columns to compute anything:
+ * Start+Days are always required as the write target, plus either
+ * Pred+Link (classic mode) or manualStart+manualDuration ("always computed"
+ * mode, which also works without Pred/Link configured — then only the
+ * manual columns feed Start/Finish/Days, with no predecessor override).
  */
 async function buildScheduleContext(boardId: string) {
   const board = await prisma.board.findUnique({
@@ -208,16 +228,30 @@ async function buildScheduleContext(boardId: string) {
       ganttDurationColumnId: true,
       ganttEndColumnId: true,
       ganttDurationMode: true,
+      manualStartColumnId: true,
+      manualDurationColumnId: true,
     },
   });
   if (!board) return null;
-  const { predColumnId, linkColumnId, lagColumnId, ganttEndColumnId: endId, ganttDurationMode: mode } = board;
-  if (!predColumnId || !linkColumnId || !board.ganttStartColumnId || !board.ganttDurationColumnId) return null;
+  const {
+    predColumnId,
+    linkColumnId,
+    lagColumnId,
+    ganttEndColumnId: endId,
+    ganttDurationMode: mode,
+    manualStartColumnId,
+    manualDurationColumnId,
+  } = board;
+  const alwaysComputed = !!manualStartColumnId && !!manualDurationColumnId;
+  if (!board.ganttStartColumnId || !board.ganttDurationColumnId) return null;
+  if (!alwaysComputed && (!predColumnId || !linkColumnId)) return null;
   const startId: string = board.ganttStartColumnId;
   const durId: string = board.ganttDurationColumnId;
 
   const [linkColumn, items, holidayRows] = await Promise.all([
-    prisma.column.findUnique({ where: { id: linkColumnId }, select: { options: true } }),
+    linkColumnId
+      ? prisma.column.findUnique({ where: { id: linkColumnId }, select: { options: true } })
+      : Promise.resolve(null),
     prisma.item.findMany({
       where: { boardId },
       select: { id: true, parentId: true, order: true, cellValues: true, groupId: true },
@@ -241,7 +275,7 @@ async function buildScheduleContext(boardId: string) {
     return getItemDateRange(item, startId, durId, mode, holidays);
   }
 
-  async function writeRange(id: string, range: DateRange) {
+  async function writeRange(id: string, range: DateRange, days: number | null) {
     overrides.set(id, range);
     const startIso = range.start.toISOString().slice(0, 10);
     await prisma.cellValue.upsert({
@@ -257,15 +291,26 @@ async function buildScheduleContext(boardId: string) {
         update: { value: endIso },
       });
     }
+    // Days is only ever a write target in "always computed" boards — in the
+    // classic mode it's still the free manual input recompute reads from.
+    if (alwaysComputed && days !== null) {
+      await prisma.cellValue.upsert({
+        where: { itemId_columnId: { itemId: id, columnId: durId } },
+        create: { itemId: id, columnId: durId, value: days },
+        update: { value: days },
+      });
+    }
   }
 
   function predecessorOf(id: string): string | undefined {
+    if (!predColumnId) return undefined;
     const item = itemsById.get(id);
     const predValue = item?.cellValues.find((cv) => cv.columnId === predColumnId)?.value;
     return item && typeof predValue === "string" ? resolveWbsCode(wbsIndex, item.groupId, predValue) : undefined;
   }
 
   function dependentsOf(id: string): string[] {
+    if (!predColumnId) return [];
     const item = itemsById.get(id);
     const wbs = item ? wbsByItemId.get(id) : undefined;
     if (!item || !wbs) return [];
@@ -279,6 +324,19 @@ async function buildScheduleContext(boardId: string) {
       .map((i) => i.id);
   }
 
+  /** This item's own days-count and (in "always computed" mode only) its
+   *  manual-column base range to fall back to when no predecessor applies. */
+  function myDaysAndBase(item: (typeof items)[number]): { myDays: number | null; baseRange: DateRange | null } {
+    if (alwaysComputed) {
+      const durValue = item.cellValues.find((cv) => cv.columnId === manualDurationColumnId)?.value;
+      const myDays = typeof durValue === "number" ? durValue : null;
+      const baseRange = getItemDateRange(item, manualStartColumnId!, manualDurationColumnId!, mode, holidays);
+      return { myDays, baseRange };
+    }
+    const daysValue = item.cellValues.find((cv) => cv.columnId === durId)?.value;
+    return { myDays: typeof daysValue === "number" ? daysValue : null, baseRange: null };
+  }
+
   async function recompute(id: string, visited: Set<string>) {
     if (visited.has(id)) return;
     visited.add(id);
@@ -286,13 +344,13 @@ async function buildScheduleContext(boardId: string) {
     const item = itemsById.get(id);
     if (item) {
       const predItemId = predecessorOf(id);
-      const linkValue = item.cellValues.find((cv) => cv.columnId === linkColumnId)?.value;
+      const linkValue = linkColumnId ? item.cellValues.find((cv) => cv.columnId === linkColumnId)?.value : null;
       const relationship = linkOptions.find((o) => o.id === linkValue)?.label;
       const lagValue = lagColumnId ? item.cellValues.find((cv) => cv.columnId === lagColumnId)?.value : null;
       const lag = typeof lagValue === "number" ? lagValue : 0;
-      const daysValue = item.cellValues.find((cv) => cv.columnId === durId)?.value;
-      const myDays = typeof daysValue === "number" ? daysValue : null;
+      const { myDays, baseRange } = myDaysAndBase(item);
 
+      let scheduled: DateRange | null = null;
       if (
         predItemId &&
         predItemId !== id &&
@@ -302,17 +360,13 @@ async function buildScheduleContext(boardId: string) {
       ) {
         const predRange = readRange(predItemId);
         if (predRange) {
-          const scheduled = computeScheduledRange(
-            predRange,
-            myDays,
-            relationship as RelationshipType,
-            lag,
-            mode,
-            holidays
-          );
-          if (scheduled) await writeRange(id, scheduled);
+          scheduled = computeScheduledRange(predRange, myDays, relationship as RelationshipType, lag, mode, holidays);
         }
       }
+      if (!scheduled && alwaysComputed && baseRange) {
+        scheduled = baseRange;
+      }
+      if (scheduled) await writeRange(id, scheduled, myDays);
     }
 
     for (const depId of dependentsOf(id)) {
@@ -320,7 +374,11 @@ async function buildScheduleContext(boardId: string) {
     }
   }
 
-  const ownTriggers = [predColumnId, linkColumnId, lagColumnId, durId].filter((id): id is string => !!id);
+  const ownTriggers = (
+    alwaysComputed
+      ? [predColumnId, linkColumnId, lagColumnId, manualDurationColumnId, manualStartColumnId]
+      : [predColumnId, linkColumnId, lagColumnId, durId]
+  ).filter((id): id is string => !!id);
   const cascadeTriggers = [startId, endId].filter((id): id is string => !!id);
 
   return { items, predecessorOf, dependentsOf, recompute, ownTriggers, cascadeTriggers };

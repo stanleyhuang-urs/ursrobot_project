@@ -25,7 +25,17 @@ const DEFAULT_LABEL_WIDTH = 260;
 const MIN_LABEL_WIDTH = 140;
 const MAX_LABEL_WIDTH = 560;
 
-type HeaderSegment = { key: string; label: string; days: number };
+type HeaderSegment = { key: string; label: string; sublabel?: string; days: number };
+
+/** ISO-8601 week number (1-53) — the week containing the year's first
+ *  Thursday is week 1. */
+function isoWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
 
 function buildHeaderSegments(days: Date[], zoom: Zoom): HeaderSegment[] {
   if (zoom === "day") {
@@ -39,6 +49,7 @@ function buildHeaderSegments(days: Date[], zoom: Zoom): HeaderSegment[] {
     segments.push({
       key: toIsoDate(start),
       label: zoom === "week" ? formatDay(start) : `${start.getFullYear()}/${start.getMonth() + 1}`,
+      sublabel: zoom === "week" ? `第${isoWeekNumber(start)}週` : undefined,
       days: bucket.length,
     });
     bucket = [];
@@ -194,9 +205,19 @@ export function BoardGantt({
       linkColumnId,
       linkColumn?.options,
       typeColumnId,
-      typeColumn?.options
+      typeColumn?.options,
+      board.manualStartColumnId,
+      board.manualDurationColumnId
     );
-  }, [board.items, board.columns, predColumnId, linkColumnId, typeColumnId]);
+  }, [
+    board.items,
+    board.columns,
+    predColumnId,
+    linkColumnId,
+    typeColumnId,
+    board.manualStartColumnId,
+    board.manualDurationColumnId,
+  ]);
 
   const typeOptions = useMemo(() => {
     const typeColumn = board.columns.find((c) => c.id === typeColumnId);
@@ -655,6 +676,7 @@ export function BoardGantt({
                       className="shrink-0 truncate border-r border-neutral-100 py-1.5 text-center text-xs text-neutral-500"
                       style={{ width: seg.days * dayWidth, backgroundColor: segDate ? dayShade(segDate) : undefined }}
                     >
+                      {seg.sublabel && <div className="text-[10px] text-neutral-400">{seg.sublabel}</div>}
                       {seg.label}
                     </div>
                   );

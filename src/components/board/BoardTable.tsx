@@ -186,9 +186,19 @@ export function BoardTable({
       board.linkColumnId,
       linkColumn?.options,
       board.typeColumnId,
-      typeColumn?.options
+      typeColumn?.options,
+      board.manualStartColumnId,
+      board.manualDurationColumnId
     );
-  }, [board.items, board.columns, board.predColumnId, board.linkColumnId, board.typeColumnId]);
+  }, [
+    board.items,
+    board.columns,
+    board.predColumnId,
+    board.linkColumnId,
+    board.typeColumnId,
+    board.manualStartColumnId,
+    board.manualDurationColumnId,
+  ]);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );

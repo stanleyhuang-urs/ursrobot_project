@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildWbsIndexFromItems, resolveWbsCode, computeScheduledRange } from "./predecessorLink";
+import {
+  buildWbsIndexFromItems,
+  resolveWbsCode,
+  computeScheduledRange,
+  resolveLockedScheduleFields,
+} from "./predecessorLink";
 
 function iso(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -90,5 +95,32 @@ describe("buildWbsIndexFromItems", () => {
     expect(resolveWbsCode(index, "g2", "1.1")).toBe("g2-a1");
     // Same code, wrong group — must not resolve to the other group's item.
     expect(resolveWbsCode(index, "g2", "1.1")).not.toBe("g1-a1");
+  });
+});
+
+describe("resolveLockedScheduleFields", () => {
+  it("leaves Start/Finish/Days editable when no Pred/Link resolves and manual columns aren't configured", () => {
+    const items = [{ id: "a", parentId: null, order: 0, groupId: "g1", cellValues: [] }];
+    const locks = resolveLockedScheduleFields(items, "predCol", "linkCol");
+    expect(locks.get("a")).toBeUndefined();
+  });
+
+  it("locks Start/Finish/Days for every item once manualStart/manualDuration are both configured, even without Pred", () => {
+    const items = [
+      { id: "a", parentId: null, order: 0, groupId: "g1", cellValues: [] },
+      { id: "b", parentId: null, order: 1, groupId: "g1", cellValues: [] },
+    ];
+    const locks = resolveLockedScheduleFields(
+      items,
+      null,
+      null,
+      undefined,
+      undefined,
+      undefined,
+      "manualStartCol",
+      "manualDurationCol"
+    );
+    expect(locks.get("a")).toEqual({ startLocked: true, endLocked: true, daysLocked: true });
+    expect(locks.get("b")).toEqual({ startLocked: true, endLocked: true, daysLocked: true });
   });
 });

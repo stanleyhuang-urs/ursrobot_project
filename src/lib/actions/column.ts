@@ -206,6 +206,36 @@ export async function setGanttTypeColumn(
   revalidatePath("/settings");
 }
 
+export async function setManualStartColumn(
+  boardId: string,
+  columnId: string | null
+) {
+  const session = await requireSession();
+  await requireBoardAccess(boardId, session);
+  requireStructureAccess(session.role);
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { manualStartColumnId: columnId },
+  });
+  revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/settings");
+}
+
+export async function setManualDurationColumn(
+  boardId: string,
+  columnId: string | null
+) {
+  const session = await requireSession();
+  await requireBoardAccess(boardId, session);
+  requireStructureAccess(session.role);
+  await prisma.board.update({
+    where: { id: boardId },
+    data: { manualDurationColumnId: columnId },
+  });
+  revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/settings");
+}
+
 export async function setReportStatusColumn(
   boardId: string,
   columnId: string | null
