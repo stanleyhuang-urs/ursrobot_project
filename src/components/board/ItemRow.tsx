@@ -99,6 +99,7 @@ export function ItemRow({
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTab, setDetailTab] = useState<"updates" | "card">("updates");
   const [assignOpen, setAssignOpen] = useState(false);
+  const [newChildItem, setNewChildItem] = useState<ItemData | null>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const isHighlighted = item.id === highlightItemId;
   const [flash, setFlash] = useState(false);
@@ -126,7 +127,8 @@ export function ItemRow({
 
   async function handleAddSubitem() {
     if (collapsedIds.has(item.id)) onToggleCollapse(item.id);
-    await createItem(boardId, groupId, "新子項目", item.id);
+    const created = await createItem(boardId, groupId, "新子項目", item.id);
+    setNewChildItem(created);
   }
 
   async function handleInsert(position: "before" | "after") {
@@ -274,6 +276,22 @@ export function ItemRow({
           open={detailOpen}
           onOpenChange={setDetailOpen}
           initialTab={detailTab}
+        />
+        <ItemDetailModal
+          boardId={boardId}
+          item={newChildItem}
+          columns={columns}
+          users={users}
+          progressColumnId={progressColumnId}
+          ganttStartColumnId={ganttStartColumnId}
+          ganttDurationColumnId={ganttDurationColumnId}
+          ganttEndColumnId={ganttEndColumnId}
+          lockedScheduleFields={lockedScheduleFields}
+          userRole={userRole}
+          currentUserId={currentUserId}
+          open={newChildItem !== null}
+          onOpenChange={(open) => !open && setNewChildItem(null)}
+          initialTab="card"
         />
         {canEditStructure && (
           <AssignmentModal

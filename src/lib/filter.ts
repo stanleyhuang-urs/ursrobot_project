@@ -9,7 +9,24 @@ export type FilterValue =
 
 export type ActiveFilter = { columnId: string; value: FilterValue };
 
+// Not real Column rows — synthetic filter dimensions over Item's own
+// createdById/createdAt fields, so "who/when created" is filterable without
+// duplicating that data into a cell value on every item.
+export const CREATED_BY_FILTER_COLUMN_ID = "__createdBy__";
+export const CREATED_AT_FILTER_COLUMN_ID = "__createdAt__";
+
 function itemMatchesFilter(item: ItemData, columnId: string, value: FilterValue): boolean {
+  if (columnId === CREATED_BY_FILTER_COLUMN_ID) {
+    if (value.kind !== "person" || value.selected.length === 0) return true;
+    return !!item.createdById && value.selected.includes(item.createdById);
+  }
+  if (columnId === CREATED_AT_FILTER_COLUMN_ID) {
+    if (value.kind !== "date" || (!value.from && !value.to)) return true;
+    const iso = item.createdAt.toISOString().slice(0, 10);
+    if (value.from && iso < value.from) return false;
+    if (value.to && iso > value.to) return false;
+    return true;
+  }
   const cv = item.cellValues.find((c) => c.columnId === columnId)?.value;
   switch (value.kind) {
     case "text":

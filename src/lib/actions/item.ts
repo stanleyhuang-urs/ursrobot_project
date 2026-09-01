@@ -37,6 +37,81 @@ async function loadTypeOptionIds(typeColumnId: string | null) {
   };
 }
 
+// Matches boardWithDataArgs's items.include shape, so a freshly created item
+// can be dropped straight into UI state (e.g. to reopen its detail modal)
+// without waiting on the page's next full refetch.
+const itemDetailInclude = {
+  cellValues: true,
+  _count: { select: { comments: true } },
+  assignments: { include: { user: { select: { id: true, name: true } } } },
+} as const;
+
+/** A new sub-item inherits sensible defaults from its parent/board instead
+ *  of starting blank: Lvl = parent's Lvl + 1, 負責人 = the creating user,
+ *  Priority = Normal, Status = Planned, Start = today. Each only applies if
+ *  the matching column exists on the board (by name) — boards created before
+ *  these conventions, or without a Gantt start column mapped, are unaffected. */
+async function buildNewItemCellValues(
+  boardId: string,
+  parentId: string | undefined,
+  userId: string
+): Promise<{
+  typeColumnId: string | null;
+  summaryOptionId: string | undefined;
+  cellValues: { columnId: string; value: string | number }[];
+}> {
+  const [board, parent] = await Promise.all([
+    prisma.board.findUnique({
+      where: { id: boardId },
+      select: {
+        typeColumnId: true,
+        ganttStartColumnId: true,
+        columns: { select: { id: true, name: true, type: true, options: true } },
+      },
+    }),
+    parentId
+      ? prisma.item.findUnique({ where: { id: parentId }, select: { cellValues: true } })
+      : Promise.resolve(null),
+  ]);
+  const typeIds = await loadTypeOptionIds(board?.typeColumnId ?? null);
+
+  const cellValues: { columnId: string; value: string | number }[] = [];
+  if (board?.typeColumnId && typeIds?.taskId) {
+    cellValues.push({ columnId: board.typeColumnId, value: typeIds.taskId });
+  }
+
+  const columns = board?.columns ?? [];
+
+  const lvlColumn = columns.find((c) => c.name === "Lvl" && c.type === "NUMBER");
+  if (lvlColumn && parent) {
+    const parentLvl = parent.cellValues.find((cv) => cv.columnId === lvlColumn.id)?.value;
+    if (typeof parentLvl === "number") {
+      cellValues.push({ columnId: lvlColumn.id, value: parentLvl + 1 });
+    }
+  }
+
+  const ownerColumn = columns.find((c) => c.name === "負責人" && c.type === "PERSON");
+  if (ownerColumn) cellValues.push({ columnId: ownerColumn.id, value: userId });
+
+  const priorityColumn = columns.find((c) => c.name === "Priority" && c.type === "STATUS");
+  if (priorityColumn) {
+    const normal = getStatusOptions(priorityColumn.options).find((o) => o.label.toUpperCase() === "NORMAL");
+    if (normal) cellValues.push({ columnId: priorityColumn.id, value: normal.id });
+  }
+
+  const statusColumn = columns.find((c) => c.name === "Status" && c.type === "STATUS");
+  if (statusColumn) {
+    const planned = getStatusOptions(statusColumn.options).find((o) => o.label.toLowerCase() === "planned");
+    if (planned) cellValues.push({ columnId: statusColumn.id, value: planned.id });
+  }
+
+  if (board?.ganttStartColumnId) {
+    cellValues.push({ columnId: board.ganttStartColumnId, value: new Date().toISOString().slice(0, 10) });
+  }
+
+  return { typeColumnId: board?.typeColumnId ?? null, summaryOptionId: typeIds?.summaryId, cellValues };
+}
+
 export async function createItem(
   boardId: string,
   groupId: string,
@@ -48,11 +123,10 @@ export async function createItem(
   await requireGroupStructureAccess(session, groupId);
   const trimmed = name.trim() || "未命名項目";
 
-  const [count, board] = await Promise.all([
+  const [count, { typeColumnId, summaryOptionId, cellValues }] = await Promise.all([
     prisma.item.count({ where: parentId ? { parentId } : { groupId, parentId: null } }),
-    prisma.board.findUnique({ where: { id: boardId }, select: { typeColumnId: true } }),
+    buildNewItemCellValues(boardId, parentId, session.userId),
   ]);
-  const typeIds = await loadTypeOptionIds(board?.typeColumnId ?? null);
 
   const item = await prisma.item.create({
     data: {
@@ -62,17 +136,16 @@ export async function createItem(
       order: count,
       parentId,
       createdById: session.userId,
-      ...(board?.typeColumnId && typeIds?.taskId
-        ? { cellValues: { create: { columnId: board.typeColumnId, value: typeIds.taskId } } }
-        : {}),
+      cellValues: { create: cellValues },
     },
+    include: itemDetailInclude,
   });
 
-  if (parentId && board?.typeColumnId && typeIds?.summaryId) {
+  if (parentId && typeColumnId && summaryOptionId) {
     await prisma.cellValue.upsert({
-      where: { itemId_columnId: { itemId: parentId, columnId: board.typeColumnId } },
-      create: { itemId: parentId, columnId: board.typeColumnId, value: typeIds.summaryId },
-      update: { value: typeIds.summaryId },
+      where: { itemId_columnId: { itemId: parentId, columnId: typeColumnId } },
+      create: { itemId: parentId, columnId: typeColumnId, value: summaryOptionId },
+      update: { value: summaryOptionId },
     });
   }
 

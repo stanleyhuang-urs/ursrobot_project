@@ -343,7 +343,7 @@ export async function importRows(
         orderCounters.set(parentId, order + 1);
 
         const item = await tx.item.create({
-          data: { boardId, groupId, parentId, name, order },
+          data: { boardId, groupId, parentId, name, order, createdById: session.userId },
         });
         itemCount++;
         stack.push({ level, itemId: item.id });

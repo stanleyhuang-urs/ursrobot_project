@@ -3,7 +3,20 @@
 import { Plus, X } from "lucide-react";
 import type { ColumnData, UserOption } from "@/types/board";
 import { getStatusOptions } from "@/types/column";
-import type { ActiveFilter, FilterValue } from "@/lib/filter";
+import {
+  CREATED_BY_FILTER_COLUMN_ID,
+  CREATED_AT_FILTER_COLUMN_ID,
+  type ActiveFilter,
+  type FilterValue,
+} from "@/lib/filter";
+
+// Synthetic entries appended to the real board columns so "任務分派者"/
+// "任務新增時間" (Item.createdById/createdAt) are filterable without being
+// real, visible table columns — see CREATED_BY_FILTER_COLUMN_ID.
+const VIRTUAL_COLUMNS: ColumnData[] = [
+  { id: CREATED_BY_FILTER_COLUMN_ID, boardId: "", name: "任務分派者", type: "PERSON", options: {}, order: 1e6 },
+  { id: CREATED_AT_FILTER_COLUMN_ID, boardId: "", name: "任務新增時間", type: "DATE", options: {}, order: 1e6 + 1 },
+];
 
 function defaultValueFor(type: ColumnData["type"]): FilterValue {
   switch (type) {
@@ -31,8 +44,10 @@ export function FilterBar({
   filters: ActiveFilter[];
   onChange: (filters: ActiveFilter[]) => void;
 }) {
+  const allColumns = [...columns, ...VIRTUAL_COLUMNS];
+
   function addFilter() {
-    const firstColumn = columns[0];
+    const firstColumn = allColumns[0];
     if (!firstColumn) return;
     onChange([...filters, { columnId: firstColumn.id, value: defaultValueFor(firstColumn.type) }]);
   }
@@ -48,7 +63,7 @@ export function FilterBar({
   return (
     <div className="mb-2 flex flex-wrap items-center gap-2">
       {filters.map((filter, index) => {
-        const column = columns.find((c) => c.id === filter.columnId);
+        const column = allColumns.find((c) => c.id === filter.columnId);
         if (!column) return null;
         return (
           <div
@@ -58,12 +73,12 @@ export function FilterBar({
             <select
               value={filter.columnId}
               onChange={(e) => {
-                const col = columns.find((c) => c.id === e.target.value);
+                const col = allColumns.find((c) => c.id === e.target.value);
                 if (col) updateFilter(index, { columnId: col.id, value: defaultValueFor(col.type) });
               }}
               className="rounded border-none bg-transparent text-xs font-medium text-neutral-700 outline-none"
             >
-              {columns.map((c) => (
+              {allColumns.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>

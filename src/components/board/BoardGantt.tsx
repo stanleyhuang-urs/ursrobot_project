@@ -100,6 +100,7 @@ export function BoardGantt({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [assignmentItem, setAssignmentItem] = useState<ItemData | null>(null);
   const [detailItem, setDetailItem] = useState<ItemData | null>(null);
+  const [detailInitialTab, setDetailInitialTab] = useState<"updates" | "card">("updates");
   const [zoom, setZoom] = useState<Zoom>("day");
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
   const [groupFilterId, setGroupFilterId] = useState("");
@@ -397,7 +398,9 @@ export function BoardGantt({
       next.delete(item.id);
       return next;
     });
-    await createItem(board.id, item.groupId, "新子項目", item.id);
+    const created = await createItem(board.id, item.groupId, "新子項目", item.id);
+    setDetailInitialTab("card");
+    setDetailItem(created);
   }
 
   function renderRows(parentId: string | null, depth: number): ReactNode[] {
@@ -736,7 +739,13 @@ export function BoardGantt({
         userRole={userRole}
         currentUserId={currentUserId}
         open={detailItem !== null}
-        onOpenChange={(open) => !open && setDetailItem(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailItem(null);
+            setDetailInitialTab("updates");
+          }
+        }}
+        initialTab={detailInitialTab}
       />
     </div>
   );
