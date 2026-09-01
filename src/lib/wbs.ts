@@ -1,8 +1,10 @@
 import type { ItemData } from "@/types/board";
 
+type WbsItemLike = { id: string; parentId: string | null; order: number };
+
 /** WBS-style numbering (1, 1.1, 1.1.2, ...) based on each item's position among its siblings. */
-export function computeWbsCodes(items: ItemData[]): Map<string, string> {
-  const byParent = new Map<string | null, ItemData[]>();
+export function computeWbsCodes(items: WbsItemLike[]): Map<string, string> {
+  const byParent = new Map<string | null, WbsItemLike[]>();
   for (const item of items) {
     const list = byParent.get(item.parentId) ?? [];
     list.push(item);

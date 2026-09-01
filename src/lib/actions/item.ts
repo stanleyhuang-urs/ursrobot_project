@@ -8,6 +8,7 @@ import { requireBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
 import { getStatusOptions } from "@/types/column";
 import { loadGroupRoleContext } from "@/lib/groupRoleContext";
+import { computeWbsCodes } from "@/lib/wbs";
 import type { SessionPayload } from "@/lib/jwt";
 
 /** Item creation/structure edits are normally ADMIN/SUPERVISOR-only, but a
@@ -47,12 +48,14 @@ const itemDetailInclude = {
 } as const;
 
 /** A new sub-item inherits sensible defaults from its parent/board instead
- *  of starting blank: Lvl = parent's Lvl + 1, 負責人 = the creating user,
- *  Priority = Normal, Status = Planned, Start = today. Each only applies if
- *  the matching column exists on the board (by name) — boards created before
- *  these conventions, or without a Gantt start column mapped, are unaffected. */
+ *  of starting blank: Lvl = parent's Lvl + 1, Pred = parent's WBS code,
+ *  負責人 = the creating user, Priority = Normal, Status = Planned,
+ *  Start/start(set) = today. Each only applies if the matching column
+ *  exists on the board (by name) — boards created before these conventions,
+ *  or without a Gantt start column mapped, are unaffected. */
 async function buildNewItemCellValues(
   boardId: string,
+  groupId: string,
   parentId: string | undefined,
   userId: string
 ): Promise<{
@@ -60,18 +63,22 @@ async function buildNewItemCellValues(
   summaryOptionId: string | undefined;
   cellValues: { columnId: string; value: string | number }[];
 }> {
-  const [board, parent] = await Promise.all([
+  const [board, parent, groupItems] = await Promise.all([
     prisma.board.findUnique({
       where: { id: boardId },
       select: {
         typeColumnId: true,
         ganttStartColumnId: true,
+        predColumnId: true,
         columns: { select: { id: true, name: true, type: true, options: true } },
       },
     }),
     parentId
       ? prisma.item.findUnique({ where: { id: parentId }, select: { cellValues: true } })
       : Promise.resolve(null),
+    parentId
+      ? prisma.item.findMany({ where: { groupId }, select: { id: true, parentId: true, order: true } })
+      : Promise.resolve([]),
   ]);
   const typeIds = await loadTypeOptionIds(board?.typeColumnId ?? null);
 
@@ -90,6 +97,11 @@ async function buildNewItemCellValues(
     }
   }
 
+  if (board?.predColumnId && parentId) {
+    const parentCode = computeWbsCodes(groupItems).get(parentId);
+    if (parentCode) cellValues.push({ columnId: board.predColumnId, value: parentCode });
+  }
+
   const ownerColumn = columns.find((c) => c.name === "負責人" && c.type === "PERSON");
   if (ownerColumn) cellValues.push({ columnId: ownerColumn.id, value: userId });
 
@@ -105,9 +117,12 @@ async function buildNewItemCellValues(
     if (planned) cellValues.push({ columnId: statusColumn.id, value: planned.id });
   }
 
+  const today = new Date().toISOString().slice(0, 10);
   if (board?.ganttStartColumnId) {
-    cellValues.push({ columnId: board.ganttStartColumnId, value: new Date().toISOString().slice(0, 10) });
+    cellValues.push({ columnId: board.ganttStartColumnId, value: today });
   }
+  const startSetColumn = columns.find((c) => c.name === "start(set)" && c.type === "DATE");
+  if (startSetColumn) cellValues.push({ columnId: startSetColumn.id, value: today });
 
   return { typeColumnId: board?.typeColumnId ?? null, summaryOptionId: typeIds?.summaryId, cellValues };
 }
@@ -125,7 +140,7 @@ export async function createItem(
 
   const [count, { typeColumnId, summaryOptionId, cellValues }] = await Promise.all([
     prisma.item.count({ where: parentId ? { parentId } : { groupId, parentId: null } }),
-    buildNewItemCellValues(boardId, parentId, session.userId),
+    buildNewItemCellValues(boardId, groupId, parentId, session.userId),
   ]);
 
   const item = await prisma.item.create({
