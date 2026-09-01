@@ -312,12 +312,34 @@ export function ItemRow({
             (col.id === ganttStartColumnId && lock?.startLocked) ||
             (col.id === ganttEndColumnId && lock?.endLocked) ||
             (col.id === ganttDurationColumnId && lock?.daysLocked);
+          const cellCanEdit =
+            canEditCellValue(
+              userRole,
+              col.type,
+              col.id === progressColumnId,
+              isAssignedToCurrentUser,
+              isAssignedToGroupDiscipline
+            ) &&
+            (!isScheduleColumn || canModifySchedule) &&
+            !isLockedField;
+          // Explains why a schedule cell can't be edited — shown as a prompt
+          // the moment the user clicks it, not just a hover-only tooltip,
+          // matching the Gantt bar's blockedReason pattern.
+          const scheduleBlockedReason =
+            isScheduleColumn && !cellCanEdit
+              ? !canModifySchedule
+                ? "權限不足:僅建立者或管理者可以修改此項目的時程"
+                : isLockedField
+                  ? "此日期由前置依賴、子項目統計或里程碑規則自動計算,請改天數、前置依賴或子項目設定"
+                  : null
+              : null;
           return (
             <div
               key={col.id}
-              className="border-r border-neutral-100 px-1"
+              className={`border-r border-neutral-100 px-1 ${scheduleBlockedReason ? "cursor-not-allowed" : ""}`}
               style={isLockedField ? { backgroundColor: "#f3f4f6" } : undefined}
               title={isLockedField ? "由前置依賴或子項目統計自動計算" : undefined}
+              onClick={scheduleBlockedReason ? () => alert(scheduleBlockedReason) : undefined}
             >
               {hasChildren && col.id === progressColumnId ? (
                 <RollupProgress
@@ -331,17 +353,7 @@ export function ItemRow({
                   column={col}
                   value={valuesByColumn.get(col.id) ?? null}
                   users={users}
-                  canEdit={
-                    canEditCellValue(
-                      userRole,
-                      col.type,
-                      col.id === progressColumnId,
-                      isAssignedToCurrentUser,
-                      isAssignedToGroupDiscipline
-                    ) &&
-                    (!isScheduleColumn || canModifySchedule) &&
-                    !isLockedField
-                  }
+                  canEdit={cellCanEdit}
                   isProgressColumn={col.id === progressColumnId}
                 />
               )}

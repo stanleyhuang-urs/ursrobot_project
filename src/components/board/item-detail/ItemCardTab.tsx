@@ -100,11 +100,22 @@ export function ItemCardTab({
           canEditCellValue(userRole, col.type, col.id === progressColumnId, isAssignedToUser) &&
           (!isScheduleColumn || canModifySchedule) &&
           !isLockedField;
+        const scheduleBlockedReason =
+          isScheduleColumn && !canEdit
+            ? !canModifySchedule
+              ? "權限不足:僅建立者或管理者可以修改此項目的時程"
+              : isLockedField
+                ? "此日期由前置依賴、子項目統計或里程碑規則自動計算,請改天數、前置依賴或子項目設定"
+                : null
+            : null;
         return (
           <div
             key={col.id}
-            className="flex items-center justify-between border-b border-neutral-100 px-4 py-2.5 last:border-b-0"
+            className={`flex items-center justify-between border-b border-neutral-100 px-4 py-2.5 last:border-b-0 ${
+              scheduleBlockedReason ? "cursor-not-allowed" : ""
+            }`}
             title={isLockedField ? "由前置依賴或子項目統計自動計算" : undefined}
+            onClick={scheduleBlockedReason ? () => alert(scheduleBlockedReason) : undefined}
           >
             <span className="text-xs text-neutral-400">{col.name}</span>
             <span className="w-40 text-sm text-neutral-800">
