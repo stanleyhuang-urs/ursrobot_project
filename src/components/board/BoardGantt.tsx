@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { ChevronDown, ChevronRight, Star, MessageSquare, UserPlus, Plus } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { GanttDurationMode, Holiday, UserRole } from "@prisma/client";
@@ -11,6 +10,7 @@ import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment
 import { computeRolledUpDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
 import { countDaysInRange, endFromStartAndDays } from "@/lib/workday";
 import { resolveLockedScheduleFields } from "@/lib/predecessorLink";
+import { computeWbsCodes } from "@/lib/wbs";
 import { resizeItemBar, moveItemBar } from "@/lib/actions/ganttResize";
 import { getStatusOptions } from "@/types/column";
 import { computeVisibleItemIds, type ActiveFilter } from "@/lib/filter";
@@ -336,6 +336,20 @@ export function BoardGantt({
     return canManageGroupStructure(userRole, (access?.disciplines.size ?? 0) > 0);
   }
 
+  // WBS codes numbered per Group (each group's own top-level items restart
+  // at "1") to match what the table shows — computeWbsCodes itself treats
+  // whatever list it's given as one flat tree, so it must be called once per
+  // group and merged, not once across board.items (which would let one
+  // group's numbering bleed into another's, same bug as Pred/Link matching).
+  const wbsCodes = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const group of board.groups) {
+      const groupItems = board.items.filter((i) => i.groupId === group.id);
+      for (const [id, code] of computeWbsCodes(groupItems)) map.set(id, code);
+    }
+    return map;
+  }, [board.items, board.groups]);
+
   const itemsByParent = new Map<string | null, ItemData[]>();
   for (const item of board.items) {
     if (visibleIds !== null && !visibleIds.has(item.id)) continue;
@@ -398,10 +412,18 @@ export function BoardGantt({
                 title="在表格中查看此項目"
                 className="min-w-0 flex-1 truncate text-left hover:text-blue-600 hover:underline"
               >
+                {wbsCodes.get(item.id) && (
+                  <span className="mr-1 text-neutral-400">{wbsCodes.get(item.id)}</span>
+                )}
                 {item.name}
               </button>
             ) : (
-              <span className="min-w-0 flex-1 truncate">{item.name}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {wbsCodes.get(item.id) && (
+                  <span className="mr-1 text-neutral-400">{wbsCodes.get(item.id)}</span>
+                )}
+                {item.name}
+              </span>
             )}
             <button
               type="button"
@@ -501,59 +523,6 @@ export function BoardGantt({
           ))}
         </div>
       </div>
-      <div className="mb-4 flex flex-wrap items-center gap-4 rounded-md border border-neutral-200 bg-white px-4 py-3 text-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-neutral-500">開始日期欄位</span>
-          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
-            {board.columns.find((c) => c.id === startColumnId)?.name ?? "未設定"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-neutral-500">天數欄位</span>
-          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
-            {board.columns.find((c) => c.id === durationColumnId)?.name ?? "未設定"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-neutral-500">計算方式</span>
-          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
-            {isBusinessMode ? "工作天" : "日曆天"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-neutral-500">結束日期欄位</span>
-          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
-            {board.columns.find((c) => c.id === endColumnId)?.name ?? "未設定"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-neutral-500">前置依賴欄位</span>
-          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
-            {board.columns.find((c) => c.id === predColumnId)?.name ?? "未設定"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-neutral-500">關聯類型欄位</span>
-          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
-            {board.columns.find((c) => c.id === linkColumnId)?.name ?? "未設定"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-neutral-500">Type 欄位</span>
-          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
-            {board.columns.find((c) => c.id === typeColumnId)?.name ?? "未設定"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-neutral-500">Lag 欄位</span>
-          <span className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600">
-            {board.columns.find((c) => c.id === lagColumnId)?.name ?? "未設定"}
-          </span>
-        </div>
-        <Link href="/settings" className="text-xs text-blue-600 hover:underline">
-          前往「系統設定」調整這些欄位
-        </Link>
-      </div>
       <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
         <div className="flex items-center gap-2">
           <span className="text-neutral-500">專案(分組)</span>
@@ -599,20 +568,6 @@ export function BoardGantt({
         )}
       </div>
       <FilterBar columns={board.columns} users={users} filters={filters} onChange={setFilters} />
-      {predColumnId && linkColumnId && startColumnId && endColumnId && (
-        <p className="mb-2 text-xs text-neutral-400">
-          已啟用前置依賴自動計算:依前置依賴欄位與日期自動判斷 FS/FF/SS/SF 並寫入關聯類型欄位。
-        </p>
-      )}
-      {startColumnId && durationColumnId && endColumnId && (
-        <p className="mb-2 text-xs text-neutral-400">
-          已啟用自動計算:填寫開始日期+天數會自動算出結束日期,填寫開始日期+結束日期會自動算出天數
-          {isBusinessMode
-            ? `(以工作日計算,已排除週六日與 ${holidays.length} 個國定假日)`
-            : "(以日曆天計算)"}
-          。
-        </p>
-      )}
 
       {(!startColumnId || !durationColumnId) && (
         <p className="text-sm text-neutral-400">
