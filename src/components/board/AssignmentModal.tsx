@@ -6,9 +6,11 @@ import { Trash2 } from "lucide-react";
 import type { ColumnData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { listAssignments, upsertAssignment, removeAssignment } from "@/lib/actions/assignment";
+import { upsertCellValue } from "@/lib/actions/cell";
 import { Avatar } from "@/components/ui/Avatar";
 import { PersonPicker } from "@/components/ui/PersonPicker";
 import { CellEditor } from "./cell-editors/CellEditor";
+import { computeWbsCodes } from "@/lib/wbs";
 
 export function AssignmentModal({
   boardId,
@@ -23,6 +25,7 @@ export function AssignmentModal({
   linkColumnId,
   lagColumnId,
   canEditSchedule = false,
+  groupItems,
 }: {
   boardId: string;
   item: ItemData | null;
@@ -41,6 +44,10 @@ export function AssignmentModal({
   linkColumnId?: string | null;
   lagColumnId?: string | null;
   canEditSchedule?: boolean;
+  /** Every item in the same group as `item` — used to build the Pred
+   *  dropdown (item name -> its WBS code, since that's what's actually
+   *  stored) instead of making the user type a WBS code by hand. */
+  groupItems?: ItemData[];
 }) {
   const [assignments, setAssignments] = useState<
     Awaited<ReturnType<typeof listAssignments>>
@@ -71,6 +78,21 @@ export function AssignmentModal({
   const scheduleColumns = [predColumnId, linkColumnId, lagColumnId]
     .map((id) => columns?.find((c) => c.id === id))
     .filter((c): c is ColumnData => !!c);
+
+  // Item name -> its WBS code, so Pred can be picked from a list instead of
+  // typed by hand — codes are group-scoped (same rule as the lock check and
+  // the table's own WBS badges), so this only ever offers items from the
+  // same group `item` is in.
+  const predOptions = groupItems
+    ? (() => {
+        const codes = computeWbsCodes(groupItems);
+        return groupItems
+          .filter((i) => i.id !== item.id)
+          .map((i) => ({ code: codes.get(i.id) ?? "", name: i.name }))
+          .filter((o) => o.code)
+          .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+      })()
+    : [];
 
   // Gantt Assignments reference a real User row (foreign key) — Resources
   // (tools/vendors) can be a PERSON-column 負責人 but not a %-allocation here.
@@ -109,7 +131,7 @@ export function AssignmentModal({
   }
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title={`${item.name} — 人員分配`}>
+    <Modal open={open} onOpenChange={onOpenChange} title={`${item.name} — 人員分配`} size="lg">
       <div className="mb-4 space-y-2">
         {loading && <p className="text-sm text-neutral-400">載入中...</p>}
         {!loading && assignments.length === 0 && (
@@ -185,27 +207,47 @@ export function AssignmentModal({
       {scheduleColumns.length > 0 && (
         <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4">
           <h3 className="text-xs font-semibold text-neutral-500">時程設定</h3>
-          {scheduleColumns.map((col) => (
-            <div key={col.id} className="flex items-center justify-between gap-3">
-              <span className="shrink-0 text-xs text-neutral-500">{col.name}</span>
-              <div className="w-40">
-                <CellEditor
-                  boardId={boardId}
-                  itemId={item.id}
-                  column={col}
-                  value={
-                    (item.cellValues.find((cv) => cv.columnId === col.id)?.value as
-                      | string
-                      | number
-                      | null
-                      | undefined) ?? null
-                  }
-                  users={users}
-                  canEdit={canEditSchedule}
-                />
+          {scheduleColumns.map((col) => {
+            const rawValue = item.cellValues.find((cv) => cv.columnId === col.id)?.value as
+              | string
+              | number
+              | null
+              | undefined;
+            const isPredWithOptions = col.id === predColumnId && groupItems;
+            return (
+              <div key={col.id} className="flex items-center justify-between gap-3">
+                <span className="shrink-0 text-xs text-neutral-500">{col.name}</span>
+                <div className="w-56">
+                  {isPredWithOptions ? (
+                    <select
+                      value={typeof rawValue === "string" ? rawValue : ""}
+                      disabled={!canEditSchedule}
+                      onChange={(e) =>
+                        upsertCellValue(boardId, item.id, col.id, e.target.value || null)
+                      }
+                      className="w-full rounded border-none bg-transparent px-2 py-1 text-sm outline-none hover:bg-neutral-50 focus:bg-white focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
+                    >
+                      <option value="">未設定</option>
+                      {predOptions.map((o) => (
+                        <option key={o.code} value={o.code}>
+                          {o.code} {o.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <CellEditor
+                      boardId={boardId}
+                      itemId={item.id}
+                      column={col}
+                      value={rawValue ?? null}
+                      users={users}
+                      canEdit={canEditSchedule}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </Modal>

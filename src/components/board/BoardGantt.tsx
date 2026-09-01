@@ -21,7 +21,9 @@ import { createItem } from "@/lib/actions/item";
 
 type Zoom = "day" | "week" | "month";
 const ZOOM_DAY_WIDTH: Record<Zoom, number> = { day: 34, week: 10, month: 3 };
-const LABEL_WIDTH = 260;
+const DEFAULT_LABEL_WIDTH = 260;
+const MIN_LABEL_WIDTH = 140;
+const MAX_LABEL_WIDTH = 560;
 
 type HeaderSegment = { key: string; label: string; days: number };
 
@@ -102,6 +104,23 @@ export function BoardGantt({
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
   const [groupFilterId, setGroupFilterId] = useState("");
   const [parentFilterId, setParentFilterId] = useState("");
+  const [labelWidth, setLabelWidth] = useState(DEFAULT_LABEL_WIDTH);
+
+  function startLabelResize(e: React.PointerEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = labelWidth;
+    function onMove(ev: PointerEvent) {
+      const next = Math.min(MAX_LABEL_WIDTH, Math.max(MIN_LABEL_WIDTH, startWidth + (ev.clientX - startX)));
+      setLabelWidth(next);
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
   const durationMode = board.ganttDurationMode;
   const isBusinessMode = durationMode === "BUSINESS";
   const holidaySet = useMemo(() => new Set(holidays.map((h) => h.date)), [holidays]);
@@ -248,13 +267,13 @@ export function BoardGantt({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || todayIndex < 0) return;
-    el.scrollLeft = Math.max(0, todayIndex * dayWidth - (el.clientWidth - LABEL_WIDTH) / 2);
+    el.scrollLeft = Math.max(0, todayIndex * dayWidth - (el.clientWidth - labelWidth) / 2);
     syncFromMainScroll();
     // Only re-center when the zoom level or the underlying day range changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom, days.length]);
 
-  const contentWidth = LABEL_WIDTH + days.length * dayWidth;
+  const contentWidth = labelWidth + days.length * dayWidth;
 
   const personColumnIds = useMemo(
     () => board.columns.filter((c) => c.type === "PERSON").map((c) => c.id),
@@ -392,7 +411,7 @@ export function BoardGantt({
         <div key={item.id} className="flex items-stretch border-b border-neutral-100">
           <div
             className="sticky left-0 z-10 flex shrink-0 items-center gap-1 bg-white px-2 py-1.5 text-sm"
-            style={{ width: LABEL_WIDTH, paddingLeft: 8 + depth * 16 }}
+            style={{ width: labelWidth, paddingLeft: 8 + depth * 16 }}
           >
             {hasChildren ? (
               <button
@@ -602,20 +621,25 @@ export function BoardGantt({
               isPanning ? "cursor-grabbing select-none" : "cursor-grab"
             }`}
           >
-          <div className="relative" style={{ minWidth: LABEL_WIDTH + days.length * dayWidth }}>
+          <div className="relative" style={{ minWidth: labelWidth + days.length * dayWidth }}>
             {todayIndex >= 0 && (
               <div
                 className="pointer-events-none absolute top-0 bottom-0 z-[5] w-px bg-red-400"
-                style={{ left: LABEL_WIDTH + todayIndex * dayWidth }}
+                style={{ left: labelWidth + todayIndex * dayWidth }}
                 title="今天"
               />
             )}
             <div className="sticky top-0 z-20 flex">
               <div
-                className="sticky left-0 z-10 shrink-0 border-b border-r border-neutral-100 bg-neutral-50 px-2 py-1.5 text-xs font-medium text-neutral-500"
-                style={{ width: LABEL_WIDTH }}
+                className="sticky left-0 z-10 shrink-0 relative border-b border-r border-neutral-100 bg-neutral-50 px-2 py-1.5 text-xs font-medium text-neutral-500"
+                style={{ width: labelWidth }}
               >
                 項目
+                <div
+                  onPointerDown={startLabelResize}
+                  className="absolute right-0 top-0 z-20 h-full w-1 cursor-col-resize hover:bg-blue-400"
+                  style={{ touchAction: "none" }}
+                />
               </div>
               <div className="flex border-b border-neutral-100 bg-neutral-50">
                 {headerSegments.map((seg) => {
@@ -646,7 +670,7 @@ export function BoardGantt({
                 <div key={u.id} className="flex items-stretch border-b border-neutral-100">
                   <div
                     className="sticky left-0 z-10 flex shrink-0 items-center bg-white px-2 py-1.5 text-sm"
-                    style={{ width: LABEL_WIDTH }}
+                    style={{ width: labelWidth }}
                   >
                     {u.name}
                   </div>
@@ -696,6 +720,7 @@ export function BoardGantt({
         linkColumnId={linkColumnId}
         lagColumnId={lagColumnId}
         canEditSchedule={assignmentItem ? canEditItem(assignmentItem) : false}
+        groupItems={assignmentItem ? board.items.filter((i) => i.groupId === assignmentItem.groupId) : undefined}
       />
 
       <ItemDetailModal
