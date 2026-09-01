@@ -133,6 +133,8 @@ export async function parseImportFromUrl(url: string): Promise<ParsedWorkbook> {
   return parseWorkbookBuffer(buffer, "sheet.xlsx");
 }
 
+const LEVEL_NAME_PATTERN = /^(lvl|level|層級|階層)$/i;
+
 /** Accepts either a plain depth number ("3") or dotted WBS notation
  *  ("1.1.2.3") — for WBS notation, depth is the count of dot-separated
  *  segments (so "1" is depth 1, "1.1" is depth 2, "1.1.1.1" is depth 4). */
@@ -231,8 +233,7 @@ export async function importRows(
   }
   const nameColIndex = nameMappings[0].sourceColIndex;
 
-  const levelMapping = mappings.find((m) => m.target.kind === "level");
-  const levelColIndex = levelMapping?.sourceColIndex;
+  const explicitLevelColIndex = mappings.find((m) => m.target.kind === "level")?.sourceColIndex;
 
   const valueMappings = mappings.filter(
     (m) => m.target.kind === "existingColumn" || m.target.kind === "newColumn"
@@ -290,7 +291,29 @@ export async function importRows(
       const orderCounters = new Map<string | null, number>();
       orderCounters.set(null, topLevelCount);
 
+      // A dedicated NUMBER value column named like "Lvl" is a more reliable
+      // depth signal than a "level"-kind mapping sourced from a WBS-notation
+      // column: dot-segment counting only reflects true depth when the
+      // sheet's own WBS numbering nests strictly, which real sheets don't
+      // always do (a whole subtree can be numbered flatly, e.g. "2.1".."2.21",
+      // while mixing items that are actually two and three levels deep).
+      const lvlNumberMapping = valueMappings.find((m) => {
+        if (m.target.kind === "existingColumn") {
+          const columnId = m.target.columnId;
+          const col = existingColumns.find((c) => c.id === columnId);
+          return col?.type === "NUMBER" && LEVEL_NAME_PATTERN.test(col.name.trim());
+        }
+        if (m.target.kind === "newColumn") {
+          return (
+            m.target.columnType === "NUMBER" &&
+            LEVEL_NAME_PATTERN.test(m.target.name.trim())
+          );
+        }
+        return false;
+      });
+      const levelColIndex = lvlNumberMapping?.sourceColIndex ?? explicitLevelColIndex;
       const useWbsSegments =
+        !lvlNumberMapping &&
         levelColIndex !== undefined &&
         dataRows.some((row) => row[levelColIndex]?.includes("."));
 
