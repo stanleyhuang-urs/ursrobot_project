@@ -1,0 +1,40 @@
+name: Deploy to production
+
+# Pushing to main SSHes into the Linux server and rebuilds/restarts the app
+# container. Requires these repo secrets (Settings -> Secrets and variables
+# -> Actions) to be set up first — see docs/deploy-linux.md:
+#   DEPLOY_HOST      server IP or hostname
+#   DEPLOY_USER      SSH user (e.g. deploy)
+#   DEPLOY_SSH_KEY   private key matching a public key in that user's
+#                    ~/.ssh/authorized_keys on the server
+#   DEPLOY_PATH      absolute path to the cloned repo on the server
+#                    (e.g. /home/deploy/ursrobot_project)
+#   DEPLOY_PORT      optional, SSH port (defaults to 22)
+#
+# Until those secrets exist this workflow will fail on every push — that's
+# expected and harmless; it just means the auto-deploy step didn't run.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH and deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script_stop: true
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            git fetch origin main
+            git reset --hard origin/main
+            docker compose --env-file .env.production build app
+            docker compose --env-file .env.production up -d app
+            docker image prune -f
