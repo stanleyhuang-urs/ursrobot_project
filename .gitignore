@@ -20,6 +20,9 @@
 # uploaded item attachments
 /public/uploads/
 
+# database backups (scripts/backup-db.sh) — real data, never commit
+/backups/
+
 # production
 /build
 

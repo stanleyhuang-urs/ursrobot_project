@@ -4,12 +4,13 @@
 server 上長期運行，並設定「push 到 GitHub 後自動部署」。假設 Linux server 是
 Ubuntu/Debian（其他發行版指令大同小異，主要是安裝 Docker 的部分不同）。
 
-整體分四個階段：
+整體分五個階段：
 
 1. Linux server 前置準備（安裝 Docker、clone 專案、設定 `.env.production`）
 2. 把現有資料庫搬過去
 3. 第一次手動部署、驗證
 4. 設定 GitHub Actions，讓之後 `git push` 自動部署到這台 server
+5. 設定每週自動備份資料庫
 
 完成後的日常工作流程：你回報問題 → 我在本機（Windows Docker Desktop）除錯、
 修好、驗證 → `git push` → GitHub Actions 自動 SSH 進 Linux server 拉新版、重新
@@ -227,7 +228,51 @@ secret**，依序新增：
 
 ---
 
-## 5. 之後的日常工作流程
+## 5. 設定每週自動備份資料庫
+
+repo 裡有 `scripts/backup-db.sh`：對資料庫跑 `pg_dump`，壓縮成
+`backups/hrapp_db_<時間戳記>.sql.gz`，並自動刪除超過保留天數（預設 60 天）的
+舊備份。在 server 上，repo 目錄裡先手動跑一次確認正常：
+
+```bash
+cd ~/apps/ursrobot_project
+./scripts/backup-db.sh
+```
+
+跑完應該會看到 `backups/` 目錄下多一個 `.sql.gz` 檔案。確認沒問題後，用
+`crontab -e` 加一行，設定每週一凌晨 3 點自動跑：
+
+```cron
+0 3 * * 1 cd /home/deploy/apps/ursrobot_project && ./scripts/backup-db.sh >> /home/deploy/apps/ursrobot_project/backups/backup.log 2>&1
+```
+
+路徑記得換成第 1.3 節實際 clone 的位置。之後每週備份的輸出都會附加寫進
+`backups/backup.log`，方便事後查有沒有跑成功。
+
+想改保留天數的話，設定環境變數再跑（或直接把 crontab 那行的
+`./scripts/backup-db.sh` 前面加上 `RETENTION_DAYS=90`）：
+
+```bash
+RETENTION_DAYS=90 ./scripts/backup-db.sh
+```
+
+備份檔留在 server 本機的 `backups/` 目錄——如果想要異地備份（server 本身故障
+時也不會連備份一起丟掉），之後可以再加一步把 `backups/` 同步到別的地方（例如
+另一台機器、雲端物件儲存），需要的話跟我說，我再幫忙加。
+
+還原方式跟第 2.3 節搬移資料庫時一樣，把 `< backup.sql` 換成
+`gunzip -c backups/<檔名>.sql.gz |` 接 `psql` 就可以：
+
+```bash
+gunzip -c backups/hrapp_db_2026-09-02_030000.sql.gz | docker compose --env-file .env.production exec -T db psql -U hrapp -d hrapp_db
+```
+
+> ⚠️ 還原會把資料庫現有內容整個覆蓋回備份當下的狀態，正式還原前務必先確認
+> 你要的就是這個時間點的備份。
+
+---
+
+## 6. 之後的日常工作流程
 
 設定完成後：
 

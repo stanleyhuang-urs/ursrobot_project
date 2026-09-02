@@ -1,0 +1,4 @@
+# Shell scripts run on the Linux server — force LF endings regardless of
+# whoever commits/checks them out, since a CRLF shebang line breaks bash
+# with "bad interpreter" on Linux.
+*.sh text eol=lf
