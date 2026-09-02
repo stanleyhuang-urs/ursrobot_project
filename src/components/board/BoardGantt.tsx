@@ -1023,7 +1023,7 @@ function GanttBar({
         onKeyDown={(e) => {
           if (onClick && (e.key === "Enter" || e.key === " ")) onClick();
         }}
-        className="absolute inset-0 flex overflow-hidden rounded"
+        className={`absolute inset-0 flex rounded ${isMilestone ? "overflow-visible" : "overflow-hidden"}`}
         style={{
           cursor: drag?.edge === "move" ? "grabbing" : canMove ? "grab" : onClick ? "pointer" : "not-allowed",
           touchAction: "none",
