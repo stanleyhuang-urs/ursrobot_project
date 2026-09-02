@@ -2,6 +2,7 @@ import type { BoardWithData, ColumnData, ItemData, UserOption } from "@/types/bo
 import { getPersonIds, getStatusOptions, type StatusOption } from "@/types/column";
 import { getItemDateRange, computeDailyLoadByUser } from "@/lib/gantt";
 import { computeItemProgress } from "@/lib/progress";
+import { resolveLockedScheduleFields, type ScheduleLock } from "@/lib/predecessorLink";
 
 export type WorkloadPeriod = "day" | "week" | "month";
 
@@ -326,6 +327,17 @@ export type PersonalItemEntry = {
   fullItem: ItemData;
   columns: ColumnData[];
   progressColumnId: string | null;
+  ganttStartColumnId: string | null;
+  ganttDurationColumnId: string | null;
+  ganttEndColumnId: string | null;
+  predColumnId: string | null;
+  /** Every item in the same group — for the Pred dropdown, same as the
+   *  board table/gantt views. */
+  groupItems: ItemData[];
+  /** Whether this item's Start/Days/Finish are computed (Pred/Link chain,
+   *  a Summary rollup, or the board's manual-schedule mode) and therefore
+   *  not freely editable here — same rule the board table/gantt enforce. */
+  scheduleLock: ScheduleLock | null;
 };
 
 /**
@@ -352,6 +364,24 @@ export function computePersonalItems(
       board.columns.find((c) => c.type === "STATUS");
     const statusOptions = statusColumn ? getStatusOptions(statusColumn.options) : [];
     const groupNameById = new Map(board.groups.map((g) => [g.id, g.name]));
+    const linkColumn = board.columns.find((c) => c.id === board.linkColumnId);
+    const typeColumn = board.columns.find((c) => c.id === board.typeColumnId);
+    const scheduleLocks = resolveLockedScheduleFields(
+      board.items,
+      board.predColumnId,
+      board.linkColumnId,
+      linkColumn?.options,
+      board.typeColumnId,
+      typeColumn?.options,
+      board.manualStartColumnId,
+      board.manualDurationColumnId
+    );
+    const itemsByGroup = new Map<string, ItemData[]>();
+    for (const i of board.items) {
+      const list = itemsByGroup.get(i.groupId) ?? [];
+      list.push(i);
+      itemsByGroup.set(i.groupId, list);
+    }
 
     for (const item of board.items) {
       const personIds = item.cellValues
@@ -403,6 +433,12 @@ export function computePersonalItems(
         fullItem: item,
         columns: board.columns,
         progressColumnId: board.progressColumnId,
+        ganttStartColumnId: board.ganttStartColumnId,
+        ganttDurationColumnId: board.ganttDurationColumnId,
+        ganttEndColumnId: board.ganttEndColumnId,
+        predColumnId: board.predColumnId,
+        groupItems: itemsByGroup.get(item.groupId) ?? [],
+        scheduleLock: scheduleLocks.get(item.id) ?? null,
       });
     }
   }

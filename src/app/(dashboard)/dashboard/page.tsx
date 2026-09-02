@@ -186,7 +186,6 @@ export default async function DashboardPage({
         weeks={weekColumns}
         weeklyLoadByUser={weeklyLoadByUser}
         threshold={workloadThreshold}
-        canManageThreshold={session.role === "ADMIN"}
         canCreateSubtask={canManageStructure(session.role)}
         parentTaskTree={parentTaskTree}
       />

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { getSystemSettings } from "@/lib/actions/systemSettings";
 import { listHolidays } from "@/lib/holidays";
+import { getWorkloadThreshold } from "@/lib/actions/workloadThreshold";
 import { SystemSettingsForm } from "@/components/settings/SystemSettingsForm";
 
 export default async function SettingsPage() {
@@ -11,9 +12,10 @@ export default async function SettingsPage() {
     redirect("/boards");
   }
 
-  const [settings, holidays, boards] = await Promise.all([
+  const [settings, holidays, workloadThreshold, boards] = await Promise.all([
     getSystemSettings(),
     listHolidays(),
+    getWorkloadThreshold(),
     prisma.board.findMany({
       select: {
         id: true,
@@ -47,6 +49,7 @@ export default async function SettingsPage() {
         ganttDurationMode={settings.ganttDurationMode}
         levelColors={settings.levelColors}
         holidays={holidays}
+        workloadThreshold={workloadThreshold}
         ganttMappingBoards={boards}
         reportSettingsBoards={boards}
       />

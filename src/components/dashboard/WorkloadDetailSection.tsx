@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Settings, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import {
   colorForPct,
   weekIndexForDate,
@@ -14,7 +14,6 @@ import { createTeamSubtask } from "@/lib/actions/teamTask";
 import { upsertAssignment } from "@/lib/actions/assignment";
 import { findTreeNode, firstTreeItemId, type ParentTreeNode } from "@/lib/parentTaskTree";
 import { ParentTaskPicker } from "./ParentTaskPicker";
-import { WorkloadThresholdModal } from "./WorkloadThresholdModal";
 
 const LABEL_WIDTH = 140;
 const WEEK_WIDTH = 26;
@@ -38,7 +37,6 @@ export function WorkloadDetailSection({
   weeks,
   weeklyLoadByUser,
   threshold,
-  canManageThreshold,
   canCreateSubtask,
   parentTaskTree,
 }: {
@@ -47,12 +45,10 @@ export function WorkloadDetailSection({
   weeks: WeekColumn[];
   weeklyLoadByUser: Record<string, number[]>;
   threshold: WorkloadThresholdSettings;
-  canManageThreshold: boolean;
   canCreateSubtask: boolean;
   parentTaskTree: ParentTreeNode[];
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [creatingForUserId, setCreatingForUserId] = useState<string | null>(null);
   const [anchorIdx, setAnchorIdx] = useState<number | null>(null);
@@ -230,15 +226,6 @@ export function WorkloadDetailSection({
     <section>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-100">成員工作量明細</h2>
-        {canManageThreshold && (
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2.5 py-1 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-          >
-            <Settings size={13} /> 顏色門檻設定
-          </button>
-        )}
       </div>
 
       {users.length === 0 ? (
@@ -608,12 +595,6 @@ export function WorkloadDetailSection({
           </div>
         </div>
       )}
-
-      <WorkloadThresholdModal
-        threshold={threshold}
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-      />
     </section>
   );
 }

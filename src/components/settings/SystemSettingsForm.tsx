@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CalendarOff } from "lucide-react";
+import { CalendarOff, Settings } from "lucide-react";
 import type { GanttDurationMode, Holiday } from "@prisma/client";
 import {
   setEmailNotificationsEnabled,
@@ -9,6 +9,8 @@ import {
   setLevelColors,
 } from "@/lib/actions/systemSettings";
 import { HolidaySettingsModal } from "@/components/dashboard/HolidaySettingsModal";
+import { WorkloadThresholdModal } from "@/components/dashboard/WorkloadThresholdModal";
+import type { WorkloadThresholdSettings } from "@/lib/workload";
 import { GanttColumnMappingCard, type GanttMappingBoard } from "./GanttColumnMappingCard";
 import { ReportSettingsCard, type ReportSettingsBoardWithName } from "./ReportSettingsCard";
 
@@ -188,11 +190,37 @@ function LevelColorCard({ initial }: { initial: string[] }) {
   );
 }
 
+function WorkloadThresholdCard({ threshold }: { threshold: WorkloadThresholdSettings }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="max-w-xl rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-3">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">工作量顏色門檻</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            套用到儀表板的「成員工作量總覽」與「成員工作量明細」,依負載百分比設定要顯示的顏色門檻。
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2.5 py-1.5 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+        >
+          <Settings size={13} /> 顏色門檻設定
+        </button>
+      </div>
+      <WorkloadThresholdModal threshold={threshold} open={open} onOpenChange={setOpen} />
+    </div>
+  );
+}
+
 export function SystemSettingsForm({
   emailNotificationsEnabled,
   ganttDurationMode,
   levelColors,
   holidays,
+  workloadThreshold,
   ganttMappingBoards,
   reportSettingsBoards,
 }: {
@@ -200,6 +228,7 @@ export function SystemSettingsForm({
   ganttDurationMode: GanttDurationMode;
   levelColors: string[];
   holidays: Holiday[];
+  workloadThreshold: WorkloadThresholdSettings;
   ganttMappingBoards: GanttMappingBoard[];
   reportSettingsBoards: ReportSettingsBoardWithName[];
 }) {
@@ -209,6 +238,7 @@ export function SystemSettingsForm({
       <GanttModeCard initial={ganttDurationMode} />
       <HolidayCard holidays={holidays} />
       <LevelColorCard initial={levelColors} />
+      <WorkloadThresholdCard threshold={workloadThreshold} />
       <GanttColumnMappingCard boards={ganttMappingBoards} />
       <ReportSettingsCard boards={reportSettingsBoards} />
     </div>

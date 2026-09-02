@@ -146,6 +146,14 @@ export function PersonalItemRow({
         columns={item.columns}
         users={users}
         progressColumnId={item.progressColumnId}
+        ganttStartColumnId={item.ganttStartColumnId}
+        ganttDurationColumnId={item.ganttDurationColumnId}
+        ganttEndColumnId={item.ganttEndColumnId}
+        predColumnId={item.predColumnId}
+        groupItems={item.groupItems}
+        lockedScheduleFields={
+          item.scheduleLock ? new Map([[item.itemId, item.scheduleLock]]) : undefined
+        }
         userRole={userRole}
         currentUserId={currentUserId}
         open={detailOpen}
