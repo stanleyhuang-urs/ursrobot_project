@@ -14,6 +14,23 @@ import {
   computeTasksByOwnerBuckets,
 } from "@/lib/boardReport";
 import { pieSlicePath } from "@/lib/pie";
+import { computeWbsCodes } from "@/lib/wbs";
+
+/** WBS code for every item on the board, computed per group (codes are
+ *  group-scoped, same rule as the table's own WBS badges). */
+function computeBoardWbsCodes(items: ItemData[]): Map<string, string> {
+  const itemsByGroup = new Map<string, ItemData[]>();
+  for (const item of items) {
+    const list = itemsByGroup.get(item.groupId) ?? [];
+    list.push(item);
+    itemsByGroup.set(item.groupId, list);
+  }
+  const result = new Map<string, string>();
+  for (const groupItems of itemsByGroup.values()) {
+    for (const [id, code] of computeWbsCodes(groupItems)) result.set(id, code);
+  }
+  return result;
+}
 
 function StatCard({
   label,
@@ -47,11 +64,13 @@ function StatCard({
 function ItemListModal({
   title,
   items,
+  wbsByItemId,
   boardId,
   onClose,
 }: {
   title: string;
   items: ItemData[];
+  wbsByItemId: Map<string, string>;
   boardId: string;
   onClose: () => void;
 }) {
@@ -84,6 +103,11 @@ function ItemListModal({
                   }}
                   className="block truncate px-4 py-2 text-sm text-neutral-700 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-blue-600"
                 >
+                  {wbsByItemId.get(item.id) && (
+                    <span className="mr-1 text-neutral-400 dark:text-neutral-500">
+                      {wbsByItemId.get(item.id)}
+                    </span>
+                  )}
                   {item.name}
                 </Link>
               </li>
@@ -116,6 +140,7 @@ export function BoardReport({
   const [listModal, setListModal] = useState<{ title: string; items: ItemData[] } | null>(null);
 
   const items = filterItemsByTeam(board, effectiveTeamIds);
+  const wbsByItemId = computeBoardWbsCodes(board.items);
   const buckets = computeStatusBuckets(board, items);
   const itemsByBucket = groupItemsByBucket(board, items);
   const statusBreakdown = bucketSlices(buckets, itemsByBucket);
@@ -304,6 +329,7 @@ export function BoardReport({
         <ItemListModal
           title={listModal.title}
           items={listModal.items}
+          wbsByItemId={wbsByItemId}
           boardId={board.id}
           onClose={() => setListModal(null)}
         />
