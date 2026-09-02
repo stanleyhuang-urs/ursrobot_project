@@ -754,6 +754,7 @@ export function BoardGantt({
         predColumnId={predColumnId}
         linkColumnId={linkColumnId}
         lagColumnId={lagColumnId}
+        durationColumnId={board.manualDurationColumnId ?? durationColumnId}
         canEditSchedule={assignmentItem ? canEditItemSchedule(assignmentItem) : false}
         groupItems={assignmentItem ? board.items.filter((i) => i.groupId === assignmentItem.groupId) : undefined}
       />

@@ -24,6 +24,7 @@ export function AssignmentModal({
   predColumnId,
   linkColumnId,
   lagColumnId,
+  durationColumnId,
   canEditSchedule = false,
   groupItems,
 }: {
@@ -34,15 +35,20 @@ export function AssignmentModal({
   userRole: UserRole;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Pred/Link/Lag columns, shown as an extra "時程設定" section when
-   *  provided — used by the Gantt view so clicking a bar can edit these
-   *  alongside people, instead of needing the full item-detail card. Gated
-   *  by canEditSchedule (the same permission that let the modal open at
-   *  all), not a separate per-field check. */
+  /** Pred/Link/Lag/Duration columns, shown as an extra "時程設定" section
+   *  when provided — used by the Gantt view so clicking a bar can edit
+   *  these alongside people, instead of needing the full item-detail card.
+   *  Gated by canEditSchedule (the same permission that let the modal open
+   *  at all), not a separate per-field check. */
   columns?: ColumnData[];
   predColumnId?: string | null;
   linkColumnId?: string | null;
   lagColumnId?: string | null;
+  /** The board's actual manual-duration input — manualDurationColumnId
+   *  when the board has one configured, else the classic ganttDurationColumnId
+   *  ("Days"). Whichever one the item's Start/Finish are actually derived
+   *  from, so setting it here has the same effect as editing it directly. */
+  durationColumnId?: string | null;
   canEditSchedule?: boolean;
   /** Every item in the same group as `item` — used to build the Pred
    *  dropdown (item name -> its WBS code, since that's what's actually
@@ -75,7 +81,7 @@ export function AssignmentModal({
 
   if (!item) return null;
 
-  const scheduleColumns = [predColumnId, linkColumnId, lagColumnId]
+  const scheduleColumns = [predColumnId, linkColumnId, lagColumnId, durationColumnId]
     .map((id) => columns?.find((c) => c.id === id))
     .filter((c): c is ColumnData => !!c);
 
