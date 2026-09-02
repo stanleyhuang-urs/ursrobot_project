@@ -1,12 +1,26 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { requireStructureAccess } from "@/lib/permissions";
 import { requireBoardAccess } from "@/lib/boardAccess";
 import type { ColumnType, StatusColumnOptions } from "@/types/column";
-import { DEFAULT_STATUSES } from "@/types/column";
+import { DEFAULT_STATUSES, getStatusOptions } from "@/types/column";
+
+// The scheduling engine (predecessorLink.ts) only ever recognizes these 4
+// labels as a valid Pred relationship — a Link column whose options were
+// auto-populated from whatever values happened to appear during import can
+// easily be missing one (e.g. a sheet that never used "SF"), silently
+// making that relationship unselectable. Backfilled whenever a column is
+// designated the board's Link column — see setLinkColumn.
+const REQUIRED_LINK_OPTIONS: { label: string; color: string }[] = [
+  { label: "FS", color: "#00c875" },
+  { label: "FF", color: "#e2445c" },
+  { label: "SS", color: "#a25ddc" },
+  { label: "SF", color: "#579bfc" },
+];
 
 export async function createColumn(
   boardId: string,
@@ -172,6 +186,20 @@ export async function setLinkColumn(
     where: { id: boardId },
     data: { linkColumnId: columnId },
   });
+  if (columnId) {
+    const column = await prisma.column.findUnique({ where: { id: columnId }, select: { options: true } });
+    const existing = getStatusOptions(column?.options);
+    const missing = REQUIRED_LINK_OPTIONS.filter(
+      (req) => !existing.some((o) => o.label === req.label)
+    );
+    if (missing.length > 0) {
+      const updated = [...existing, ...missing.map((m) => ({ id: randomUUID().slice(0, 8), ...m }))];
+      await prisma.column.update({
+        where: { id: columnId },
+        data: { options: { statuses: updated } },
+      });
+    }
+  }
   revalidatePath(`/boards/${boardId}`);
   revalidatePath("/settings");
 }
