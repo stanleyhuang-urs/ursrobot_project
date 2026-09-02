@@ -28,6 +28,12 @@ export default async function SettingsPage() {
         typeColumnId: true,
         manualStartColumnId: true,
         manualDurationColumnId: true,
+        reportStatusColumnId: true,
+        reportNotStartedOptionIds: true,
+        reportPlannedOptionIds: true,
+        reportPausedOptionIds: true,
+        reportStuckOptionIds: true,
+        reportDoneOptionIds: true,
       },
       orderBy: { name: "asc" },
     }),
@@ -42,6 +48,7 @@ export default async function SettingsPage() {
         levelColors={settings.levelColors}
         holidays={holidays}
         ganttMappingBoards={boards}
+        reportSettingsBoards={boards}
       />
     </div>
   );

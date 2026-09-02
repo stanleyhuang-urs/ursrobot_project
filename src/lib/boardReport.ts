@@ -1,5 +1,5 @@
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
-import { getPersonIds, getStatusOptions, type StatusOption } from "@/types/column";
+import { getPersonIds } from "@/types/column";
 
 /** Every user id considered "responsible" for an item: PERSON column values plus Gantt Assignments. */
 export function itemOwnerIds(item: ItemData, board: BoardWithData): string[] {
@@ -58,40 +58,65 @@ export function computeStatusBuckets(board: BoardWithData, items: ItemData[]): S
   return { total, notStarted, planned, inProgress, paused, stuck, done };
 }
 
-export type StatusSliceCount = { option: StatusOption; count: number };
+// Same 6 buckets and colors as the stat cards above the charts (BoardReport's
+// StatCard row) — every other status visualization reuses this one mapping
+// so a bucket always means the same label/color everywhere in the report.
+const BUCKET_ORDER = ["notStarted", "planned", "inProgress", "paused", "stuck", "done"] as const;
+type BucketKey = (typeof BUCKET_ORDER)[number];
+const BUCKET_LABELS: Record<BucketKey, string> = {
+  notStarted: "尚未處理",
+  planned: "計畫中",
+  inProgress: "進行中",
+  paused: "暫停",
+  stuck: "卡住",
+  done: "已完成",
+};
+const BUCKET_COLORS: Record<BucketKey, string> = {
+  notStarted: "#c4c4c4",
+  planned: "#579bfc",
+  inProgress: "#fdab3d",
+  paused: "#a25ddc",
+  stuck: "#e2445c",
+  done: "#00c875",
+};
 
-/** Per-option counts for the board's designated report status column. */
-export function computeStatusBreakdown(board: BoardWithData, items: ItemData[]): StatusSliceCount[] {
-  if (!board.reportStatusColumnId) return [];
-  const column = board.columns.find((c) => c.id === board.reportStatusColumnId);
-  if (!column) return [];
-  const options = getStatusOptions(column.options);
-  return options
-    .map((option) => ({
-      option,
-      count: items.filter((item) =>
-        item.cellValues.some((cv) => cv.columnId === board.reportStatusColumnId && cv.value === option.id)
-      ).length,
-    }))
-    .filter((s) => s.count > 0);
+export type BucketSlice = { key: BucketKey; label: string; color: string; count: number };
+
+/** Turns a bucket-counts object into the non-empty slices to plot, in a
+ *  fixed order, so callers never have to know the bucket keys/colors. */
+export function bucketSlices(buckets: StatusBucketCounts): BucketSlice[] {
+  return BUCKET_ORDER.map((key) => ({
+    key,
+    label: BUCKET_LABELS[key],
+    color: BUCKET_COLORS[key],
+    count: buckets[key],
+  })).filter((s) => s.count > 0);
 }
 
-export type OwnerCount = { userId: string; userName: string; count: number };
+export type OwnerBucketBreakdown = { userId: string; userName: string; total: number; slices: BucketSlice[] };
 
-/** Per-user item counts (PERSON column + Gantt Assignment, deduped per item). */
-export function computeTasksByOwner(
+/** Per-user status-bucket breakdown (PERSON column + Gantt Assignment,
+ *  deduped per item) — same bucket classification as computeStatusBuckets,
+ *  just scoped to each owner's own items instead of the whole board. */
+export function computeTasksByOwnerBuckets(
   board: BoardWithData,
   items: ItemData[],
   users: UserOption[]
-): OwnerCount[] {
-  const counts = new Map<string, number>();
+): OwnerBucketBreakdown[] {
+  const itemsByOwner = new Map<string, ItemData[]>();
   for (const item of items) {
     for (const id of itemOwnerIds(item, board)) {
-      counts.set(id, (counts.get(id) ?? 0) + 1);
+      const list = itemsByOwner.get(id) ?? [];
+      list.push(item);
+      itemsByOwner.set(id, list);
     }
   }
   return users
-    .map((u) => ({ userId: u.id, userName: u.name, count: counts.get(u.id) ?? 0 }))
-    .filter((o) => o.count > 0)
-    .sort((a, b) => b.count - a.count);
+    .map((u) => {
+      const ownerItems = itemsByOwner.get(u.id) ?? [];
+      const buckets = computeStatusBuckets(board, ownerItems);
+      return { userId: u.id, userName: u.name, total: buckets.total, slices: bucketSlices(buckets) };
+    })
+    .filter((o) => o.total > 0)
+    .sort((a, b) => b.total - a.total);
 }

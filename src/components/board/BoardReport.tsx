@@ -2,21 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Settings } from "lucide-react";
 import type { BoardWithData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
-import { canManageStructure } from "@/lib/permissions";
 import { computeOverdueUpcoming } from "@/lib/dashboard";
 import {
   filterItemsByTeam,
   computeStatusBuckets,
-  computeStatusBreakdown,
-  computeTasksByOwner,
+  bucketSlices,
+  computeTasksByOwnerBuckets,
 } from "@/lib/boardReport";
 import { pieSlicePath } from "@/lib/pie";
-import { ReportSettingsModal } from "./ReportSettingsModal";
-
-const PIE_COLORS = ["#00c875", "#579bfc", "#fdab3d", "#e2445c", "#a25ddc", "#037f4c", "#ff642e", "#66ccff"];
 
 function StatCard({ label, value, color }: { label: string; value: number; color?: string }) {
   return (
@@ -45,17 +40,15 @@ export function BoardReport({
     ? [currentUserId, ...users.filter((u) => u.supervisorId === currentUserId).map((u) => u.id)]
     : null;
   const [scope, setScope] = useState<"team" | "all">(isSupervisor ? "team" : "all");
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const effectiveTeamIds = scope === "team" ? teamIds : null;
 
   const items = filterItemsByTeam(board, effectiveTeamIds);
   const buckets = computeStatusBuckets(board, items);
-  const statusBreakdown = computeStatusBreakdown(board, items);
-  const owners = computeTasksByOwner(board, items, users);
+  const statusBreakdown = bucketSlices(buckets);
+  const owners = computeTasksByOwnerBuckets(board, items, users);
   const { overdue } = computeOverdueUpcoming([board], effectiveTeamIds ?? undefined);
 
-  const statusTotal = statusBreakdown.reduce((sum, s) => sum + s.count, 0);
-  const ownerTotal = owners.reduce((sum, o) => sum + o.count, 0);
+  const statusTotal = buckets.total;
 
   return (
     <div className="space-y-6">
@@ -80,20 +73,11 @@ export function BoardReport({
         ) : (
           <div />
         )}
-        {canManageStructure(userRole) && (
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50"
-          >
-            <Settings size={13} /> 報表設定
-          </button>
-        )}
       </div>
 
       {!board.reportStatusColumnId && (
         <p className="text-sm text-neutral-400">
-          尚未設定要統計的狀態欄位,請點右上角「報表設定」選擇。
+          尚未設定要統計的狀態欄位,請至「系統設定」的報表設定選擇。
         </p>
       )}
 
@@ -123,19 +107,17 @@ export function BoardReport({
                     cumulative += fraction;
                     const endAngle = cumulative * 2 * Math.PI;
                     if (fraction >= 0.999) {
-                      return <circle key={s.option.id} cx={60} cy={60} r={55} fill={s.option.color} />;
+                      return <circle key={s.key} cx={60} cy={60} r={55} fill={s.color} />;
                     }
-                    return (
-                      <path key={s.option.id} d={pieSlicePath(60, 60, 55, startAngle, endAngle)} fill={s.option.color} />
-                    );
+                    return <path key={s.key} d={pieSlicePath(60, 60, 55, startAngle, endAngle)} fill={s.color} />;
                   });
                 })()}
               </svg>
               <div className="min-w-[140px] flex-1 space-y-1">
                 {statusBreakdown.map((s) => (
-                  <div key={s.option.id} className="flex items-center gap-2 text-sm">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.option.color }} />
-                    <span className="min-w-0 flex-1 truncate text-neutral-700">{s.option.label}</span>
+                  <div key={s.key} className="flex items-center gap-2 text-sm">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+                    <span className="min-w-0 flex-1 truncate text-neutral-700">{s.label}</span>
                     <span className="shrink-0 text-neutral-500">{s.count}</span>
                   </div>
                 ))}
@@ -150,19 +132,19 @@ export function BoardReport({
             <p className="text-sm text-neutral-400">尚無資料</p>
           ) : (
             <div className="space-y-2">
-              {owners.map((o, i) => (
+              {owners.map((o) => (
                 <div key={o.userId} className="flex items-center gap-3">
                   <span className="w-16 shrink-0 truncate text-sm text-neutral-700">{o.userName}</span>
-                  <div className="h-3 flex-1 overflow-hidden rounded-full bg-neutral-100">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${ownerTotal > 0 ? (o.count / ownerTotal) * 100 : 0}%`,
-                        backgroundColor: PIE_COLORS[i % PIE_COLORS.length],
-                      }}
-                    />
+                  <div className="flex h-3 flex-1 overflow-hidden rounded-full bg-neutral-100">
+                    {o.slices.map((s) => (
+                      <div
+                        key={s.key}
+                        title={`${s.label} ${s.count}`}
+                        style={{ width: `${(s.count / o.total) * 100}%`, backgroundColor: s.color }}
+                      />
+                    ))}
                   </div>
-                  <span className="w-6 shrink-0 text-right text-sm text-neutral-500">{o.count}</span>
+                  <span className="w-6 shrink-0 text-right text-sm text-neutral-500">{o.total}</span>
                 </div>
               ))}
             </div>
@@ -189,8 +171,6 @@ export function BoardReport({
           </ul>
         )}
       </section>
-
-      <ReportSettingsModal board={board} open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }

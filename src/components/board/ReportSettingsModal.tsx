@@ -4,9 +4,23 @@ import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { getStatusOptions } from "@/types/column";
 import { setReportStatusColumn, setReportStatusBuckets } from "@/lib/actions/column";
-import type { BoardWithData } from "@/types/board";
+import type { ColumnData } from "@/types/board";
 
 type Bucket = "not_started" | "planned" | "in_progress" | "paused" | "stuck" | "done";
+
+/** Only what this modal actually reads off a board — lets callers (e.g. the
+ *  system settings page, listing every board at once) pass a narrow query
+ *  result instead of a full BoardWithData. */
+export type ReportSettingsBoard = {
+  id: string;
+  columns: ColumnData[];
+  reportStatusColumnId: string | null;
+  reportNotStartedOptionIds: string[];
+  reportPlannedOptionIds: string[];
+  reportPausedOptionIds: string[];
+  reportStuckOptionIds: string[];
+  reportDoneOptionIds: string[];
+};
 
 const BUCKET_LABELS: Record<Bucket, string> = {
   not_started: "尚未處理",
@@ -22,7 +36,7 @@ export function ReportSettingsModal({
   open,
   onOpenChange,
 }: {
-  board: BoardWithData;
+  board: ReportSettingsBoard;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
