@@ -58,6 +58,11 @@ export function NotificationBell() {
     }
     setOpen(false);
     router.push(`/boards/${n.item.boardId}?highlight=${n.item.id}`);
+    // A search-param-only navigation to a route you're already on can be
+    // served from the client Router Cache without re-running the page's
+    // searchParams-dependent data fetch — force it, or clicking a second
+    // notification while already on the target board silently does nothing.
+    router.refresh();
   }
 
   return (
@@ -114,7 +119,10 @@ export function NotificationBell() {
                   {NOTIFICATION_TYPE_LABEL[n.type] ?? n.type}
                 </span>
               </span>
-              <span className="truncate">{n.message}</span>
+              <span className="truncate">
+                {n.wbsCode && <span className="mr-1 text-neutral-400">{n.wbsCode}</span>}
+                {n.message}
+              </span>
             </DropdownMenu.Item>
           ))}
         </DropdownMenu.Content>

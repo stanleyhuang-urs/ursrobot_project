@@ -18,7 +18,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, Target, Trash2 } from "lucide-react";
+import { GripVertical, Plus, Search, Target, Trash2 } from "lucide-react";
 import type { BoardWithData, ColumnData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageStructure } from "@/lib/permissions";
@@ -27,6 +27,7 @@ import { computeAncestorIds } from "@/lib/wbs";
 import { resolveLockedScheduleFields } from "@/lib/predecessorLink";
 import { GroupSection } from "./GroupSection";
 import { FilterBar } from "./FilterBar";
+import { ItemDetailModal } from "./ItemDetailModal";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import {
   gridTemplate,
@@ -135,6 +136,7 @@ export function BoardTable({
   }
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
   const [groupFilterId, setGroupFilterId] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [nameWidth, setNameWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const hasAutoSizedRef = useRef(false);
@@ -170,13 +172,26 @@ export function BoardTable({
     }
   }
   const visibleIds = useMemo(
-    () => computeVisibleItemIds(board.items, filters),
-    [board.items, filters]
+    () => computeVisibleItemIds(board.items, filters, searchQuery),
+    [board.items, filters, searchQuery]
   );
   const expandIds = useMemo(
     () => computeAncestorIds(board.items, highlightItemId),
     [board.items, highlightItemId]
   );
+  // Clicking a notification (or any other ?highlight= link) should open that
+  // item's card directly, not just scroll the row into view — re-arms on
+  // every new highlightItemId so a second, different notification click
+  // reopens it even if the user already closed the modal from the first one.
+  // "Adjust state during render" (not an effect) so it fires exactly once
+  // per prop change, same pattern as ItemDetailModal's own tab reset.
+  const [autoOpenItemId, setAutoOpenItemId] = useState<string | null>(highlightItemId ?? null);
+  const [prevHighlightItemId, setPrevHighlightItemId] = useState(highlightItemId);
+  if (highlightItemId !== prevHighlightItemId) {
+    setPrevHighlightItemId(highlightItemId);
+    if (highlightItemId) setAutoOpenItemId(highlightItemId);
+  }
+  const autoOpenItem = autoOpenItemId ? (board.items.find((i) => i.id === autoOpenItemId) ?? null) : null;
   const lockedScheduleFields = useMemo(() => {
     const linkColumn = board.columns.find((c) => c.id === board.linkColumnId);
     const typeColumn = board.columns.find((c) => c.id === board.typeColumnId);
@@ -335,6 +350,15 @@ export function BoardTable({
             清除
           </button>
         )}
+        <div className="relative ml-2">
+          <Search size={13} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="搜尋項目名稱..."
+            className="w-48 rounded-md border border-neutral-300 py-1 pl-7 pr-2 text-xs outline-none focus:border-blue-500"
+          />
+        </div>
       </div>
       <FilterBar columns={orderedColumns} users={users} filters={filters} onChange={setFilters} />
 
@@ -449,6 +473,23 @@ export function BoardTable({
       )}
       </div>
       </div>
+
+      <ItemDetailModal
+        boardId={board.id}
+        item={autoOpenItem}
+        columns={orderedColumns}
+        users={users}
+        progressColumnId={board.progressColumnId}
+        ganttStartColumnId={board.ganttStartColumnId}
+        ganttDurationColumnId={board.ganttDurationColumnId}
+        ganttEndColumnId={board.ganttEndColumnId}
+        lockedScheduleFields={lockedScheduleFields}
+        userRole={userRole}
+        currentUserId={currentUserId}
+        open={autoOpenItem !== null}
+        onOpenChange={(open) => !open && setAutoOpenItemId(null)}
+        initialTab="updates"
+      />
     </div>
   );
 }

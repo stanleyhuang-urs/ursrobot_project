@@ -55,20 +55,24 @@ function itemMatchesFilter(item: ItemData, columnId: string, value: FilterValue)
 
 /**
  * Returns the set of item ids that should stay visible under the active
- * filters, including ancestors of any matching item so the hierarchy stays
- * intact. Returns null when there are no active filters (show everything).
+ * filters and/or a name search, including ancestors of any matching item so
+ * the hierarchy stays intact. Returns null when there's nothing active (show
+ * everything).
  */
 export function computeVisibleItemIds(
   items: ItemData[],
-  filters: ActiveFilter[]
+  filters: ActiveFilter[],
+  searchQuery?: string
 ): Set<string> | null {
-  if (filters.length === 0) return null;
+  const query = searchQuery?.trim().toLowerCase();
+  if (filters.length === 0 && !query) return null;
 
   const itemById = new Map(items.map((i) => [i.id, i]));
   const visible = new Set<string>();
 
   for (const item of items) {
-    if (filters.every((f) => itemMatchesFilter(item, f.columnId, f.value))) {
+    const matchesSearch = !query || item.name.toLowerCase().includes(query);
+    if (matchesSearch && filters.every((f) => itemMatchesFilter(item, f.columnId, f.value))) {
       visible.add(item.id);
       let cur = item;
       while (cur.parentId) {
