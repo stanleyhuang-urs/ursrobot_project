@@ -5,8 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import type { SessionPayload } from "@/lib/jwt";
 import { requireBoardAccess } from "@/lib/boardAccess";
-import { canEditGanttItem } from "@/lib/permissions";
-import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
+import { canModifyItemSchedule } from "@/lib/permissions";
 import { loadGroupRoleContext } from "@/lib/groupRoleContext";
 import { getItemDateRange } from "@/lib/gantt";
 import { countDaysInRange } from "@/lib/workday";
@@ -17,13 +16,16 @@ import { notifyItemAssignees } from "@/lib/notify";
 
 /**
  * Shared setup for both drag interactions: loads the board's Gantt column
- * config and the item, checks that the current user is either a manager or
- * the item's own assignee (see canEditGanttItem), and resolves the item's
- * Pred/Link/rollup/Milestone lock state so callers can refuse to touch a
- * computed end.
+ * config and the item, checks that the current user may modify this item's
+ * schedule (see canModifyItemSchedule — the item's own creator, an ADMIN, or
+ * the group's TEAM_LEADER/PMD; being merely assigned to the item, or being
+ * its assignee's SUPERVISOR, is deliberately NOT enough to drag/resize its
+ * bar, matching the stricter rule cell.ts already applies to typing a new
+ * Start/Days/Finish directly), and resolves the item's Pred/Link/rollup/
+ * Milestone lock state so callers can refuse to touch a computed end.
  */
 async function loadGanttEditContext(boardId: string, itemId: string, session: SessionPayload) {
-  const [board, item, personColumns] = await Promise.all([
+  const [board, item] = await Promise.all([
     prisma.board.findUnique({
       where: { id: boardId },
       select: {
@@ -39,36 +41,13 @@ async function loadGanttEditContext(boardId: string, itemId: string, session: Se
       },
     }),
     prisma.item.findUnique({ where: { id: itemId }, include: { cellValues: true, assignments: true } }),
-    prisma.column.findMany({ where: { boardId, type: "PERSON" }, select: { id: true } }),
   ]);
   if (!board?.ganttStartColumnId || !board.ganttDurationColumnId || !item) {
     throw new Error("此看板尚未設定甘特圖「開始日期」與「天數」欄位");
   }
-  const personColumnIds = personColumns.map((c) => c.id);
-  const isAssigned = isItemAssignedToUser(item, personColumnIds, session.userId);
-  const isTeamAssigned =
-    session.role === "SUPERVISOR"
-      ? isItemAssignedToTeam(
-          item,
-          personColumnIds,
-          new Set(
-            (await prisma.user.findMany({ where: { supervisorId: session.userId }, select: { id: true } })).map(
-              (u) => u.id
-            )
-          )
-        )
-      : false;
   const groupRole = await loadGroupRoleContext(item.groupId, session.userId);
-  const isGroupTeamAssigned = isItemAssignedToTeam(item, personColumnIds, groupRole.teamUserIds);
-  if (
-    !canEditGanttItem(
-      session.role,
-      isAssigned,
-      isTeamAssigned || isGroupTeamAssigned,
-      groupRole.access.hasScheduleRole
-    )
-  ) {
-    throw new Error("權限不足:僅該項目的負責人或管理者可以調整人員分配與時程");
+  if (!canModifyItemSchedule(session.role, item.createdById, session.userId, groupRole.access.hasScheduleRole)) {
+    throw new Error("權限不足:僅建立者、分組的Team Leader/PMD或管理者可以調整此項目的時程");
   }
 
   const [linkColumn, typeColumn, boardItems] = await Promise.all([

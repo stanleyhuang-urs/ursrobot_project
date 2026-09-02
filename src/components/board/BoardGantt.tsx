@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Star, MessageSquare, UserPlus, Plus } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { GanttDurationMode, Holiday, UserRole } from "@prisma/client";
-import { canManageGroupStructure, canEditGanttItem } from "@/lib/permissions";
+import { canManageGroupStructure, canEditGanttItem, canModifyItemSchedule } from "@/lib/permissions";
 import { resolveGroupRoleAccess, groupDisciplineTeamUserIds, type GroupRoleAccess } from "@/lib/groupRoles";
 import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
 import { computeRolledUpDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
@@ -372,6 +372,16 @@ export function BoardGantt({
     );
   }
 
+  // Deliberately stricter than canEditItem (which also allows the item's own
+  // assignee, or a supervisor over that assignee, to open the assignment
+  // modal): dragging/resizing the bar — and the Pred/Link/Lag fields inside
+  // that modal — is schedule editing, so it follows the same rule cell.ts
+  // already applies to typing a new Start/Days/Finish directly.
+  function canEditItemSchedule(item: ItemData): boolean {
+    const access = myGroupAccessByGroupId.get(item.groupId);
+    return canModifyItemSchedule(userRole, item.createdById, currentUserId, access?.hasScheduleRole ?? false);
+  }
+
   function canEditItemStructure(item: ItemData): boolean {
     const access = myGroupAccessByGroupId.get(item.groupId);
     return canManageGroupStructure(userRole, (access?.disciplines.size ?? 0) > 0);
@@ -532,7 +542,7 @@ export function BoardGantt({
                 startLocked={lockedScheduleFields.get(item.id)?.startLocked ?? false}
                 endLocked={lockedScheduleFields.get(item.id)?.endLocked ?? false}
                 daysLocked={lockedScheduleFields.get(item.id)?.daysLocked ?? false}
-                canEdit={canEditItem(item)}
+                canEdit={canEditItemSchedule(item)}
                 onClick={canEditItem(item) ? () => setAssignmentItem(item) : undefined}
               />
             )}
@@ -744,7 +754,7 @@ export function BoardGantt({
         predColumnId={predColumnId}
         linkColumnId={linkColumnId}
         lagColumnId={lagColumnId}
-        canEditSchedule={assignmentItem ? canEditItem(assignmentItem) : false}
+        canEditSchedule={assignmentItem ? canEditItemSchedule(assignmentItem) : false}
         groupItems={assignmentItem ? board.items.filter((i) => i.groupId === assignmentItem.groupId) : undefined}
       />
 
@@ -859,7 +869,7 @@ function GanttBar({
   // as the handle's hover title. Permission is checked first since it's the
   // more fundamental reason when both apply.
   function blockedReason(field: "start" | "end" | "move"): string | null {
-    if (!canEdit) return "權限不足:僅該項目的負責人或其主管可以調整此項目的人員與時程";
+    if (!canEdit) return "權限不足:僅建立者、分組的Team Leader/PMD或管理者可以調整此項目的時程";
     const locked = field === "start" ? startLocked || daysLocked : field === "end" ? endLocked || daysLocked : startLocked || endLocked;
     if (!locked) return null;
     return field === "move"
