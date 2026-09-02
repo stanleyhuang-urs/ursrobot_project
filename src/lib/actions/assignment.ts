@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { canEditGanttItem } from "@/lib/permissions";
-import { requireBoardAccess } from "@/lib/boardAccess";
+import { requireBoardAccess, requireItemBoardAccess } from "@/lib/boardAccess";
 import { notifyEmailIfNeeded } from "@/lib/notify";
 import { logActivity } from "@/lib/activityLog";
 import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
@@ -62,13 +62,14 @@ export async function listAssignments(itemId: string) {
 }
 
 export async function upsertAssignment(
-  boardId: string,
+  /** Not trusted for authorization — see requireItemBoardAccess below. */
+  _boardId: string,
   itemId: string,
   userId: string,
   allocationPct: number
 ) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
+  const boardId = await requireItemBoardAccess(itemId, session);
   await assertCanEditAssignment(boardId, itemId, session);
   const pct = Math.max(5, Math.min(100, Math.round(allocationPct / 5) * 5));
 
@@ -118,9 +119,14 @@ export async function upsertAssignment(
   revalidatePath(`/boards/${boardId}`);
 }
 
-export async function removeAssignment(boardId: string, itemId: string, userId: string) {
+export async function removeAssignment(
+  /** Not trusted for authorization — see requireItemBoardAccess below. */
+  _boardId: string,
+  itemId: string,
+  userId: string
+) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
+  const boardId = await requireItemBoardAccess(itemId, session);
   await assertCanEditAssignment(boardId, itemId, session);
   const assignee = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
   await prisma.assignment.delete({

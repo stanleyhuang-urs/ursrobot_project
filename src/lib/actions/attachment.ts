@@ -5,7 +5,7 @@ import path from "path";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { requireBoardAccess } from "@/lib/boardAccess";
+import { requireBoardAccess, requireItemBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -21,9 +21,14 @@ export async function listAttachments(itemId: string) {
   });
 }
 
-export async function uploadAttachment(boardId: string, itemId: string, formData: FormData) {
+export async function uploadAttachment(
+  /** Not trusted for authorization — see requireItemBoardAccess below. */
+  _boardId: string,
+  itemId: string,
+  formData: FormData
+) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
+  const boardId = await requireItemBoardAccess(itemId, session);
 
   const file = formData.get("file");
   if (!(file instanceof File) || !file.name) {
@@ -55,9 +60,14 @@ export async function uploadAttachment(boardId: string, itemId: string, formData
   return attachment;
 }
 
-export async function deleteAttachment(boardId: string, itemId: string, attachmentId: string) {
+export async function deleteAttachment(
+  /** Not trusted for authorization — see requireItemBoardAccess below. */
+  _boardId: string,
+  itemId: string,
+  attachmentId: string
+) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
+  const boardId = await requireItemBoardAccess(itemId, session);
 
   const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
   if (!attachment || attachment.itemId !== itemId) return;

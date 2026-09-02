@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { requireBoardAccess } from "@/lib/boardAccess";
+import { requireBoardAccess, requireItemBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
 
 export async function listTodoItems(itemId: string) {
@@ -13,9 +13,14 @@ export async function listTodoItems(itemId: string) {
   return prisma.todoItem.findMany({ where: { itemId }, orderBy: { order: "asc" } });
 }
 
-export async function addTodoItem(boardId: string, itemId: string, text: string) {
+export async function addTodoItem(
+  /** Not trusted for authorization — see requireItemBoardAccess below. */
+  _boardId: string,
+  itemId: string,
+  text: string
+) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
+  const boardId = await requireItemBoardAccess(itemId, session);
   const trimmed = text.trim();
   if (!trimmed) return;
 
@@ -25,9 +30,19 @@ export async function addTodoItem(boardId: string, itemId: string, text: string)
   revalidatePath(`/boards/${boardId}`);
 }
 
-export async function toggleTodoItem(boardId: string, itemId: string, todoId: string, done: boolean) {
+export async function toggleTodoItem(
+  /** Not trusted for authorization — see requireItemBoardAccess below. */
+  _boardId: string,
+  itemId: string,
+  todoId: string,
+  done: boolean
+) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
+  const boardId = await requireItemBoardAccess(itemId, session);
+  const existingTodo = await prisma.todoItem.findUnique({ where: { id: todoId } });
+  if (!existingTodo || existingTodo.itemId !== itemId) {
+    throw new Error("待辦事項不存在");
+  }
   const todo = await prisma.todoItem.update({ where: { id: todoId }, data: { done } });
   await logActivity(
     itemId,
@@ -37,9 +52,18 @@ export async function toggleTodoItem(boardId: string, itemId: string, todoId: st
   revalidatePath(`/boards/${boardId}`);
 }
 
-export async function deleteTodoItem(boardId: string, itemId: string, todoId: string) {
+export async function deleteTodoItem(
+  /** Not trusted for authorization — see requireItemBoardAccess below. */
+  _boardId: string,
+  itemId: string,
+  todoId: string
+) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
+  const boardId = await requireItemBoardAccess(itemId, session);
+  const existingTodo = await prisma.todoItem.findUnique({ where: { id: todoId } });
+  if (!existingTodo || existingTodo.itemId !== itemId) {
+    throw new Error("待辦事項不存在");
+  }
   await prisma.todoItem.delete({ where: { id: todoId } });
   revalidatePath(`/boards/${boardId}`);
 }

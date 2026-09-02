@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { canManageGroupStructure, canModifyItemSchedule, requireStructureAccess } from "@/lib/permissions";
-import { requireBoardAccess } from "@/lib/boardAccess";
+import { requireBoardAccess, requireGroupBoardAccess, requireItemBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
 import { getStatusOptions } from "@/types/column";
 import { loadGroupRoleContext } from "@/lib/groupRoleContext";
@@ -14,12 +14,20 @@ import type { SessionPayload } from "@/lib/jwt";
 
 /** Item creation/structure edits are normally ADMIN/SUPERVISOR-only, but a
  *  group's TEAM_LEADER/SW_DM/HW_DM/ME_DM/QA also gets structure rights
- *  scoped to that one group — see canManageGroupStructure. */
-async function requireGroupStructureAccess(session: SessionPayload, groupId: string) {
+ *  scoped to that one group — see canManageGroupStructure. Also verifies the
+ *  caller actually has board-level access to this group's own board — an
+ *  ADMIN/SUPERVISOR role alone isn't a blanket bypass of RESTRICTED board
+ *  visibility (only ADMIN and PUBLIC/owned/member boards are, per
+ *  canAccessBoard), so this can't be satisfied by naming an unrelated group
+ *  on a board the caller happens to have access to. Returns the group's
+ *  real boardId. */
+async function requireGroupStructureAccess(session: SessionPayload, groupId: string): Promise<string> {
+  const boardId = await requireGroupBoardAccess(groupId, session);
   const { access } = await loadGroupRoleContext(groupId, session.userId);
   if (!canManageGroupStructure(session.role, access.disciplines.size > 0)) {
     throw new Error("權限不足:僅管理者、主管或此分組的負責角色可以執行此操作");
   }
+  return boardId;
 }
 
 /**
@@ -142,14 +150,21 @@ async function buildNewItemCellValues(
 }
 
 export async function createItem(
-  boardId: string,
+  /** Not trusted — see requireGroupStructureAccess below, which derives the
+   *  group's real board instead of taking the caller's word for it. */
+  _boardId: string,
   groupId: string,
   name: string,
   parentId?: string
 ) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
-  await requireGroupStructureAccess(session, groupId);
+  const boardId = await requireGroupStructureAccess(session, groupId);
+  if (parentId) {
+    const parent = await prisma.item.findUnique({ where: { id: parentId }, select: { groupId: true } });
+    if (!parent || parent.groupId !== groupId) {
+      throw new Error("父項目不屬於此分組");
+    }
+  }
   const trimmed = name.trim() || "未命名項目";
 
   const [count, { typeColumnId, summaryOptionId, alwaysComputedTrigger, cellValues }] = await Promise.all([
@@ -189,21 +204,22 @@ export async function createItem(
 }
 
 export async function insertItem(
-  boardId: string,
+  /** Not trusted — see requireGroupStructureAccess below, which derives the
+   *  group's real board instead of taking the caller's word for it. */
+  _boardId: string,
   groupId: string,
   parentId: string | null,
   referenceItemId: string,
   position: "before" | "after"
 ) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
-  await requireGroupStructureAccess(session, groupId);
+  const boardId = await requireGroupStructureAccess(session, groupId);
 
   const [reference, board] = await Promise.all([
     prisma.item.findUnique({ where: { id: referenceItemId } }),
     prisma.board.findUnique({ where: { id: boardId }, select: { typeColumnId: true } }),
   ]);
-  if (!reference) throw new Error("找不到參考項目");
+  if (!reference || reference.groupId !== groupId) throw new Error("找不到參考項目");
   const typeIds = await loadTypeOptionIds(board?.typeColumnId ?? null);
 
   const targetOrder = position === "before" ? reference.order : reference.order + 1;
@@ -232,47 +248,59 @@ export async function insertItem(
 }
 
 export async function renameItem(
-  boardId: string,
+  /** Not trusted — see requireGroupStructureAccess below, which derives the
+   *  item's real board instead of taking the caller's word for it. */
+  _boardId: string,
   itemId: string,
   name: string
 ) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
   const trimmed = name.trim() || "未命名項目";
 
   const existing = await prisma.item.findUnique({ where: { id: itemId }, select: { name: true, groupId: true } });
-  if (existing) await requireGroupStructureAccess(session, existing.groupId);
+  if (!existing) throw new Error("找不到項目");
+  const boardId = await requireGroupStructureAccess(session, existing.groupId);
   await prisma.item.update({ where: { id: itemId }, data: { name: trimmed } });
-  if (existing && existing.name !== trimmed) {
+  if (existing.name !== trimmed) {
     await logActivity(itemId, session.userId, `項目名稱從「${existing.name}」改為「${trimmed}」`);
   }
   revalidatePath(`/boards/${boardId}`);
 }
 
-export async function deleteItem(boardId: string, itemId: string) {
+export async function deleteItem(
+  /** Not trusted — see requireItemBoardAccess below. */
+  _boardId: string,
+  itemId: string
+) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
-  requireStructureAccess(session.role);
-
-  const item = await prisma.item.findUnique({ where: { id: itemId }, select: { createdById: true } });
+  const item = await prisma.item.findUnique({ where: { id: itemId }, select: { boardId: true, createdById: true } });
   if (!item) throw new Error("找不到項目");
+  await requireBoardAccess(item.boardId, session);
+  requireStructureAccess(session.role);
   if (!canModifyItemSchedule(session.role, item.createdById, session.userId)) {
     throw new Error("權限不足:僅建立者或管理者可以刪除此項目");
   }
 
   await prisma.item.delete({ where: { id: itemId } });
-  revalidatePath(`/boards/${boardId}`);
+  revalidatePath(`/boards/${item.boardId}`);
   revalidatePath("/dashboard");
 }
 
 export async function moveItemToGroup(
-  boardId: string,
+  /** Not trusted — see requireItemBoardAccess below. */
+  _boardId: string,
   itemId: string,
   groupId: string
 ) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
+  const boardId = await requireItemBoardAccess(itemId, session);
   requireStructureAccess(session.role);
+
+  const targetGroup = await prisma.group.findUnique({ where: { id: groupId }, select: { boardId: true } });
+  if (!targetGroup || targetGroup.boardId !== boardId) {
+    throw new Error("目標分組不屬於此項目所在的看板");
+  }
+
   const count = await prisma.item.count({ where: { groupId } });
   await prisma.item.update({
     where: { id: itemId },
@@ -288,6 +316,22 @@ export async function reorderItems(
   const session = await requireSession();
   await requireBoardAccess(boardId, session);
   requireStructureAccess(session.role);
+
+  const itemIds = items.map((i) => i.id);
+  const groupIds = [...new Set(items.map((i) => i.groupId))];
+  const [existingItems, existingGroups] = await Promise.all([
+    prisma.item.findMany({ where: { id: { in: itemIds } }, select: { id: true, boardId: true } }),
+    prisma.group.findMany({ where: { id: { in: groupIds } }, select: { id: true, boardId: true } }),
+  ]);
+  const allOnThisBoard =
+    existingItems.length === itemIds.length &&
+    existingItems.every((i) => i.boardId === boardId) &&
+    existingGroups.length === groupIds.length &&
+    existingGroups.every((g) => g.boardId === boardId);
+  if (!allOnThisBoard) {
+    throw new Error("項目或分組不屬於此看板");
+  }
+
   await prisma.$transaction(
     items.map((item) =>
       prisma.item.update({

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import type { SessionPayload } from "@/lib/jwt";
-import { requireBoardAccess } from "@/lib/boardAccess";
+import { requireItemBoardAccess } from "@/lib/boardAccess";
 import { canModifyItemSchedule } from "@/lib/permissions";
 import { loadGroupRoleContext } from "@/lib/groupRoleContext";
 import { getItemDateRange } from "@/lib/gantt";
@@ -24,7 +24,8 @@ import { notifyItemAssignees } from "@/lib/notify";
  * Start/Days/Finish directly), and resolves the item's Pred/Link/rollup/
  * Milestone lock state so callers can refuse to touch a computed end.
  */
-async function loadGanttEditContext(boardId: string, itemId: string, session: SessionPayload) {
+async function loadGanttEditContext(itemId: string, session: SessionPayload) {
+  const boardId = await requireItemBoardAccess(itemId, session);
   const [board, item] = await Promise.all([
     prisma.board.findUnique({
       where: { id: boardId },
@@ -74,7 +75,7 @@ async function loadGanttEditContext(boardId: string, itemId: string, session: Se
   ).get(itemId);
 
   const holidays = toHolidaySet(await listHolidays());
-  return { board, item, lock, holidays };
+  return { boardId, board, item, lock, holidays };
 }
 
 /**
@@ -85,15 +86,15 @@ async function loadGanttEditContext(boardId: string, itemId: string, session: Se
  * fixed Days (see resolveLockedScheduleFields).
  */
 export async function resizeItemBar(
-  boardId: string,
+  /** Not trusted for authorization — see loadGanttEditContext, which derives
+   *  the item's real board instead of taking the caller's word for it. */
+  _boardId: string,
   itemId: string,
   edge: "start" | "end",
   newDateIso: string
 ) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
-
-  const { board, item, lock, holidays } = await loadGanttEditContext(boardId, itemId, session);
+  const { boardId, board, item, lock, holidays } = await loadGanttEditContext(itemId, session);
   const isLocked = lock?.daysLocked || (edge === "start" ? lock?.startLocked : lock?.endLocked);
   if (isLocked) {
     throw new Error("此日期由前置依賴、子項目統計或里程碑規則自動計算,請改天數、前置依賴或子項目設定");
@@ -166,11 +167,15 @@ export async function resizeItemBar(
  * Milestone's fixed Days is untouched by a pure move, so that lock alone
  * doesn't block it.
  */
-export async function moveItemBar(boardId: string, itemId: string, newStartIso: string) {
+export async function moveItemBar(
+  /** Not trusted for authorization — see loadGanttEditContext, which derives
+   *  the item's real board instead of taking the caller's word for it. */
+  _boardId: string,
+  itemId: string,
+  newStartIso: string
+) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
-
-  const { board, item, lock, holidays } = await loadGanttEditContext(boardId, itemId, session);
+  const { boardId, board, item, lock, holidays } = await loadGanttEditContext(itemId, session);
   if (lock?.startLocked || lock?.endLocked) {
     throw new Error("此時程由前置依賴或子項目統計自動計算,無法整體搬移");
   }

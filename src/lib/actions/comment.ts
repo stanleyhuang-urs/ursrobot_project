@@ -4,16 +4,17 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { notifyItemAssignees } from "@/lib/notify";
-import { requireBoardAccess } from "@/lib/boardAccess";
+import { requireBoardAccess, requireItemBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
 
 export async function createComment(
-  boardId: string,
+  /** Not trusted for authorization — see requireItemBoardAccess below. */
+  _boardId: string,
   itemId: string,
   body: string
 ) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
+  const boardId = await requireItemBoardAccess(itemId, session);
   const trimmed = body.trim();
   if (!trimmed) throw new Error("留言不可為空");
 

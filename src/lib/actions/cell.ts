@@ -9,7 +9,7 @@ import { executeAutomationRules } from "@/lib/automation";
 import { syncGanttDates } from "@/lib/ganttSync";
 import { syncPredecessorSchedule, resolveLockedScheduleFields } from "@/lib/predecessorLink";
 import { canEditCellValue, canModifyItemSchedule } from "@/lib/permissions";
-import { requireBoardAccess } from "@/lib/boardAccess";
+import { requireItemBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
 import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
 import { loadGroupRoleContext } from "@/lib/groupRoleContext";
@@ -28,13 +28,15 @@ function formatCellValueForLog(column: { type: string; options: unknown }, value
 }
 
 export async function upsertCellValue(
-  boardId: string,
+  /** Not trusted for authorization — see requireItemBoardAccess below, which
+   *  derives the item's real board instead of taking the caller's word for it. */
+  _boardId: string,
   itemId: string,
   columnId: string,
   value: CellValueJson
 ) {
   const session = await requireSession();
-  await requireBoardAccess(boardId, session);
+  const boardId = await requireItemBoardAccess(itemId, session);
 
   const [existing, column, item, board, personColumns] = await Promise.all([
     prisma.cellValue.findUnique({
@@ -61,6 +63,10 @@ export async function upsertCellValue(
     }),
     prisma.column.findMany({ where: { boardId, type: "PERSON" }, select: { id: true } }),
   ]);
+
+  if (column && column.boardId !== boardId) {
+    throw new Error("欄位不屬於此項目所在的看板");
+  }
 
   const personColumnIds = personColumns.map((c) => c.id);
   const isAssignedToUser = item ? isItemAssignedToUser(item, personColumnIds, session.userId) : false;

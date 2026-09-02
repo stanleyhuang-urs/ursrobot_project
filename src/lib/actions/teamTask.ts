@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma, type GanttDurationMode } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
+import { requireBoardAccess } from "@/lib/boardAccess";
 import { canManageStructure } from "@/lib/permissions";
 import { getItemDateRange } from "@/lib/gantt";
 import { addBusinessDays } from "@/lib/workday";
@@ -142,6 +143,7 @@ export async function createTeamSubtask(input: {
     include: { board: true, cellValues: true },
   });
   if (!parent) throw new Error("找不到父任務");
+  await requireBoardAccess(parent.boardId, session);
 
   if (session.role === "SUPERVISOR") {
     const isRelated = await isRelatedToAssignedItem(parent.id, session.userId);
@@ -203,6 +205,7 @@ export async function createSubtaskFromDashboard(input: {
     include: { board: true, cellValues: true },
   });
   if (!parent) throw new Error("找不到父任務");
+  await requireBoardAccess(parent.boardId, session);
 
   const { board } = parent;
   const holidays = toHolidaySet(await listHolidays());
