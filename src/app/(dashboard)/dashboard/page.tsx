@@ -148,13 +148,13 @@ export default async function DashboardPage({
   return (
     <div className="mx-auto max-w-5xl space-y-8 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-neutral-900">儀表板</h1>
+        <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">儀表板</h1>
         <form action="/dashboard" method="GET" className="flex items-center gap-2 text-sm">
-          <span className="text-neutral-500">看板篩選</span>
+          <span className="text-neutral-500 dark:text-neutral-400">看板篩選</span>
           <select
             name="board"
             defaultValue={boardFilter ?? ""}
-            className="rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 outline-none focus:border-blue-500"
           >
             <option value="">全部看板</option>
             {allBoards.map((b) => (
@@ -165,7 +165,7 @@ export default async function DashboardPage({
           </select>
           <button
             type="submit"
-            className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-neutral-600 hover:bg-neutral-50"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 py-1.5 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
           >
             套用
           </button>
@@ -192,20 +192,20 @@ export default async function DashboardPage({
       />
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-neutral-700">看板進度總覽</h2>
+        <h2 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-100">看板進度總覽</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {boardProgress.map((b) => (
             <Link
               key={b.boardId}
               href={`/boards/${b.boardId}`}
-              className="rounded-md border border-neutral-200 bg-white p-4 hover:border-blue-300"
+              className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4 hover:border-blue-300"
             >
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-medium text-neutral-900">{b.boardName}</span>
-                <span className="text-xs text-neutral-400">{b.itemCount} 項目</span>
+                <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{b.boardName}</span>
+                <span className="text-xs text-neutral-400 dark:text-neutral-500">{b.itemCount} 項目</span>
               </div>
               {b.avgProgress !== null && (
-                <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-neutral-100">
+                <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
                   <div
                     className="h-full rounded-full bg-blue-500"
                     style={{ width: `${Math.round(b.avgProgress * 100)}%` }}
@@ -230,25 +230,25 @@ export default async function DashboardPage({
             </Link>
           ))}
           {boardProgress.length === 0 && (
-            <p className="text-sm text-neutral-400">尚無看板</p>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">尚無看板</p>
           )}
         </div>
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-neutral-700">逾期 / 即將到期項目</h2>
+        <h2 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-100">逾期 / 即將到期項目</h2>
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-md border border-neutral-200 bg-white p-4">
+          <div className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4">
             <p className="mb-2 text-xs font-medium text-red-600">逾期({overdue.length})</p>
             {overdue.length === 0 ? (
-              <p className="text-sm text-neutral-400">沒有逾期項目</p>
+              <p className="text-sm text-neutral-400 dark:text-neutral-500">沒有逾期項目</p>
             ) : (
               <ul className="space-y-1.5">
                 {overdue.map((e) => (
                   <li key={`${e.boardId}-${e.itemId}`} className="flex items-center justify-between text-sm">
                     <Link
                       href={`/boards/${e.boardId}?highlight=${e.itemId}`}
-                      className="truncate text-neutral-700 hover:text-blue-600"
+                      className="truncate text-neutral-700 dark:text-neutral-100 hover:text-blue-600"
                     >
                       {e.itemName}
                     </Link>
@@ -258,37 +258,37 @@ export default async function DashboardPage({
               </ul>
             )}
           </div>
-          <div className="rounded-md border border-neutral-200 bg-white p-4">
-            <p className="mb-2 text-xs font-medium text-neutral-500">即將到期,7 天內({upcoming.length})</p>
+          <div className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4">
+            <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">即將到期,7 天內({upcoming.length})</p>
             {upcoming.length === 0 ? (
-              <p className="text-sm text-neutral-400">7 天內沒有到期項目</p>
+              <p className="text-sm text-neutral-400 dark:text-neutral-500">7 天內沒有到期項目</p>
             ) : (
               <ul className="space-y-1.5">
                 {upcoming.map((e) => (
                   <li key={`${e.boardId}-${e.itemId}`} className="flex items-center justify-between text-sm">
                     <Link
                       href={`/boards/${e.boardId}?highlight=${e.itemId}`}
-                      className="truncate text-neutral-700 hover:text-blue-600"
+                      className="truncate text-neutral-700 dark:text-neutral-100 hover:text-blue-600"
                     >
                       {e.itemName}
                     </Link>
-                    <span className="shrink-0 text-xs text-neutral-500">{formatDate(e.end)}</span>
+                    <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">{formatDate(e.end)}</span>
                   </li>
                 ))}
               </ul>
             )}
           </div>
-          <div className="rounded-md border border-neutral-200 bg-white p-4">
+          <div className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4">
             <p className="mb-2 text-xs font-medium text-green-600">已完成項目({completed.length})</p>
             {completed.length === 0 ? (
-              <p className="text-sm text-neutral-400">沒有已完成項目</p>
+              <p className="text-sm text-neutral-400 dark:text-neutral-500">沒有已完成項目</p>
             ) : (
               <ul className="space-y-1.5">
                 {completed.map((e) => (
                   <li key={`${e.boardId}-${e.itemId}`} className="flex items-center justify-between text-sm">
                     <Link
                       href={`/boards/${e.boardId}?highlight=${e.itemId}`}
-                      className="truncate text-neutral-700 hover:text-blue-600"
+                      className="truncate text-neutral-700 dark:text-neutral-100 hover:text-blue-600"
                     >
                       {e.itemName}
                     </Link>
@@ -303,7 +303,7 @@ export default async function DashboardPage({
 
       {isSupervisor && (
         <section>
-          <h2 className="mb-3 text-sm font-semibold text-neutral-700">
+          <h2 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-100">
             團隊項目({teamItems.length})
           </h2>
           <PersonalItemsList
@@ -319,7 +319,7 @@ export default async function DashboardPage({
       )}
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-neutral-700">
+        <h2 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-100">
           我的項目({personalItems.length})
         </h2>
         <PersonalItemsList
@@ -335,7 +335,7 @@ export default async function DashboardPage({
 
       {myResourceIds.length > 0 && (
         <section>
-          <h2 className="mb-3 text-sm font-semibold text-neutral-700">
+          <h2 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-100">
             我的團隊項目({myResourceItems.length})
           </h2>
           <PersonalItemsList

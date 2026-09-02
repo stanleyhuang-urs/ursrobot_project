@@ -87,15 +87,15 @@ export function ResourceMappingModal({
       )}
 
       {textColumns.length === 0 ? (
-        <p className="text-sm text-neutral-400">此看板沒有文字型欄位可供對應。</p>
+        <p className="text-sm text-neutral-400 dark:text-neutral-500">此看板沒有文字型欄位可供對應。</p>
       ) : (
         <>
           <div className="mb-3 flex items-center gap-2 text-sm">
-            <span className="shrink-0 text-neutral-500">來源欄位</span>
+            <span className="shrink-0 text-neutral-500 dark:text-neutral-400">來源欄位</span>
             <select
               value={sourceColumnId}
               onChange={(e) => setSourceColumnId(e.target.value)}
-              className="flex-1 rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+              className="flex-1 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 outline-none focus:border-blue-500"
             >
               {textColumns.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -106,11 +106,11 @@ export function ResourceMappingModal({
           </div>
 
           <div className="mb-4 flex items-center gap-2 text-sm">
-            <span className="shrink-0 text-neutral-500">寫入欄位</span>
+            <span className="shrink-0 text-neutral-500 dark:text-neutral-400">寫入欄位</span>
             <select
               value={targetChoice}
               onChange={(e) => setTargetChoice(e.target.value)}
-              className="rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+              className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 outline-none focus:border-blue-500"
             >
               <option value="new">➕ 新增欄位</option>
               {personColumns.map((c) => (
@@ -124,13 +124,13 @@ export function ResourceMappingModal({
                 value={newColumnName}
                 onChange={(e) => setNewColumnName(e.target.value)}
                 placeholder="新欄位名稱"
-                className="w-28 rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+                className="w-28 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 outline-none focus:border-blue-500"
               />
             )}
           </div>
 
           <div className="mb-4 flex items-center gap-2 text-sm">
-            <label className="flex items-center gap-1.5 text-neutral-600">
+            <label className="flex items-center gap-1.5 text-neutral-600 dark:text-neutral-400">
               <input
                 type="checkbox"
                 checked={assignAllocation}
@@ -146,37 +146,37 @@ export function ResourceMappingModal({
                   max={100}
                   value={allocationPct}
                   onChange={(e) => setAllocationPct(Number(e.target.value))}
-                  className="w-16 rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+                  className="w-16 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 outline-none focus:border-blue-500"
                 />
-                <span className="text-neutral-500">%</span>
+                <span className="text-neutral-500 dark:text-neutral-400">%</span>
               </>
             )}
           </div>
 
           {loading ? (
-            <p className="text-sm text-neutral-400">載入中...</p>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">載入中...</p>
           ) : values.length === 0 ? (
-            <p className="text-sm text-neutral-400">此欄位沒有任何文字值。</p>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">此欄位沒有任何文字值。</p>
           ) : (
             <div className="mb-4 max-h-80 space-y-1.5 overflow-auto">
               {values.map(({ value, count }) => (
                 <div
                   key={value}
-                  className="flex items-center gap-2 rounded-md border border-neutral-200 px-2 py-1.5"
+                  className="flex items-center gap-2 rounded-md border border-neutral-200 dark:border-neutral-700 px-2 py-1.5"
                 >
                   <span
-                    className="min-w-0 flex-1 truncate text-sm text-neutral-800"
+                    className="min-w-0 flex-1 truncate text-sm text-neutral-800 dark:text-neutral-100"
                     title={value}
                   >
                     {value}
                   </span>
-                  <span className="shrink-0 text-xs text-neutral-400">{count} 項目</span>
+                  <span className="shrink-0 text-xs text-neutral-400 dark:text-neutral-500">{count} 項目</span>
                   <select
                     value={mapping[value] ?? ""}
                     onChange={(e) =>
                       setMapping((prev) => ({ ...prev, [value]: e.target.value }))
                     }
-                    className="w-40 shrink-0 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-blue-500"
+                    className="w-40 shrink-0 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-blue-500"
                   >
                     <option value="">略過</option>
                     {users.map((u) => (

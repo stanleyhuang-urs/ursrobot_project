@@ -69,7 +69,7 @@ function SortableColumnHeader({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center justify-between border-r border-neutral-200 px-1"
+      className="flex items-center justify-between border-r border-neutral-200 dark:border-neutral-700 px-1"
     >
       <span className="flex min-w-0 items-center gap-1">
         {canEditStructure && (
@@ -77,7 +77,7 @@ function SortableColumnHeader({
             type="button"
             {...attributes}
             {...listeners}
-            className="shrink-0 cursor-grab text-neutral-300 hover:text-neutral-500"
+            className="shrink-0 cursor-grab text-neutral-300 dark:text-neutral-600 hover:text-neutral-500 dark:hover:text-neutral-400"
           >
             <GripVertical size={12} />
           </button>
@@ -328,11 +328,11 @@ export function BoardTable({
   return (
     <div className="flex h-full flex-col">
       <div className="mb-2 flex items-center gap-2 text-sm">
-        <span className="text-neutral-500">專案(分組)</span>
+        <span className="text-neutral-500 dark:text-neutral-400">專案(分組)</span>
         <select
           value={groupFilterId}
           onChange={(e) => setGroupFilterId(e.target.value)}
-          className="rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+          className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-blue-500"
         >
           <option value="">全部</option>
           {board.groups.map((g) => (
@@ -345,27 +345,27 @@ export function BoardTable({
           <button
             type="button"
             onClick={() => setGroupFilterId("")}
-            className="text-xs text-neutral-400 hover:text-neutral-700"
+            className="text-xs text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-100"
           >
             清除
           </button>
         )}
         <div className="relative ml-2">
-          <Search size={13} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <Search size={13} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500" />
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜尋項目名稱..."
-            className="w-48 rounded-md border border-neutral-300 py-1 pl-7 pr-2 text-xs outline-none focus:border-blue-500"
+            className="w-48 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 py-1 pl-7 pr-2 text-xs outline-none focus:border-blue-500"
           />
         </div>
       </div>
       <FilterBar columns={orderedColumns} users={users} filters={filters} onChange={setFilters} />
 
       <div className="flex flex-1 flex-col overflow-hidden rounded-lg border-2 border-neutral-800">
-      <div className="flex shrink-0 items-center border-b border-neutral-200 bg-neutral-50 text-xs font-medium text-neutral-500">
+      <div className="flex shrink-0 items-center border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs font-medium text-neutral-500 dark:text-neutral-400">
         <div
-          className="relative shrink-0 border-r border-neutral-200 bg-neutral-50 px-2"
+          className="relative shrink-0 border-r border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-2"
           style={{ width: frozenPaneWidth(nameWidth) }}
         >
           項目名稱
@@ -407,7 +407,7 @@ export function BoardTable({
                 <button
                   type="button"
                   onClick={onAddColumn}
-                  className="flex items-center justify-center text-neutral-400 hover:text-neutral-700"
+                  className="flex items-center justify-center text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-100"
                   aria-label="新增欄位"
                 >
                   <Plus size={16} />
@@ -467,7 +467,7 @@ export function BoardTable({
         <button
           type="button"
           onClick={handleAddGroup}
-          className="mt-4 flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
+          className="mt-4 flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-100"
         >
           <Plus size={14} /> 新增分組
         </button>

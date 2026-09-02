@@ -3,24 +3,91 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { BoardWithData, UserOption } from "@/types/board";
+import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { computeOverdueUpcoming } from "@/lib/dashboard";
 import {
   filterItemsByTeam,
   computeStatusBuckets,
+  groupItemsByBucket,
   bucketSlices,
   computeTasksByOwnerBuckets,
 } from "@/lib/boardReport";
 import { pieSlicePath } from "@/lib/pie";
 
-function StatCard({ label, value, color }: { label: string; value: number; color?: string }) {
+function StatCard({
+  label,
+  value,
+  color,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  color?: string;
+  onClick?: () => void;
+}) {
   return (
-    <div className="rounded-md border border-neutral-200 bg-white p-4 text-center">
-      <p className="text-xs text-neutral-500">{label}</p>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4 text-center enabled:hover:border-neutral-300 dark:enabled:hover:border-neutral-600 enabled:hover:bg-neutral-50 dark:enabled:hover:bg-neutral-800 disabled:cursor-default"
+    >
+      <p className="text-xs text-neutral-500 dark:text-neutral-400">{label}</p>
       <p className="mt-1 text-2xl font-semibold" style={{ color: color ?? "#1f2937" }}>
         {value}
       </p>
+    </button>
+  );
+}
+
+function ItemListModal({
+  title,
+  items,
+  boardId,
+  onClose,
+}: {
+  title: string;
+  items: ItemData[];
+  boardId: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
+      <div
+        className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-lg bg-white dark:bg-neutral-900 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-700 px-4 py-3">
+          <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
+            {title}({items.length})
+          </h3>
+          <button type="button" onClick={onClose} className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400">
+            ✕
+          </button>
+        </div>
+        <ul className="max-h-[65vh] divide-y divide-neutral-100 dark:divide-neutral-700 overflow-y-auto">
+          {items.length === 0 ? (
+            <li className="px-4 py-6 text-center text-sm text-neutral-400 dark:text-neutral-500">沒有項目</li>
+          ) : (
+            items.map((item) => (
+              <li key={item.id}>
+                <Link
+                  href={`/boards/${boardId}?highlight=${item.id}`}
+                  onClick={() => {
+                    router.refresh();
+                    onClose();
+                  }}
+                  className="block truncate px-4 py-2 text-sm text-neutral-700 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-blue-600"
+                >
+                  {item.name}
+                </Link>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -43,10 +110,12 @@ export function BoardReport({
     : null;
   const [scope, setScope] = useState<"team" | "all">(isSupervisor ? "team" : "all");
   const effectiveTeamIds = scope === "team" ? teamIds : null;
+  const [listModal, setListModal] = useState<{ title: string; items: ItemData[] } | null>(null);
 
   const items = filterItemsByTeam(board, effectiveTeamIds);
   const buckets = computeStatusBuckets(board, items);
-  const statusBreakdown = bucketSlices(buckets);
+  const itemsByBucket = groupItemsByBucket(board, items);
+  const statusBreakdown = bucketSlices(buckets, itemsByBucket);
   const owners = computeTasksByOwnerBuckets(board, items, users);
   const { overdue } = computeOverdueUpcoming([board], effectiveTeamIds ?? undefined);
 
@@ -56,18 +125,18 @@ export function BoardReport({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         {isSupervisor ? (
-          <div className="flex overflow-hidden rounded-md border border-neutral-200 text-xs">
+          <div className="flex overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700 text-xs">
             <button
               type="button"
               onClick={() => setScope("team")}
-              className={`px-2.5 py-1 ${scope === "team" ? "bg-neutral-900 text-white" : "bg-white text-neutral-600 hover:bg-neutral-50"}`}
+              className={`px-2.5 py-1 ${scope === "team" ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900" : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"}`}
             >
               我的團隊
             </button>
             <button
               type="button"
               onClick={() => setScope("all")}
-              className={`px-2.5 py-1 ${scope === "all" ? "bg-neutral-900 text-white" : "bg-white text-neutral-600 hover:bg-neutral-50"}`}
+              className={`px-2.5 py-1 ${scope === "all" ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900" : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"}`}
             >
               全部
             </button>
@@ -78,26 +147,56 @@ export function BoardReport({
       </div>
 
       {!board.reportStatusColumnId && (
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm text-neutral-400 dark:text-neutral-500">
           尚未設定要統計的狀態欄位,請至「系統設定」的報表設定選擇。
         </p>
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-        <StatCard label="全部任務" value={buckets.total} />
-        <StatCard label="尚未處理" value={buckets.notStarted} color="#c4c4c4" />
-        <StatCard label="計畫中" value={buckets.planned} color="#579bfc" />
-        <StatCard label="進行中" value={buckets.inProgress} color="#fdab3d" />
-        <StatCard label="暫停" value={buckets.paused} color="#a25ddc" />
-        <StatCard label="卡住" value={buckets.stuck} color="#e2445c" />
-        <StatCard label="已完成" value={buckets.done} color="#00c875" />
+        <StatCard label="全部任務" value={buckets.total} onClick={() => setListModal({ title: "全部任務", items })} />
+        <StatCard
+          label="尚未處理"
+          value={buckets.notStarted}
+          color="#c4c4c4"
+          onClick={() => setListModal({ title: "尚未處理", items: itemsByBucket.notStarted })}
+        />
+        <StatCard
+          label="計畫中"
+          value={buckets.planned}
+          color="#579bfc"
+          onClick={() => setListModal({ title: "計畫中", items: itemsByBucket.planned })}
+        />
+        <StatCard
+          label="進行中"
+          value={buckets.inProgress}
+          color="#fdab3d"
+          onClick={() => setListModal({ title: "進行中", items: itemsByBucket.inProgress })}
+        />
+        <StatCard
+          label="暫停"
+          value={buckets.paused}
+          color="#a25ddc"
+          onClick={() => setListModal({ title: "暫停", items: itemsByBucket.paused })}
+        />
+        <StatCard
+          label="卡住"
+          value={buckets.stuck}
+          color="#e2445c"
+          onClick={() => setListModal({ title: "卡住", items: itemsByBucket.stuck })}
+        />
+        <StatCard
+          label="已完成"
+          value={buckets.done}
+          color="#00c875"
+          onClick={() => setListModal({ title: "已完成", items: itemsByBucket.done })}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <section className="rounded-md border border-neutral-200 bg-white p-4">
-          <h3 className="mb-3 text-sm font-semibold text-neutral-700">依狀態分布</h3>
+        <section className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-100">依狀態分布</h3>
           {statusBreakdown.length === 0 ? (
-            <p className="text-sm text-neutral-400">尚無資料</p>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">尚無資料</p>
           ) : (
             <div className="flex flex-wrap items-center gap-4">
               <svg viewBox="0 0 120 120" width={120} height={120} className="shrink-0">
@@ -117,28 +216,33 @@ export function BoardReport({
               </svg>
               <div className="min-w-[140px] flex-1 space-y-1">
                 {statusBreakdown.map((s) => (
-                  <div key={s.key} className="flex items-center gap-2 text-sm">
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => setListModal({ title: s.label, items: s.items })}
+                    className="flex w-full items-center gap-2 rounded text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                  >
                     <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
-                    <span className="min-w-0 flex-1 truncate text-neutral-700">{s.label}</span>
-                    <span className="shrink-0 text-neutral-500">{s.count}</span>
-                  </div>
+                    <span className="min-w-0 flex-1 truncate text-left text-neutral-700 dark:text-neutral-100">{s.label}</span>
+                    <span className="shrink-0 text-neutral-500 dark:text-neutral-400">{s.count}</span>
+                  </button>
                 ))}
               </div>
             </div>
           )}
         </section>
 
-        <section className="rounded-md border border-neutral-200 bg-white p-4">
-          <h3 className="mb-3 text-sm font-semibold text-neutral-700">依負責人分布</h3>
+        <section className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-100">依負責人分布</h3>
           {owners.length === 0 ? (
-            <p className="text-sm text-neutral-400">尚無資料</p>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">尚無資料</p>
           ) : (
             <div className="space-y-3">
               {owners.map((o) => (
                 <div key={o.userId}>
                   <div className="flex items-center gap-3">
-                    <span className="w-16 shrink-0 truncate text-sm text-neutral-700">{o.userName}</span>
-                    <div className="flex h-3 flex-1 overflow-hidden rounded-full bg-neutral-100">
+                    <span className="w-16 shrink-0 truncate text-sm text-neutral-700 dark:text-neutral-100">{o.userName}</span>
+                    <div className="flex h-3 flex-1 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
                       {o.slices.map((s) => (
                         <div
                           key={s.key}
@@ -147,14 +251,19 @@ export function BoardReport({
                         />
                       ))}
                     </div>
-                    <span className="w-6 shrink-0 text-right text-sm text-neutral-500">{o.total}</span>
+                    <span className="w-6 shrink-0 text-right text-sm text-neutral-500 dark:text-neutral-400">{o.total}</span>
                   </div>
                   <div className="ml-[76px] mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
                     {o.slices.map((s) => (
-                      <span key={s.key} className="flex items-center gap-1 text-xs text-neutral-500">
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => setListModal({ title: `${o.userName} - ${s.label}`, items: s.items })}
+                        className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-100"
+                      >
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
                         {s.label} {s.count}
-                      </span>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -164,10 +273,10 @@ export function BoardReport({
         </section>
       </div>
 
-      <section className="rounded-md border border-neutral-200 bg-white p-4">
-        <h3 className="mb-3 text-sm font-semibold text-neutral-700">逾期任務({overdue.length})</h3>
+      <section className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4">
+        <h3 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-100">逾期任務({overdue.length})</h3>
         {overdue.length === 0 ? (
-          <p className="text-sm text-neutral-400">沒有逾期項目</p>
+          <p className="text-sm text-neutral-400 dark:text-neutral-500">沒有逾期項目</p>
         ) : (
           <ul className="space-y-1.5">
             {overdue.map((e) => (
@@ -175,7 +284,7 @@ export function BoardReport({
                 <Link
                   href={`/boards/${e.boardId}?highlight=${e.itemId}`}
                   onClick={() => router.refresh()}
-                  className="truncate text-neutral-700 hover:text-blue-600"
+                  className="truncate text-neutral-700 dark:text-neutral-100 hover:text-blue-600"
                 >
                   {e.itemName}
                 </Link>
@@ -187,6 +296,15 @@ export function BoardReport({
           </ul>
         )}
       </section>
+
+      {listModal && (
+        <ItemListModal
+          title={listModal.title}
+          items={listModal.items}
+          boardId={board.id}
+          onClose={() => setListModal(null)}
+        />
+      )}
     </div>
   );
 }

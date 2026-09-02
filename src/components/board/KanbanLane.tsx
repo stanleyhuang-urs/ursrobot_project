@@ -26,7 +26,7 @@ export function KanbanLane({
   const { setNodeRef } = useDroppable({ id: laneId, data: { type: "lane" } });
 
   return (
-    <div className="flex w-72 shrink-0 flex-col rounded-lg bg-neutral-100">
+    <div className="flex w-72 shrink-0 flex-col rounded-lg bg-neutral-100 dark:bg-neutral-800">
       <div
         className="flex items-center gap-2 rounded-t-lg px-3 py-2 text-sm font-medium text-white"
         style={{ backgroundColor: color }}

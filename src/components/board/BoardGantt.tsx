@@ -289,9 +289,11 @@ export function BoardGantt({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || todayIndex < 0) return;
-    el.scrollLeft = Math.max(0, todayIndex * dayWidth - (el.clientWidth - labelWidth) / 2);
+    // Today near the left edge (a couple of days' lead-in for context) rather
+    // than centered, so the default view opens onto upcoming work.
+    el.scrollLeft = Math.max(0, (todayIndex - 2) * dayWidth);
     syncFromMainScroll();
-    // Only re-center when the zoom level or the underlying day range changes.
+    // Only re-scroll when the zoom level or the underlying day range changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom, days.length]);
 
@@ -442,16 +444,16 @@ export function BoardGantt({
       const range = ranges.get(item.id);
 
       const row = (
-        <div key={item.id} className="flex items-stretch border-b border-neutral-100">
+        <div key={item.id} className="flex items-stretch border-b border-neutral-100 dark:border-neutral-700">
           <div
-            className="sticky left-0 z-10 flex shrink-0 items-center gap-1 bg-white px-2 py-1.5 text-sm"
+            className="sticky left-0 z-10 flex shrink-0 items-center gap-1 bg-white dark:bg-neutral-900 px-2 py-1.5 text-sm"
             style={{ width: labelWidth, paddingLeft: 8 + depth * 16 }}
           >
             {hasChildren ? (
               <button
                 type="button"
                 onClick={() => toggleCollapsed(item.id)}
-                className="text-neutral-400 hover:text-neutral-700"
+                className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-100"
               >
                 {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
               </button>
@@ -466,14 +468,14 @@ export function BoardGantt({
                 className="min-w-0 flex-1 truncate text-left hover:text-blue-600 hover:underline"
               >
                 {wbsCodes.get(item.id) && (
-                  <span className="mr-1 text-neutral-400">{wbsCodes.get(item.id)}</span>
+                  <span className="mr-1 text-neutral-400 dark:text-neutral-500">{wbsCodes.get(item.id)}</span>
                 )}
                 {item.name}
               </button>
             ) : (
               <span className="min-w-0 flex-1 truncate">
                 {wbsCodes.get(item.id) && (
-                  <span className="mr-1 text-neutral-400">{wbsCodes.get(item.id)}</span>
+                  <span className="mr-1 text-neutral-400 dark:text-neutral-500">{wbsCodes.get(item.id)}</span>
                 )}
                 {item.name}
               </span>
@@ -481,8 +483,8 @@ export function BoardGantt({
             <button
               type="button"
               onClick={() => setDetailItem(item)}
-              className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
-                item._count.comments > 0 ? "text-blue-600" : "text-neutral-300"
+              className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-600 dark:hover:text-neutral-400 ${
+                item._count.comments > 0 ? "text-blue-600" : "text-neutral-300 dark:text-neutral-600"
               }`}
               aria-label="留言"
             >
@@ -494,8 +496,8 @@ export function BoardGantt({
                 type="button"
                 onClick={() => setAssignmentItem(item)}
                 title={item.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
-                className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
-                  item.assignments.length > 0 ? "text-blue-600" : "text-neutral-300"
+                className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-600 dark:hover:text-neutral-400 ${
+                  item.assignments.length > 0 ? "text-blue-600" : "text-neutral-300 dark:text-neutral-600"
                 }`}
                 aria-label="指派"
               >
@@ -507,7 +509,7 @@ export function BoardGantt({
               <button
                 type="button"
                 onClick={() => handleAddSubitem(item)}
-                className="flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs text-neutral-300 hover:bg-neutral-100 hover:text-neutral-600"
+                className="flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs text-neutral-300 dark:text-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-600 dark:hover:text-neutral-400"
                 aria-label="新增子項目"
               >
                 <Plus size={12} />
@@ -560,15 +562,15 @@ export function BoardGantt({
   return (
     <div>
       <div className="mb-3 flex items-center gap-2 text-sm">
-        <span className="text-neutral-500">時間刻度</span>
-        <div className="flex overflow-hidden rounded-md border border-neutral-200 text-xs">
+        <span className="text-neutral-500 dark:text-neutral-400">時間刻度</span>
+        <div className="flex overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700 text-xs">
           {(["day", "week", "month"] as const).map((z) => (
             <button
               key={z}
               type="button"
               onClick={() => setZoom(z)}
               className={`px-2.5 py-1 ${
-                zoom === z ? "bg-neutral-900 text-white" : "bg-white text-neutral-600 hover:bg-neutral-50"
+                zoom === z ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900" : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
               }`}
             >
               {z === "day" ? "天" : z === "week" ? "週" : "月"}
@@ -578,11 +580,11 @@ export function BoardGantt({
       </div>
       <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
         <div className="flex items-center gap-2">
-          <span className="text-neutral-500">專案(分組)</span>
+          <span className="text-neutral-500 dark:text-neutral-400">專案(分組)</span>
           <select
             value={groupFilterId}
             onChange={(e) => setGroupFilterId(e.target.value)}
-            className="rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-blue-500"
           >
             <option value="">全部</option>
             {board.groups.map((g) => (
@@ -593,11 +595,11 @@ export function BoardGantt({
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-neutral-500">父項目</span>
+          <span className="text-neutral-500 dark:text-neutral-400">父項目</span>
           <select
             value={parentFilterId}
             onChange={(e) => setParentFilterId(e.target.value)}
-            className="max-w-[200px] rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+            className="max-w-[200px] rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-blue-500"
           >
             <option value="">全部</option>
             {board.items.map((i) => (
@@ -614,7 +616,7 @@ export function BoardGantt({
               setGroupFilterId("");
               setParentFilterId("");
             }}
-            className="text-xs text-neutral-400 hover:text-neutral-700"
+            className="text-xs text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-100"
           >
             清除
           </button>
@@ -623,13 +625,13 @@ export function BoardGantt({
       <FilterBar columns={board.columns} users={users} filters={filters} onChange={setFilters} />
 
       {(!startColumnId || !durationColumnId) && (
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm text-neutral-400 dark:text-neutral-500">
           請先選擇開始日期欄位與天數欄位,才能顯示甘特圖時間軸。
         </p>
       )}
 
       {startColumnId && durationColumnId && days.length === 0 && (
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm text-neutral-400 dark:text-neutral-500">
           目前沒有項目同時填寫了開始日期與天數。
         </p>
       )}
@@ -639,7 +641,7 @@ export function BoardGantt({
           <div
             ref={topScrollRef}
             onScroll={syncFromTopScroll}
-            className="sticky top-0 z-30 mb-1 overflow-x-auto overflow-y-hidden bg-white"
+            className="sticky top-0 z-30 mb-1 overflow-x-auto overflow-y-hidden bg-white dark:bg-neutral-900"
             style={{ height: 14 }}
           >
             <div style={{ width: contentWidth, height: 1 }} />
@@ -651,7 +653,7 @@ export function BoardGantt({
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
-            className={`max-h-[65vh] overflow-auto rounded-md border border-neutral-200 bg-white ${
+            className={`max-h-[65vh] overflow-auto rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 ${
               isPanning ? "cursor-grabbing select-none" : "cursor-grab"
             }`}
           >
@@ -665,7 +667,7 @@ export function BoardGantt({
             )}
             <div className="sticky top-0 z-20 flex">
               <div
-                className="sticky left-0 z-10 shrink-0 relative border-b border-r border-neutral-100 bg-neutral-50 px-2 py-1.5 text-xs font-medium text-neutral-500"
+                className="sticky left-0 z-10 shrink-0 relative border-b border-r border-neutral-100 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-2 py-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400"
                 style={{ width: labelWidth }}
               >
                 項目
@@ -675,7 +677,7 @@ export function BoardGantt({
                   style={{ touchAction: "none" }}
                 />
               </div>
-              <div className="flex border-b border-neutral-100 bg-neutral-50">
+              <div className="flex border-b border-neutral-100 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800">
                 {headerSegments.map((seg) => {
                   const segDate = zoom === "day" ? new Date(seg.key) : null;
                   const holidayName = segDate ? holidayNameByDate.get(toIsoDate(segDate)) : undefined;
@@ -683,10 +685,10 @@ export function BoardGantt({
                     <div
                       key={seg.key}
                       title={holidayName}
-                      className="shrink-0 truncate border-r border-neutral-100 py-1.5 text-center text-xs text-neutral-500"
+                      className="shrink-0 truncate border-r border-neutral-100 dark:border-neutral-700 py-1.5 text-center text-xs text-neutral-500 dark:text-neutral-400"
                       style={{ width: seg.days * dayWidth, backgroundColor: segDate ? dayShade(segDate) : undefined }}
                     >
-                      {seg.sublabel && <div className="text-[10px] text-neutral-400">{seg.sublabel}</div>}
+                      {seg.sublabel && <div className="text-[10px] text-neutral-400 dark:text-neutral-500">{seg.sublabel}</div>}
                       {seg.label}
                     </div>
                   );
@@ -698,13 +700,13 @@ export function BoardGantt({
 
           {usersWithLoad.length > 0 && (
             <div>
-              <div className="flex border-t-2 border-neutral-200 bg-neutral-50 px-2 py-1.5 text-xs font-medium text-neutral-500">
+              <div className="flex border-t-2 border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-2 py-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400">
                 人員負載
               </div>
               {usersWithLoad.map((u) => (
-                <div key={u.id} className="flex items-stretch border-b border-neutral-100">
+                <div key={u.id} className="flex items-stretch border-b border-neutral-100 dark:border-neutral-700">
                   <div
-                    className="sticky left-0 z-10 flex shrink-0 items-center bg-white px-2 py-1.5 text-sm"
+                    className="sticky left-0 z-10 flex shrink-0 items-center bg-white dark:bg-neutral-900 px-2 py-1.5 text-sm"
                     style={{ width: labelWidth }}
                   >
                     {u.name}
@@ -722,7 +724,7 @@ export function BoardGantt({
                         <div
                           key={toIsoDate(d)}
                           title={load > 0 ? `${formatDay(d)}: ${load}%` : undefined}
-                          className="shrink-0 border-r border-neutral-100"
+                          className="shrink-0 border-r border-neutral-100 dark:border-neutral-700"
                           style={{
                             width: dayWidth,
                             height: 24,
@@ -755,6 +757,9 @@ export function BoardGantt({
         linkColumnId={linkColumnId}
         lagColumnId={lagColumnId}
         durationColumnId={board.manualDurationColumnId ?? durationColumnId}
+        manualStartColumnId={board.manualStartColumnId}
+        ganttStartColumnId={startColumnId}
+        ganttEndColumnId={endColumnId}
         canEditSchedule={assignmentItem ? canEditItemSchedule(assignmentItem) : false}
         groupItems={assignmentItem ? board.items.filter((i) => i.groupId === assignmentItem.groupId) : undefined}
       />

@@ -21,14 +21,14 @@ export default async function UsersPage({
 
   return (
     <div className="p-6">
-      <h1 className="mb-4 text-lg font-semibold text-neutral-900">使用者管理</h1>
-      <div className="mb-4 flex w-fit overflow-hidden rounded-md border border-neutral-200 text-sm">
+      <h1 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">使用者管理</h1>
+      <div className="mb-4 flex w-fit overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700 text-sm">
         <Link
           href="/users"
           className={`px-4 py-1.5 ${
             activeTab === "users"
-              ? "bg-neutral-900 text-white"
-              : "bg-white text-neutral-600 hover:bg-neutral-50"
+              ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900"
+              : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
           }`}
         >
           使用者
@@ -37,8 +37,8 @@ export default async function UsersPage({
           href="/users?tab=resources"
           className={`px-4 py-1.5 ${
             activeTab === "resources"
-              ? "bg-neutral-900 text-white"
-              : "bg-white text-neutral-600 hover:bg-neutral-50"
+              ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900"
+              : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
           }`}
         >
           資源

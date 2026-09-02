@@ -129,18 +129,18 @@ export function AutomationRulesModal({
 
       <div className="mb-4 max-h-64 space-y-2 overflow-auto">
         {loading ? (
-          <p className="text-sm text-neutral-400">載入中...</p>
+          <p className="text-sm text-neutral-400 dark:text-neutral-500">載入中...</p>
         ) : rules.length === 0 ? (
-          <p className="text-sm text-neutral-400">尚未建立任何規則。</p>
+          <p className="text-sm text-neutral-400 dark:text-neutral-500">尚未建立任何規則。</p>
         ) : (
           rules.map((rule) => (
             <div
               key={rule.id}
-              className="flex items-start justify-between gap-2 rounded-md border border-neutral-200 px-3 py-2"
+              className="flex items-start justify-between gap-2 rounded-md border border-neutral-200 dark:border-neutral-700 px-3 py-2"
             >
               <div className="min-w-0">
-                <p className="text-sm font-medium text-neutral-800">{rule.name}</p>
-                <p className="text-xs text-neutral-500">
+                <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{rule.name}</p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
                   當「{rule.triggerColumn.name}」變更為「
                   {statusLabel(rule.triggerColumn, rule.triggerValue)}」時:
                   {rule.notifyUser && <> 通知 {rule.notifyUser.name};</>}
@@ -158,7 +158,7 @@ export function AutomationRulesModal({
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <label className="flex items-center gap-1 text-xs text-neutral-500">
+                <label className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">
                   <input
                     type="checkbox"
                     checked={rule.enabled}
@@ -169,7 +169,7 @@ export function AutomationRulesModal({
                 <button
                   type="button"
                   onClick={() => handleDelete(rule.id)}
-                  className="text-neutral-400 hover:text-red-600"
+                  className="text-neutral-400 dark:text-neutral-500 hover:text-red-600"
                   aria-label="刪除規則"
                 >
                   <Trash2 size={14} />
@@ -181,19 +181,19 @@ export function AutomationRulesModal({
       </div>
 
       {statusColumns.length === 0 ? (
-        <p className="text-sm text-neutral-400">此看板沒有狀態欄位,無法建立規則。</p>
+        <p className="text-sm text-neutral-400 dark:text-neutral-500">此看板沒有狀態欄位,無法建立規則。</p>
       ) : (
-        <div className="space-y-2 rounded-md border border-neutral-200 p-3">
-          <p className="text-sm font-medium text-neutral-700">新增規則</p>
+        <div className="space-y-2 rounded-md border border-neutral-200 dark:border-neutral-700 p-3">
+          <p className="text-sm font-medium text-neutral-700 dark:text-neutral-100">新增規則</p>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="規則名稱"
-            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
           />
 
           <div className="flex items-center gap-2 text-sm">
-            <span className="w-24 shrink-0 text-neutral-500">當狀態變更為</span>
+            <span className="w-24 shrink-0 text-neutral-500 dark:text-neutral-400">當狀態變更為</span>
             <select
               value={triggerColumnId}
               onChange={(e) => {
@@ -201,7 +201,7 @@ export function AutomationRulesModal({
                 setTriggerColumnId(e.target.value);
                 setTriggerValue(col ? getStatusOptions(col.options)[0]?.id ?? "" : "");
               }}
-              className="rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+              className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 outline-none focus:border-blue-500"
             >
               {statusColumns.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -212,7 +212,7 @@ export function AutomationRulesModal({
             <select
               value={triggerValue}
               onChange={(e) => setTriggerValue(e.target.value)}
-              className="rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+              className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 outline-none focus:border-blue-500"
             >
               {triggerOptions.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -223,11 +223,11 @@ export function AutomationRulesModal({
           </div>
 
           <div className="flex items-center gap-2 text-sm">
-            <span className="w-24 shrink-0 text-neutral-500">通知</span>
+            <span className="w-24 shrink-0 text-neutral-500 dark:text-neutral-400">通知</span>
             <select
               value={notifyUserId}
               onChange={(e) => setNotifyUserId(e.target.value)}
-              className="flex-1 rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+              className="flex-1 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 outline-none focus:border-blue-500"
             >
               <option value="">不通知</option>
               {users.filter((u) => !u.isResource).map((u) => (
@@ -239,14 +239,14 @@ export function AutomationRulesModal({
           </div>
 
           <div className="flex items-center gap-2 text-sm">
-            <span className="w-24 shrink-0 text-neutral-500">設定欄位</span>
+            <span className="w-24 shrink-0 text-neutral-500 dark:text-neutral-400">設定欄位</span>
             <select
               value={setColumnId}
               onChange={(e) => {
                 setSetColumnId(e.target.value);
                 setSetValue("");
               }}
-              className="rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+              className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 outline-none focus:border-blue-500"
             >
               <option value="">不設定</option>
               {settableColumns.map((c) => (
@@ -259,7 +259,7 @@ export function AutomationRulesModal({
               <select
                 value={setValue}
                 onChange={(e) => setSetValue(e.target.value)}
-                className="rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+                className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 outline-none focus:border-blue-500"
               >
                 <option value="">選擇狀態</option>
                 {setColumnOptions.map((o) => (
@@ -274,17 +274,17 @@ export function AutomationRulesModal({
                 onChange={(e) => setSetValue(e.target.value)}
                 type={setColumn.type === "NUMBER" ? "number" : "text"}
                 placeholder="值"
-                className="w-28 rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+                className="w-28 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 outline-none focus:border-blue-500"
               />
             ) : null}
           </div>
 
           <div className="flex items-center gap-2 text-sm">
-            <span className="w-24 shrink-0 text-neutral-500">移動到分組</span>
+            <span className="w-24 shrink-0 text-neutral-500 dark:text-neutral-400">移動到分組</span>
             <select
               value={moveToGroupId}
               onChange={(e) => setMoveToGroupId(e.target.value)}
-              className="flex-1 rounded-md border border-neutral-300 px-2 py-1.5 outline-none focus:border-blue-500"
+              className="flex-1 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 outline-none focus:border-blue-500"
             >
               <option value="">不移動</option>
               {groups.map((g) => (

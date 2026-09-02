@@ -89,7 +89,7 @@ export function BoardSharingModal({
       )}
 
       <div className="mb-4 space-y-2">
-        <label className="flex items-center gap-2 text-sm text-neutral-700">
+        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-100">
           <input
             type="radio"
             name="visibility"
@@ -98,7 +98,7 @@ export function BoardSharingModal({
           />
           公開 — 所有登入使用者可存取
         </label>
-        <label className="flex items-center gap-2 text-sm text-neutral-700">
+        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-100">
           <input
             type="radio"
             name="visibility"
@@ -115,7 +115,7 @@ export function BoardSharingModal({
             <select
               value={addUserId}
               onChange={(e) => setAddUserId(e.target.value)}
-              className="flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+              className="flex-1 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
             >
               <option value="">選擇要新增的成員</option>
               {nonMembers.map((u) => (
@@ -135,21 +135,21 @@ export function BoardSharingModal({
           </div>
 
           {loading ? (
-            <p className="text-sm text-neutral-400">載入中...</p>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">載入中...</p>
           ) : members.length === 0 ? (
-            <p className="text-sm text-neutral-400">目前沒有額外成員(擁有者與管理者一律可存取)</p>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">目前沒有額外成員(擁有者與管理者一律可存取)</p>
           ) : (
             <ul className="space-y-1">
               {members.map((m) => (
                 <li
                   key={m.id}
-                  className="flex items-center justify-between rounded-md border border-neutral-200 px-2 py-1.5 text-sm"
+                  className="flex items-center justify-between rounded-md border border-neutral-200 dark:border-neutral-700 px-2 py-1.5 text-sm"
                 >
-                  <span className="text-neutral-800">{m.user.name}</span>
+                  <span className="text-neutral-800 dark:text-neutral-100">{m.user.name}</span>
                   <button
                     type="button"
                     onClick={() => handleRemoveMember(m.user.id)}
-                    className="text-neutral-400 hover:text-red-600"
+                    className="text-neutral-400 dark:text-neutral-500 hover:text-red-600"
                   >
                     移除
                   </button>

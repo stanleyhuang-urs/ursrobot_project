@@ -109,11 +109,11 @@ export function ReportSettingsModal({
   return (
     <Modal open={open} onOpenChange={onOpenChange} title="報表設定">
       <div className="mb-4">
-        <label className="mb-1 block text-xs text-neutral-500">用哪個狀態欄位統計</label>
+        <label className="mb-1 block text-xs text-neutral-500 dark:text-neutral-400">用哪個狀態欄位統計</label>
         <select
           value={board.reportStatusColumnId ?? ""}
           onChange={(e) => setReportStatusColumn(board.id, e.target.value || null)}
-          className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+          className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
         >
           <option value="">未設定</option>
           {statusColumns.map((c) => (
@@ -126,7 +126,7 @@ export function ReportSettingsModal({
 
       {column && (
         <div className="mb-4 space-y-2">
-          <p className="text-xs text-neutral-500">指定每個狀態選項屬於哪個分類,未指定的算「進行中」</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">指定每個狀態選項屬於哪個分類,未指定的算「進行中」</p>
           {options.map((option) => (
             <div key={option.id} className="flex items-center justify-between gap-2">
               <span
@@ -138,7 +138,7 @@ export function ReportSettingsModal({
               <select
                 value={bucketFor(option.id)}
                 onChange={(e) => setBucket(option.id, e.target.value as Bucket)}
-                className="rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+                className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-blue-500"
               >
                 {(Object.keys(BUCKET_LABELS) as Bucket[]).map((b) => (
                   <option key={b} value={b}>

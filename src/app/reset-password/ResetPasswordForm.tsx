@@ -14,9 +14,9 @@ export function ResetPasswordForm() {
 
   if (state.success) {
     return (
-      <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-2 text-xl font-semibold text-neutral-900">密碼已重設</h1>
-        <p className="mb-6 text-sm text-neutral-500">您的密碼已更新,請使用新密碼登入。</p>
+      <div className="w-full max-w-sm rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-8 shadow-sm">
+        <h1 className="mb-2 text-xl font-semibold text-neutral-900 dark:text-neutral-100">密碼已重設</h1>
+        <p className="mb-6 text-sm text-neutral-500 dark:text-neutral-400">您的密碼已更新,請使用新密碼登入。</p>
         <Link
           href="/login"
           className="block w-full rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-blue-700"
@@ -30,9 +30,9 @@ export function ResetPasswordForm() {
   return (
     <form
       action={formAction}
-      className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-8 shadow-sm"
+      className="w-full max-w-sm rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-8 shadow-sm"
     >
-      <h1 className="mb-6 text-xl font-semibold text-neutral-900">重設密碼</h1>
+      <h1 className="mb-6 text-xl font-semibold text-neutral-900 dark:text-neutral-100">重設密碼</h1>
 
       <input type="hidden" name="token" value={token} />
 
@@ -40,21 +40,21 @@ export function ResetPasswordForm() {
         <p className="mb-4 text-sm text-red-600">連結缺少必要參數,請重新申請忘記密碼。</p>
       )}
 
-      <label className="mb-1 block text-sm font-medium text-neutral-700">新密碼</label>
+      <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-100">新密碼</label>
       <input
         name="password"
         type="password"
         required
         autoFocus
-        className="mb-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+        className="mb-4 w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
       />
 
-      <label className="mb-1 block text-sm font-medium text-neutral-700">確認新密碼</label>
+      <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-100">確認新密碼</label>
       <input
         name="confirmPassword"
         type="password"
         required
-        className="mb-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+        className="mb-4 w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
       />
 
       {state.error && <p className="mb-4 text-sm text-red-600">{state.error}</p>}

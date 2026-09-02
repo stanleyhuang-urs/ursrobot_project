@@ -111,10 +111,10 @@ export function GroupSection({
       ref={setNodeRef}
       data-group-id={group.id}
       style={style}
-      className="rounded-lg border border-neutral-200 bg-white"
+      className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900"
     >
       <div
-        className="flex items-center gap-2 border-b border-neutral-100 px-2 py-2"
+        className="flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700 px-2 py-2"
         style={{ borderLeft: `4px solid ${group.color}` }}
       >
         {canEditStructure && (
@@ -122,7 +122,7 @@ export function GroupSection({
             type="button"
             {...attributes}
             {...listeners}
-            className="cursor-grab text-neutral-300 hover:text-neutral-500"
+            className="cursor-grab text-neutral-300 dark:text-neutral-600 hover:text-neutral-500 dark:hover:text-neutral-400"
           >
             <GripVertical size={14} />
           </button>
@@ -130,7 +130,7 @@ export function GroupSection({
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
-          className="text-neutral-500"
+          className="text-neutral-500 dark:text-neutral-400"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
         </button>
@@ -142,9 +142,9 @@ export function GroupSection({
             if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
           }}
           readOnly={!canEditStructure}
-          className="min-w-0 flex-1 rounded bg-transparent px-1 py-0.5 text-sm font-semibold text-neutral-800 outline-none hover:bg-neutral-100 focus:bg-white focus:ring-1 focus:ring-blue-400"
+          className="min-w-0 flex-1 rounded bg-transparent px-1 py-0.5 text-sm font-semibold text-neutral-800 dark:text-neutral-100 outline-none hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:bg-white dark:focus:bg-neutral-900 focus:ring-1 focus:ring-blue-400"
         />
-        <span className="text-xs text-neutral-400">
+        <span className="text-xs text-neutral-400 dark:text-neutral-500">
           {visibleIds === null
             ? items.length
             : `${items.filter((i) => visibleIds.has(i.id)).length} / ${items.length}`}{" "}
@@ -203,7 +203,7 @@ export function GroupSection({
                   onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
                   onBlur={handleAddItem}
                   placeholder="+ 新增項目"
-                  className="ml-8 min-w-0 flex-1 rounded bg-white px-2 py-1 text-sm text-neutral-500 outline-none hover:bg-neutral-50 focus:bg-white focus:text-neutral-900 focus:ring-1 focus:ring-blue-400"
+                  className="ml-8 min-w-0 flex-1 rounded bg-white dark:bg-neutral-900 px-2 py-1 text-sm text-neutral-500 dark:text-neutral-400 outline-none hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:bg-white dark:focus:bg-neutral-900 focus:text-neutral-900 dark:focus:text-neutral-100 focus:ring-1 focus:ring-blue-400"
                 />
               </div>
             )}

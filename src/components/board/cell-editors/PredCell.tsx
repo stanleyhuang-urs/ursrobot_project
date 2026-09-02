@@ -31,7 +31,7 @@ export function PredCell({
     <select
       value={value ?? ""}
       onChange={(e) => upsertCellValue(boardId, itemId, columnId, e.target.value || null)}
-      className="w-full rounded border-none bg-transparent px-2 py-1 text-sm outline-none hover:bg-neutral-50 focus:bg-white focus:ring-1 focus:ring-blue-400"
+      className="w-full rounded border-none bg-transparent px-2 py-1 text-sm outline-none hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:bg-white dark:focus:bg-neutral-900 focus:ring-1 focus:ring-blue-400"
     >
       <option value="">未設定</option>
       {options.map((o) => (

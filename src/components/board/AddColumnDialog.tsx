@@ -43,23 +43,23 @@ export function AddColumnDialog({
 
   return (
     <Modal open={open} onOpenChange={onOpenChange} title="新增欄位">
-      <label className="mb-1 block text-sm font-medium text-neutral-700">
+      <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-100">
         欄位名稱
       </label>
       <input
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
-        className="mb-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+        className="mb-4 w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
       />
 
-      <label className="mb-1 block text-sm font-medium text-neutral-700">
+      <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-100">
         欄位類型
       </label>
       <select
         value={type}
         onChange={(e) => setType(e.target.value as ColumnType)}
-        className="mb-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+        className="mb-4 w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
       >
         {(Object.keys(TYPE_LABELS) as ColumnType[]).map((t) => (
           <option key={t} value={t}>

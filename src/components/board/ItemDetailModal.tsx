@@ -72,7 +72,7 @@ export function ItemDetailModal({
 
   return (
     <Modal open={open} onOpenChange={onOpenChange} title={item.name} size="xl">
-      <div className="mb-4 flex gap-1 border-b border-neutral-200">
+      <div className="mb-4 flex gap-1 border-b border-neutral-200 dark:border-neutral-700">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -81,7 +81,7 @@ export function ItemDetailModal({
             className={`px-3 py-2 text-sm ${
               tab === t.id
                 ? "border-b-2 border-blue-600 font-medium text-blue-600"
-                : "text-neutral-500 hover:text-neutral-800"
+                : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-100"
             }`}
           >
             {t.label}

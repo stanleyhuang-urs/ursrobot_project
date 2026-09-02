@@ -63,18 +63,18 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
   }
 
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3">
-      <p className="mb-3 text-sm font-medium text-neutral-900">{board.name}</p>
+    <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-3">
+      <p className="mb-3 text-sm font-medium text-neutral-900 dark:text-neutral-100">{board.name}</p>
       <div className="flex flex-wrap items-center gap-4 text-sm">
         <div className="flex items-center gap-2">
-          <span className="text-neutral-500">開始日期欄位</span>
+          <span className="text-neutral-500 dark:text-neutral-400">開始日期欄位</span>
           <select
             value={board.ganttStartColumnId ?? ""}
             onChange={(e) => {
               if (!confirmChange("開始日期欄位", board.ganttStartColumnId, e.target.value, dateColumns)) return;
               setGanttStartColumn(board.id, e.target.value || null).then(() => router.refresh());
             }}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 outline-none focus:border-blue-500"
           >
             <option value="">未設定</option>
             {dateColumns.map((c) => (
@@ -85,14 +85,14 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-neutral-500">天數欄位</span>
+          <span className="text-neutral-500 dark:text-neutral-400">天數欄位</span>
           <select
             value={board.ganttDurationColumnId ?? ""}
             onChange={(e) => {
               if (!confirmChange("天數欄位", board.ganttDurationColumnId, e.target.value, numberColumns)) return;
               setGanttDurationColumn(board.id, e.target.value || null).then(() => router.refresh());
             }}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 outline-none focus:border-blue-500"
           >
             <option value="">未設定</option>
             {numberColumns.map((c) => (
@@ -103,14 +103,14 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-neutral-500">結束日期欄位</span>
+          <span className="text-neutral-500 dark:text-neutral-400">結束日期欄位</span>
           <select
             value={board.ganttEndColumnId ?? ""}
             onChange={(e) => {
               if (!confirmChange("結束日期欄位", board.ganttEndColumnId, e.target.value, dateColumns)) return;
               setGanttEndColumn(board.id, e.target.value || null).then(() => router.refresh());
             }}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 outline-none focus:border-blue-500"
           >
             <option value="">未設定</option>
             {dateColumns.map((c) => (
@@ -121,14 +121,14 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-neutral-500">前置依賴欄位</span>
+          <span className="text-neutral-500 dark:text-neutral-400">前置依賴欄位</span>
           <select
             value={board.predColumnId ?? ""}
             onChange={(e) => {
               if (!confirmChange("前置依賴欄位", board.predColumnId, e.target.value, textColumns)) return;
               setPredColumn(board.id, e.target.value || null).then(() => router.refresh());
             }}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 outline-none focus:border-blue-500"
           >
             <option value="">未設定</option>
             {textColumns.map((c) => (
@@ -139,14 +139,14 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-neutral-500">關聯類型欄位</span>
+          <span className="text-neutral-500 dark:text-neutral-400">關聯類型欄位</span>
           <select
             value={board.linkColumnId ?? ""}
             onChange={(e) => {
               if (!confirmChange("關聯類型欄位", board.linkColumnId, e.target.value, statusColumns)) return;
               setLinkColumn(board.id, e.target.value || null).then(() => router.refresh());
             }}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 outline-none focus:border-blue-500"
           >
             <option value="">未設定</option>
             {statusColumns.map((c) => (
@@ -157,14 +157,14 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-neutral-500">Type 欄位</span>
+          <span className="text-neutral-500 dark:text-neutral-400">Type 欄位</span>
           <select
             value={board.typeColumnId ?? ""}
             onChange={(e) => {
               if (!confirmChange("Type 欄位", board.typeColumnId, e.target.value, statusColumns)) return;
               setGanttTypeColumn(board.id, e.target.value || null).then(() => router.refresh());
             }}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 outline-none focus:border-blue-500"
           >
             <option value="">未設定</option>
             {statusColumns.map((c) => (
@@ -175,14 +175,14 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-neutral-500">Lag 欄位</span>
+          <span className="text-neutral-500 dark:text-neutral-400">Lag 欄位</span>
           <select
             value={board.lagColumnId ?? ""}
             onChange={(e) => {
               if (!confirmChange("Lag 欄位", board.lagColumnId, e.target.value, numberColumns)) return;
               setGanttLagColumn(board.id, e.target.value || null).then(() => router.refresh());
             }}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 outline-none focus:border-blue-500"
           >
             <option value="">未設定</option>
             {numberColumns.map((c) => (
@@ -193,14 +193,14 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-neutral-500">手動開始日期欄位</span>
+          <span className="text-neutral-500 dark:text-neutral-400">手動開始日期欄位</span>
           <select
             value={board.manualStartColumnId ?? ""}
             onChange={(e) => {
               if (!confirmChange("手動開始日期欄位", board.manualStartColumnId, e.target.value, dateColumns)) return;
               setManualStartColumn(board.id, e.target.value || null).then(() => router.refresh());
             }}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 outline-none focus:border-blue-500"
           >
             <option value="">未設定</option>
             {dateColumns.map((c) => (
@@ -211,14 +211,14 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-neutral-500">手動天數欄位</span>
+          <span className="text-neutral-500 dark:text-neutral-400">手動天數欄位</span>
           <select
             value={board.manualDurationColumnId ?? ""}
             onChange={(e) => {
               if (!confirmChange("手動天數欄位", board.manualDurationColumnId, e.target.value, numberColumns)) return;
               setManualDurationColumn(board.id, e.target.value || null).then(() => router.refresh());
             }}
-            className="rounded-md border border-neutral-300 px-2 py-1 outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 outline-none focus:border-blue-500"
           >
             <option value="">未設定</option>
             {numberColumns.map((c) => (
@@ -234,7 +234,7 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
             type="button"
             onClick={handleRecomputeAll}
             disabled={recomputing}
-            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2.5 py-1 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50"
           >
             {recomputing ? "重算中..." : "重算全部"}
           </button>
@@ -251,16 +251,16 @@ function BoardGanttMapping({ board }: { board: GanttMappingBoard }) {
 
 export function GanttColumnMappingCard({ boards }: { boards: GanttMappingBoard[] }) {
   return (
-    <div className="max-w-3xl rounded-lg border border-neutral-200 bg-white px-4 py-3">
-      <p className="mb-1 text-sm font-medium text-neutral-900">甘特圖欄位設定</p>
-      <p className="mb-3 text-xs text-neutral-500">
+    <div className="max-w-3xl rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-3">
+      <p className="mb-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">甘特圖欄位設定</p>
+      <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
         設定每個看板的甘特圖用哪些欄位驅動開始日期/天數/結束日期/前置依賴/關聯類型/Type/Lag。
       </p>
       <div className="space-y-3">
         {boards.map((board) => (
           <BoardGanttMapping key={board.id} board={board} />
         ))}
-        {boards.length === 0 && <p className="text-sm text-neutral-400">尚無看板</p>}
+        {boards.length === 0 && <p className="text-sm text-neutral-400 dark:text-neutral-500">尚無看板</p>}
       </div>
     </div>
   );

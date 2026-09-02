@@ -174,7 +174,7 @@ export function ItemRow({
       <>
         <div
           ref={rowRef}
-          className="group flex h-9 items-center border-b border-neutral-100 hover:bg-neutral-50"
+          className="group flex h-9 items-center border-b border-neutral-100 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800"
           style={{
             width: frozenPaneWidth(nameWidth),
             backgroundColor: rowBackground,
@@ -186,7 +186,7 @@ export function ItemRow({
               <button
                 type="button"
                 onClick={() => onToggleCollapse(item.id)}
-                className="text-neutral-400 hover:text-neutral-700"
+                className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-100"
                 aria-label={expanded ? "收合子項目" : "展開子項目"}
               >
                 {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -204,7 +204,7 @@ export function ItemRow({
                 setDetailOpen(true);
               }}
               title="編輯此項目所有欄位"
-              className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm outline-none hover:bg-neutral-100 focus:bg-white focus:ring-1 focus:ring-blue-400"
+              className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm outline-none hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:bg-white dark:focus:bg-neutral-900 focus:ring-1 focus:ring-blue-400"
             >
               {item.name}
             </button>
@@ -214,8 +214,8 @@ export function ItemRow({
                 setDetailTab("updates");
                 setDetailOpen(true);
               }}
-              className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
-                commentCount > 0 ? "text-blue-600" : "text-neutral-300"
+              className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-600 dark:hover:text-neutral-400 ${
+                commentCount > 0 ? "text-blue-600" : "text-neutral-300 dark:text-neutral-600"
               }`}
               aria-label="留言"
             >
@@ -227,8 +227,8 @@ export function ItemRow({
                 type="button"
                 onClick={() => setAssignOpen(true)}
                 title={item.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
-                className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
-                  item.assignments.length > 0 ? "text-blue-600" : "text-neutral-300"
+                className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-600 dark:hover:text-neutral-400 ${
+                  item.assignments.length > 0 ? "text-blue-600" : "text-neutral-300 dark:text-neutral-600"
                 }`}
                 aria-label="指派"
               >
@@ -320,7 +320,7 @@ export function ItemRow({
     <>
       <div
         ref={rowRef}
-        className="group grid h-9 w-fit items-center border-b border-neutral-100 hover:bg-neutral-50"
+        className="group grid h-9 w-fit items-center border-b border-neutral-100 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800"
         style={{
           gridTemplateColumns: gridTemplate(columns.length),
           backgroundColor: rowBackground,
@@ -361,7 +361,7 @@ export function ItemRow({
           return (
             <div
               key={col.id}
-              className={`border-r border-neutral-100 px-1 ${scheduleBlockedReason ? "cursor-not-allowed" : ""}`}
+              className={`border-r border-neutral-100 dark:border-neutral-700 px-1 ${scheduleBlockedReason ? "cursor-not-allowed" : ""}`}
               style={isLockedField ? { backgroundColor: "#f3f4f6" } : undefined}
               title={isLockedField ? "由前置依賴或子項目統計自動計算" : undefined}
               onClick={scheduleBlockedReason ? () => alert(scheduleBlockedReason) : undefined}
@@ -401,7 +401,7 @@ function RollupProgress({
   childCount: number;
 }) {
   if (value === null) {
-    return <span className="px-2 text-xs text-neutral-400">—</span>;
+    return <span className="px-2 text-xs text-neutral-400 dark:text-neutral-500">—</span>;
   }
   const pct = Math.max(0, Math.min(1, value)) * 100;
   return (
@@ -409,13 +409,13 @@ function RollupProgress({
       className="flex items-center gap-2 px-2"
       title={`依 ${childCount} 個子項目自動計算`}
     >
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-200">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
         <div
           className="h-full rounded-full bg-blue-500"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="shrink-0 text-xs text-neutral-500">
+      <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
         {Math.round(pct)}%
       </span>
     </div>

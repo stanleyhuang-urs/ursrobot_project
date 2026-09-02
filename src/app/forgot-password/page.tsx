@@ -10,17 +10,17 @@ export default function ForgotPasswordPage() {
   const [state, formAction, pending] = useActionState(requestPasswordReset, initialState);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50">
+    <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-800">
       <form
         action={formAction}
-        className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-8 shadow-sm"
+        className="w-full max-w-sm rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-8 shadow-sm"
       >
-        <h1 className="mb-2 text-xl font-semibold text-neutral-900">忘記密碼</h1>
-        <p className="mb-6 text-sm text-neutral-500">
+        <h1 className="mb-2 text-xl font-semibold text-neutral-900 dark:text-neutral-100">忘記密碼</h1>
+        <p className="mb-6 text-sm text-neutral-500 dark:text-neutral-400">
           請輸入您的帳號 Email,我們會寄送重設密碼連結給您。
         </p>
 
-        <label className="mb-1 block text-sm font-medium text-neutral-700">
+        <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-100">
           帳號 (Email)
         </label>
         <input
@@ -28,7 +28,7 @@ export default function ForgotPasswordPage() {
           type="email"
           required
           autoFocus
-          className="mb-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          className="mb-4 w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
         />
 
         {state.error && <p className="mb-4 text-sm text-red-600">{state.error}</p>}

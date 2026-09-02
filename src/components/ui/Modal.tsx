@@ -20,13 +20,13 @@ export function Modal({ open, onOpenChange, title, children, size = "md" }: Moda
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/30" />
         <Dialog.Content
-          className={`fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full ${MAX_WIDTH[size]} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-6 shadow-lg`}
+          className={`fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full ${MAX_WIDTH[size]} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white dark:bg-neutral-900 p-6 shadow-lg`}
         >
           <div className="mb-4 flex items-center justify-between">
-            <Dialog.Title className="text-lg font-semibold text-neutral-900">
+            <Dialog.Title className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
               {title}
             </Dialog.Title>
-            <Dialog.Close className="text-neutral-400 hover:text-neutral-700">
+            <Dialog.Close className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-100">
               <X size={18} />
             </Dialog.Close>
           </div>

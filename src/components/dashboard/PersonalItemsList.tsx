@@ -126,14 +126,14 @@ export function PersonalItemsList({
   return (
     <div>
       <div className="mb-2 flex items-center gap-2 text-sm">
-        <span className="text-neutral-500">篩選</span>
+        <span className="text-neutral-500 dark:text-neutral-400">篩選</span>
         <select
           value={filterField}
           onChange={(e) => {
             setFilterField(e.target.value as FilterKey | "");
             setFilterValue("");
           }}
-          className="rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+          className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-blue-500"
         >
           <option value="">不篩選</option>
           <option value="board">看板</option>
@@ -145,7 +145,7 @@ export function PersonalItemsList({
           <select
             value={filterValue}
             onChange={(e) => setFilterValue(e.target.value)}
-            className="rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-blue-500"
           >
             <option value="">全部</option>
             {filterOptions.map((v) => (
@@ -157,9 +157,9 @@ export function PersonalItemsList({
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-neutral-200 bg-white">
+      <div className="overflow-x-auto rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
         <div
-          className="grid items-center border-b border-neutral-100 bg-neutral-50 px-4 py-2 text-xs font-medium text-neutral-500"
+          className="grid items-center border-b border-neutral-100 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-4 py-2 text-xs font-medium text-neutral-500 dark:text-neutral-400"
           style={{ gridTemplateColumns: gridTemplate }}
         >
           {columns.map((col) => (
@@ -175,9 +175,9 @@ export function PersonalItemsList({
         </div>
 
         {filtered.length === 0 ? (
-          <p className="p-4 text-sm text-neutral-400">{emptyText}</p>
+          <p className="p-4 text-sm text-neutral-400 dark:text-neutral-500">{emptyText}</p>
         ) : (
-          <ul className="divide-y divide-neutral-100">
+          <ul className="divide-y divide-neutral-100 dark:divide-neutral-700">
             {filtered.map((item) => (
               <PersonalItemRow
                 key={`${item.boardId}-${item.itemId}`}

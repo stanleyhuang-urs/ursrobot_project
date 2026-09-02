@@ -145,13 +145,13 @@ export function BoardSidebar({
   if (collapsed) {
     return (
       <div
-        className="flex shrink-0 flex-col items-center border-r border-neutral-200 bg-white py-4"
+        className="flex shrink-0 flex-col items-center border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 py-4"
         style={{ width: COLLAPSED_WIDTH }}
       >
         <button
           type="button"
           onClick={toggleCollapsed}
-          className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+          className="rounded p-1.5 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100"
           aria-label="展開看板選單"
           title="展開看板選單"
         >
@@ -163,7 +163,7 @@ export function BoardSidebar({
 
   return (
     <div
-      className="relative flex shrink-0 flex-col border-r border-neutral-200 bg-white"
+      className="relative flex shrink-0 flex-col border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900"
       style={{ width }}
     >
       <div className="flex items-center justify-between px-4 py-4">
@@ -171,19 +171,19 @@ export function BoardSidebar({
           <button
             type="button"
             onClick={toggleCollapsed}
-            className="rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+            className="rounded p-1 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100"
             aria-label="隱藏看板選單"
             title="隱藏看板選單"
           >
             <PanelLeftClose size={15} />
           </button>
-          <span className="text-sm font-semibold text-neutral-900">看板</span>
+          <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">看板</span>
         </div>
         {canManage && (
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+            className="rounded p-1 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100"
             aria-label="新增看板"
           >
             <Plus size={16} />
@@ -196,8 +196,8 @@ export function BoardSidebar({
           href="/dashboard"
           className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
             pathname === "/dashboard"
-              ? "bg-blue-50 text-blue-700"
-              : "text-neutral-700 hover:bg-neutral-100"
+              ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+              : "text-neutral-700 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           }`}
         >
           <LayoutDashboard size={14} className="shrink-0" />
@@ -208,8 +208,8 @@ export function BoardSidebar({
             href="/users"
             className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
               pathname === "/users"
-                ? "bg-blue-50 text-blue-700"
-                : "text-neutral-700 hover:bg-neutral-100"
+                ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                : "text-neutral-700 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
             }`}
           >
             <Users size={14} className="shrink-0" />
@@ -221,8 +221,8 @@ export function BoardSidebar({
             href="/settings"
             className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
               pathname === "/settings"
-                ? "bg-blue-50 text-blue-700"
-                : "text-neutral-700 hover:bg-neutral-100"
+                ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                : "text-neutral-700 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
             }`}
           >
             <Settings size={14} className="shrink-0" />
@@ -234,8 +234,8 @@ export function BoardSidebar({
             href="/group-roles"
             className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
               pathname === "/group-roles"
-                ? "bg-blue-50 text-blue-700"
-                : "text-neutral-700 hover:bg-neutral-100"
+                ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                : "text-neutral-700 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
             }`}
           >
             <Shield size={14} className="shrink-0" />
@@ -249,8 +249,8 @@ export function BoardSidebar({
               key={board.id}
               className={`group flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
                 active
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-neutral-700 hover:bg-neutral-100"
+                  ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                  : "text-neutral-700 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               }`}
             >
               <Link
@@ -283,27 +283,27 @@ export function BoardSidebar({
           );
         })}
         {boards.length === 0 && (
-          <p className="px-2 py-2 text-xs text-neutral-400">尚無看板</p>
+          <p className="px-2 py-2 text-xs text-neutral-400 dark:text-neutral-500">尚無看板</p>
         )}
       </nav>
 
-      <div className="border-t border-neutral-200 px-4 py-3">
+      <div className="border-t border-neutral-200 dark:border-neutral-700 px-4 py-3">
         <div className="mb-2 flex items-center justify-between">
           <button
             type="button"
             onClick={() => setProfileOpen(true)}
             title="個人資料、照片、密碼"
-            className="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-0.5 outline-none hover:bg-neutral-100 focus:ring-1 focus:ring-blue-400"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-0.5 outline-none hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:ring-1 focus:ring-blue-400"
           >
             <Avatar name={userName} avatarUrl={avatarUrl} size={22} />
-            <span className="truncate text-xs text-neutral-500">{userName}</span>
+            <span className="truncate text-xs text-neutral-500 dark:text-neutral-400">{userName}</span>
           </button>
           <NotificationBell />
         </div>
         <form action={logout}>
           <button
             type="submit"
-            className="text-xs font-medium text-neutral-500 hover:text-neutral-800"
+            className="text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-100"
           >
             登出
           </button>
@@ -329,7 +329,7 @@ export function BoardSidebar({
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           placeholder="看板名稱"
-          className="mb-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          className="mb-4 w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
         />
         <button
           type="button"
@@ -351,7 +351,7 @@ export function BoardSidebar({
           value={renameValue}
           onChange={(e) => setRenameValue(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleRename()}
-          className="mb-4 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          className="mb-4 w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
         />
         <button
           type="button"

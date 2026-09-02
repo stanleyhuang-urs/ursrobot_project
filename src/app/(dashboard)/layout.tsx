@@ -27,7 +27,7 @@ export default async function DashboardLayout({
         userRole={session.role}
         avatarUrl={currentUser?.avatarUrl}
       />
-      <div className="flex-1 overflow-auto bg-neutral-50">{children}</div>
+      <div className="flex-1 overflow-auto bg-neutral-50 dark:bg-neutral-800">{children}</div>
     </div>
   );
 }

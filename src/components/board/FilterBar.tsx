@@ -68,7 +68,7 @@ export function FilterBar({
         return (
           <div
             key={index}
-            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2 py-1"
+            className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
           >
             <select
               value={filter.columnId}
@@ -76,7 +76,7 @@ export function FilterBar({
                 const col = allColumns.find((c) => c.id === e.target.value);
                 if (col) updateFilter(index, { columnId: col.id, value: defaultValueFor(col.type) });
               }}
-              className="rounded border-none bg-transparent text-xs font-medium text-neutral-700 outline-none"
+              className="rounded border-none bg-transparent text-xs font-medium text-neutral-700 dark:text-neutral-100 outline-none"
             >
               {allColumns.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -93,7 +93,7 @@ export function FilterBar({
             <button
               type="button"
               onClick={() => removeFilter(index)}
-              className="text-neutral-400 hover:text-red-600"
+              className="text-neutral-400 dark:text-neutral-500 hover:text-red-600"
               aria-label="移除篩選"
             >
               <X size={12} />
@@ -104,7 +104,7 @@ export function FilterBar({
       <button
         type="button"
         onClick={addFilter}
-        className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
+        className="flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-100"
       >
         <Plus size={14} /> 篩選
       </button>
@@ -129,7 +129,7 @@ function FilterValueControl({
         value={value.query}
         onChange={(e) => onChange({ kind: "text", query: e.target.value })}
         placeholder="包含文字..."
-        className="w-28 rounded border border-neutral-200 px-1.5 py-0.5 text-xs outline-none focus:border-blue-500"
+        className="w-28 rounded border border-neutral-200 dark:border-neutral-700 dark:bg-neutral-900 px-1.5 py-0.5 text-xs outline-none focus:border-blue-500"
       />
     );
   }
@@ -153,7 +153,7 @@ function FilterValueControl({
                 })
               }
               className={`rounded-full px-2 py-0.5 text-[11px] ${
-                active ? "text-white" : "border border-neutral-200 text-neutral-500"
+                active ? "text-white" : "border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400"
               }`}
               style={active ? { backgroundColor: o.color } : undefined}
             >
@@ -185,7 +185,7 @@ function FilterValueControl({
               className={`rounded-full px-2 py-0.5 text-[11px] ${
                 active
                   ? "bg-neutral-800 text-white"
-                  : "border border-neutral-200 text-neutral-500"
+                  : "border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400"
               }`}
             >
               {u.name}
@@ -210,9 +210,9 @@ function FilterValueControl({
             })
           }
           placeholder="最小"
-          className="w-14 rounded border border-neutral-200 px-1 py-0.5 text-xs outline-none focus:border-blue-500"
+          className="w-14 rounded border border-neutral-200 dark:border-neutral-700 dark:bg-neutral-900 px-1 py-0.5 text-xs outline-none focus:border-blue-500"
         />
-        <span className="text-neutral-400">~</span>
+        <span className="text-neutral-400 dark:text-neutral-500">~</span>
         <input
           type="number"
           value={value.max ?? ""}
@@ -224,7 +224,7 @@ function FilterValueControl({
             })
           }
           placeholder="最大"
-          className="w-14 rounded border border-neutral-200 px-1 py-0.5 text-xs outline-none focus:border-blue-500"
+          className="w-14 rounded border border-neutral-200 dark:border-neutral-700 dark:bg-neutral-900 px-1 py-0.5 text-xs outline-none focus:border-blue-500"
         />
       </div>
     );
@@ -236,14 +236,14 @@ function FilterValueControl({
         type="date"
         value={value.from ?? ""}
         onChange={(e) => onChange({ kind: "date", from: e.target.value || null, to: value.to })}
-        className="w-32 rounded border border-neutral-200 px-1 py-0.5 text-xs outline-none focus:border-blue-500"
+        className="w-32 rounded border border-neutral-200 dark:border-neutral-700 dark:bg-neutral-900 px-1 py-0.5 text-xs outline-none focus:border-blue-500"
       />
-      <span className="text-neutral-400">~</span>
+      <span className="text-neutral-400 dark:text-neutral-500">~</span>
       <input
         type="date"
         value={value.to ?? ""}
         onChange={(e) => onChange({ kind: "date", from: value.from, to: e.target.value || null })}
-        className="w-32 rounded border border-neutral-200 px-1 py-0.5 text-xs outline-none focus:border-blue-500"
+        className="w-32 rounded border border-neutral-200 dark:border-neutral-700 dark:bg-neutral-900 px-1 py-0.5 text-xs outline-none focus:border-blue-500"
       />
     </div>
   );

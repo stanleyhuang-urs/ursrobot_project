@@ -41,7 +41,7 @@ function ReadOnlyCell({
     display = String(value);
   }
   return (
-    <span className="block truncate px-2 py-1 text-sm text-neutral-600" title={display}>
+    <span className="block truncate px-2 py-1 text-sm text-neutral-600 dark:text-neutral-400" title={display}>
       {display}
     </span>
   );

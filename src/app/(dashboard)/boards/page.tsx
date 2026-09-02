@@ -17,8 +17,8 @@ export default async function BoardsIndexPage() {
 
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
-      <p className="mb-2 text-lg font-medium text-neutral-700">還沒有任何看板</p>
-      <p className="text-sm text-neutral-400">
+      <p className="mb-2 text-lg font-medium text-neutral-700 dark:text-neutral-100">還沒有任何看板</p>
+      <p className="text-sm text-neutral-400 dark:text-neutral-500">
         點選左側「+」建立你的第一個看板
       </p>
     </div>

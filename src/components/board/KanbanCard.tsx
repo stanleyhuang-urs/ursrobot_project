@@ -36,7 +36,7 @@ export function KanbanCard({
       {...listeners}
       data-kanban-card
       title={canDrag ? undefined : "只能移動自己被指派或負責的項目"}
-      className={`rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm hover:border-neutral-300 ${
+      className={`rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-800 dark:text-neutral-100 shadow-sm hover:border-neutral-300 dark:hover:border-neutral-600 ${
         canDrag ? "cursor-grab" : "cursor-default"
       }`}
     >

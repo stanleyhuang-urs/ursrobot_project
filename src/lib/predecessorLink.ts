@@ -407,6 +407,116 @@ export async function syncPredecessorSchedule(
   }
 }
 
+export type SchedulePreview = { start: string; end: string; days: number | null };
+
+/**
+ * What Start/Finish/Days WOULD become for one item if columnId were set to
+ * newValue, without writing anything — used by the assignment modal's
+ * schedule fields to show "this will move the dates" before the user
+ * confirms. Editing one item can only ever change that item's own
+ * Start/Finish/Days (a cascade to its dependents happens only after the
+ * edit is actually applied), so reading its predecessor's already-persisted
+ * range here is exact, not an approximation. Returns null if nothing about
+ * the item's own schedule can be determined.
+ */
+export async function previewScheduleChange(
+  boardId: string,
+  itemId: string,
+  columnId: string,
+  newValue: string | number | null
+): Promise<SchedulePreview | null> {
+  const board = await prisma.board.findUnique({
+    where: { id: boardId },
+    select: {
+      predColumnId: true,
+      linkColumnId: true,
+      lagColumnId: true,
+      ganttStartColumnId: true,
+      ganttDurationColumnId: true,
+      ganttDurationMode: true,
+      manualStartColumnId: true,
+      manualDurationColumnId: true,
+    },
+  });
+  if (!board) return null;
+  const {
+    predColumnId,
+    linkColumnId,
+    lagColumnId,
+    ganttStartColumnId: startId,
+    ganttDurationColumnId: durId,
+    ganttDurationMode: mode,
+    manualStartColumnId,
+    manualDurationColumnId,
+  } = board;
+  const alwaysComputed = !!manualStartColumnId && !!manualDurationColumnId;
+  if (!startId || !durId) return null;
+
+  const [linkColumn, items, holidayRows] = await Promise.all([
+    linkColumnId
+      ? prisma.column.findUnique({ where: { id: linkColumnId }, select: { options: true } })
+      : Promise.resolve(null),
+    prisma.item.findMany({
+      where: { boardId },
+      select: { id: true, parentId: true, order: true, cellValues: true, groupId: true },
+    }),
+    listHolidays(),
+  ]);
+  const item = items.find((i) => i.id === itemId);
+  if (!item) return null;
+  const linkOptions = getStatusOptions(linkColumn?.options);
+  const holidays = toHolidaySet(holidayRows);
+  const wbsIndex = buildWbsIndexFromItems(items);
+  const itemsById = new Map(items.map((i) => [i.id, i]));
+
+  const cellValues = item.cellValues.map((cv) => (cv.columnId === columnId ? { ...cv, value: newValue } : cv));
+  const overriddenItem = { ...item, cellValues };
+
+  const predValue = predColumnId ? cellValues.find((cv) => cv.columnId === predColumnId)?.value : null;
+  const predItemId =
+    predColumnId && typeof predValue === "string" ? resolveWbsCode(wbsIndex, item.groupId, predValue) : undefined;
+  const linkValue = linkColumnId ? cellValues.find((cv) => cv.columnId === linkColumnId)?.value : null;
+  const relationship = linkOptions.find((o) => o.id === linkValue)?.label;
+  const lagValue = lagColumnId ? cellValues.find((cv) => cv.columnId === lagColumnId)?.value : null;
+  const lag = typeof lagValue === "number" ? lagValue : 0;
+
+  let myDays: number | null;
+  let baseRange: DateRange | null = null;
+  if (alwaysComputed) {
+    const durValue = cellValues.find((cv) => cv.columnId === manualDurationColumnId)?.value;
+    myDays = typeof durValue === "number" ? durValue : null;
+    baseRange = getItemDateRange(overriddenItem, manualStartColumnId!, manualDurationColumnId!, mode, holidays);
+  } else {
+    const daysValue = cellValues.find((cv) => cv.columnId === durId)?.value;
+    myDays = typeof daysValue === "number" ? daysValue : null;
+  }
+
+  let scheduled: DateRange | null = null;
+  if (
+    predItemId &&
+    predItemId !== itemId &&
+    relationship &&
+    (RELATIONSHIP_TYPES as string[]).includes(relationship) &&
+    myDays !== null
+  ) {
+    const predItem = itemsById.get(predItemId);
+    const predRange = predItem ? getItemDateRange(predItem, startId, durId, mode, holidays) : null;
+    if (predRange) {
+      scheduled = computeScheduledRange(predRange, myDays, relationship as RelationshipType, lag, mode, holidays);
+    }
+  }
+  if (!scheduled && alwaysComputed && baseRange) {
+    scheduled = baseRange;
+  }
+  if (!scheduled) return null;
+
+  return {
+    start: scheduled.start.toISOString().slice(0, 10),
+    end: scheduled.end.toISOString().slice(0, 10),
+    days: myDays,
+  };
+}
+
 /**
  * Recomputes every Pred/Link-driven item on the board from scratch, in
  * dependency order (starting at each chain's root — an item with no

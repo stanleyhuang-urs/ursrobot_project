@@ -13,7 +13,19 @@ import { requireBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
 import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
 import { loadGroupRoleContext } from "@/lib/groupRoleContext";
-import { getPersonIds, type CellValueJson } from "@/types/column";
+import { getPersonIds, getStatusOptions, type CellValueJson } from "@/types/column";
+
+/** Human-readable form of a cell's raw value for the activity log — STATUS
+ *  values are stored as option ids, so the log needs the option's label,
+ *  not the id, to actually be readable. */
+function formatCellValueForLog(column: { type: string; options: unknown }, value: unknown): string {
+  if (value === null || value === undefined || value === "") return "未設定";
+  if (column.type === "STATUS") {
+    const option = getStatusOptions(column.options).find((o) => o.id === value);
+    return option?.label ?? String(value);
+  }
+  return String(value);
+}
 
 export async function upsertCellValue(
   boardId: string,
@@ -163,7 +175,9 @@ export async function upsertCellValue(
       const changed =
         JSON.stringify(existing?.value ?? null) !== JSON.stringify(value);
       if (changed) {
-        await logActivity(itemId, session.userId, `「${column.name}」已更新`);
+        const oldLabel = formatCellValueForLog(column, existing?.value ?? null);
+        const newLabel = formatCellValueForLog(column, value);
+        await logActivity(itemId, session.userId, `「${column.name}」已更新:${oldLabel} → ${newLabel}`);
         await notifyItemAssignees(
           prisma,
           itemId,

@@ -54,7 +54,7 @@ function TogglePillList({
             disabled={disabled}
             onClick={() => onToggle(o.id)}
             className={`rounded-full px-2 py-0.5 text-[11px] disabled:opacity-50 ${
-              active ? activeClassName : "border border-neutral-200 text-neutral-500 hover:border-neutral-300"
+              active ? activeClassName : "border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-600"
             }`}
           >
             {o.name}
@@ -125,15 +125,15 @@ export function GroupRolesModal({
     <Modal open={open} onOpenChange={onOpenChange} title={`${group.name} — 分組角色設定`} size="xl">
       <div className="space-y-5">
         <section>
-          <h3 className="mb-1 text-sm font-semibold text-neutral-800">角色</h3>
-          <p className="mb-2 text-xs text-neutral-400">
+          <h3 className="mb-1 text-sm font-semibold text-neutral-800 dark:text-neutral-100">角色</h3>
+          <p className="mb-2 text-xs text-neutral-400 dark:text-neutral-500">
             Team Leader、PMD 可調整此分組任何項目的時程(拖曳甘特圖、改起訖日)。SW/HW/ME/QA
             DM 可在此分組新增/指派項目、管理各自領域成員的進度,範圍僅限此分組。PMM 目前僅作花名冊,不授予額外權限。
           </p>
           <div className="space-y-2">
             {ROLES.map((role) => (
               <div key={role} className="flex items-start gap-2">
-                <span className="w-24 shrink-0 pt-1 text-xs font-medium text-neutral-500">{ROLE_LABELS[role]}</span>
+                <span className="w-24 shrink-0 pt-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">{ROLE_LABELS[role]}</span>
                 <TogglePillList
                   options={realUsers}
                   selectedIds={new Set(group.roleAssignments.filter((a) => a.role === role).map((a) => a.userId))}
@@ -147,12 +147,12 @@ export function GroupRolesModal({
         </section>
 
         <section>
-          <h3 className="mb-1 text-sm font-semibold text-neutral-800">實作成員</h3>
-          <p className="mb-2 text-xs text-neutral-400">SW/HW/ME/QA DM 只能管理各自欄位底下列出的成員。</p>
+          <h3 className="mb-1 text-sm font-semibold text-neutral-800 dark:text-neutral-100">實作成員</h3>
+          <p className="mb-2 text-xs text-neutral-400 dark:text-neutral-500">SW/HW/ME/QA DM 只能管理各自欄位底下列出的成員。</p>
           <div className="space-y-2">
             {DISCIPLINES.map((discipline) => (
               <div key={discipline} className="flex items-start gap-2">
-                <span className="w-24 shrink-0 pt-1 text-xs font-medium text-neutral-500">{discipline} member</span>
+                <span className="w-24 shrink-0 pt-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">{discipline} member</span>
                 <TogglePillList
                   options={realUsers}
                   selectedIds={
@@ -169,8 +169,8 @@ export function GroupRolesModal({
 
         {resources.length > 0 && (
           <section>
-            <h3 className="mb-1 text-sm font-semibold text-neutral-800">Resource 成員</h3>
-            <p className="mb-2 text-xs text-neutral-400">花名冊用途,Resource 沒有登入帳號、不會取得任何操作權限。</p>
+            <h3 className="mb-1 text-sm font-semibold text-neutral-800 dark:text-neutral-100">Resource 成員</h3>
+            <p className="mb-2 text-xs text-neutral-400 dark:text-neutral-500">花名冊用途,Resource 沒有登入帳號、不會取得任何操作權限。</p>
             <TogglePillList
               options={resources}
               selectedIds={new Set(group.resourceMembers.map((m) => m.resourceId))}

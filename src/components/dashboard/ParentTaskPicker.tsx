@@ -30,8 +30,8 @@ function TreeRow({
         tabIndex={0}
         onClick={() => onSelect(node.itemId)}
         onKeyDown={(e) => e.key === "Enter" && onSelect(node.itemId)}
-        className={`flex cursor-pointer items-center gap-1 py-1 pr-2 text-xs hover:bg-neutral-100 ${
-          node.itemId === selectedId ? "bg-blue-50 font-medium text-blue-700" : "text-neutral-700"
+        className={`flex cursor-pointer items-center gap-1 py-1 pr-2 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
+          node.itemId === selectedId ? "bg-blue-50 dark:bg-blue-950 font-medium text-blue-700 dark:text-blue-300" : "text-neutral-700 dark:text-neutral-100"
         }`}
         style={{ paddingLeft: depth * 14 + 6 }}
       >
@@ -42,7 +42,7 @@ function TreeRow({
               e.stopPropagation();
               onToggleExpand(node.itemId);
             }}
-            className="shrink-0 text-neutral-400 hover:text-neutral-600"
+            className="shrink-0 text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400"
           >
             {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </button>
@@ -135,7 +135,7 @@ export function ParentTaskPicker({
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-56 max-w-[220px] truncate rounded-md border border-neutral-300 bg-white px-2 py-1 text-left text-xs outline-none focus:border-blue-500"
+        className="w-56 max-w-[220px] truncate rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-2 py-1 text-left text-xs outline-none focus:border-blue-500"
       >
         {selectedNode ? `${selectedNode.boardName} / ${selectedNode.itemName}` : "選擇父任務"}
       </button>
@@ -145,7 +145,7 @@ export function ParentTaskPicker({
           <>
             <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
             <div
-              className="fixed z-20 max-h-96 w-96 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+              className="fixed z-20 max-h-96 w-96 overflow-y-auto rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 py-1 shadow-lg"
               style={{ top: menuPos.top, left: menuPos.left }}
             >
               {tree.map((node) => (

@@ -79,9 +79,9 @@ export function ItemCardTab({
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-neutral-200">
-      <div className="border-b border-neutral-100 px-4 py-3">
-        <p className="mb-1 text-xs text-neutral-400">項目名稱</p>
+    <div className="overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
+      <div className="border-b border-neutral-100 dark:border-neutral-700 px-4 py-3">
+        <p className="mb-1 text-xs text-neutral-400 dark:text-neutral-500">項目名稱</p>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -90,7 +90,7 @@ export function ItemCardTab({
             if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
           }}
           readOnly={!canEditStructure}
-          className="w-full rounded px-1 py-0.5 text-sm font-medium text-neutral-900 outline-none hover:bg-neutral-100 focus:bg-white focus:ring-1 focus:ring-blue-400"
+          className="w-full rounded px-1 py-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100 outline-none hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:bg-white dark:focus:bg-neutral-900 focus:ring-1 focus:ring-blue-400"
         />
       </div>
       {columns.map((col) => {
@@ -115,14 +115,14 @@ export function ItemCardTab({
         return (
           <div
             key={col.id}
-            className={`flex items-center justify-between border-b border-neutral-100 px-4 py-2.5 last:border-b-0 ${
+            className={`flex items-center justify-between border-b border-neutral-100 dark:border-neutral-700 px-4 py-2.5 last:border-b-0 ${
               scheduleBlockedReason ? "cursor-not-allowed" : ""
             }`}
             title={isLockedField ? "由前置依賴或子項目統計自動計算" : undefined}
             onClick={scheduleBlockedReason ? () => alert(scheduleBlockedReason) : undefined}
           >
-            <span className="text-xs text-neutral-400">{col.name}</span>
-            <span className="w-40 text-sm text-neutral-800">
+            <span className="text-xs text-neutral-400 dark:text-neutral-500">{col.name}</span>
+            <span className="w-40 text-sm text-neutral-800 dark:text-neutral-100">
               <CellEditor
                 boardId={boardId}
                 itemId={item.id}
@@ -140,8 +140,8 @@ export function ItemCardTab({
       })}
       {todoStats && (
         <div className="flex items-center justify-between px-4 py-2.5">
-          <span className="text-xs text-neutral-400">待辦事項</span>
-          <span className="text-sm text-neutral-800">
+          <span className="text-xs text-neutral-400 dark:text-neutral-500">待辦事項</span>
+          <span className="text-sm text-neutral-800 dark:text-neutral-100">
             {todoStats.done} / {todoStats.total} 已完成
           </span>
         </div>

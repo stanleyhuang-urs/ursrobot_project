@@ -35,7 +35,7 @@ export function StatusCell({
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="start"
-          className="z-50 min-w-[160px] rounded-md border border-neutral-200 bg-white p-1 shadow-md"
+          className="z-50 min-w-[160px] rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-1 shadow-md"
         >
           {statuses.map((option) => (
             <DropdownMenu.Item
@@ -43,7 +43,7 @@ export function StatusCell({
               onSelect={() =>
                 upsertCellValue(boardId, itemId, columnId, option.id)
               }
-              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm outline-none hover:bg-neutral-100"
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm outline-none hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
               <span
                 className="h-3 w-3 shrink-0 rounded-sm"
@@ -52,10 +52,10 @@ export function StatusCell({
               {option.label}
             </DropdownMenu.Item>
           ))}
-          <DropdownMenu.Separator className="my-1 h-px bg-neutral-200" />
+          <DropdownMenu.Separator className="my-1 h-px bg-neutral-200 dark:bg-neutral-700" />
           <DropdownMenu.Item
             onSelect={() => upsertCellValue(boardId, itemId, columnId, null)}
-            className="cursor-pointer rounded px-2 py-1.5 text-sm text-neutral-500 outline-none hover:bg-neutral-100"
+            className="cursor-pointer rounded px-2 py-1.5 text-sm text-neutral-500 dark:text-neutral-400 outline-none hover:bg-neutral-100 dark:hover:bg-neutral-800"
           >
             清除
           </DropdownMenu.Item>

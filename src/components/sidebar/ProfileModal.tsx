@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
 import { fileToAvatarDataUrl } from "@/lib/avatarImage";
 import { updateOwnAvatar, updateOwnPassword } from "@/lib/actions/user";
+import { useTheme } from "@/lib/useTheme";
 
 export function ProfileModal({
   userName,
@@ -19,6 +20,7 @@ export function ProfileModal({
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewAvatarUrl, setPreviewAvatarUrl] = useState(avatarUrl);
   const [uploading, setUploading] = useState(false);
@@ -100,7 +102,7 @@ export function ProfileModal({
           className="hidden"
         />
         <div>
-          <p className="text-sm font-medium text-neutral-900">{userName}</p>
+          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{userName}</p>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -115,8 +117,36 @@ export function ProfileModal({
         <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{avatarError}</div>
       )}
 
-      <div className="border-t border-neutral-100 pt-4">
-        <p className="mb-2 text-xs font-medium text-neutral-500">變更密碼</p>
+      <div className="border-t border-neutral-100 dark:border-neutral-700 pt-4">
+        <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">外觀主題</p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setTheme("light")}
+            className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${
+              theme === "light"
+                ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                : "border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-100"
+            }`}
+          >
+            白色
+          </button>
+          <button
+            type="button"
+            onClick={() => setTheme("dark")}
+            className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${
+              theme === "dark"
+                ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                : "border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-100"
+            }`}
+          >
+            黑色
+          </button>
+        </div>
+      </div>
+
+      <div className="border-t border-neutral-100 dark:border-neutral-700 pt-4 mt-4">
+        <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">變更密碼</p>
         {passwordError && (
           <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{passwordError}</div>
         )}
@@ -130,7 +160,7 @@ export function ProfileModal({
             placeholder="目前密碼"
             type="password"
             autoComplete="current-password"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <input
             value={newPassword}
@@ -138,7 +168,7 @@ export function ProfileModal({
             placeholder="新密碼(至少 8 個字元)"
             type="password"
             autoComplete="new-password"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <button
             type="button"

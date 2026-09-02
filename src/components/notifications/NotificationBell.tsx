@@ -70,7 +70,7 @@ export function NotificationBell() {
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="relative rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+          className="relative rounded p-1.5 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100"
           aria-label="通知"
         >
           <Bell size={18} />
@@ -84,11 +84,11 @@ export function NotificationBell() {
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="start"
-          className="z-50 max-h-96 w-80 overflow-auto rounded-md border border-neutral-200 bg-white p-1 shadow-md"
+          className="z-50 max-h-96 w-80 overflow-auto rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-1 shadow-md"
         >
           {unreadCount > 0 && (
             <div className="flex items-center justify-between px-2 py-1">
-              <span className="text-xs text-neutral-400">通知</span>
+              <span className="text-xs text-neutral-400 dark:text-neutral-500">通知</span>
               <button
                 type="button"
                 onClick={handleMarkAllRead}
@@ -99,7 +99,7 @@ export function NotificationBell() {
             </div>
           )}
           {notifications.length === 0 && (
-            <p className="px-3 py-4 text-center text-sm text-neutral-400">
+            <p className="px-3 py-4 text-center text-sm text-neutral-400 dark:text-neutral-500">
               沒有通知
             </p>
           )}
@@ -107,20 +107,20 @@ export function NotificationBell() {
             <DropdownMenu.Item
               key={n.id}
               onSelect={() => handleClickNotification(n)}
-              className={`flex cursor-pointer flex-col gap-0.5 rounded px-3 py-2 text-sm outline-none hover:bg-neutral-100 ${
-                n.read ? "text-neutral-500" : "text-neutral-900"
+              className={`flex cursor-pointer flex-col gap-0.5 rounded px-3 py-2 text-sm outline-none hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
+                n.read ? "text-neutral-500 dark:text-neutral-400" : "text-neutral-900 dark:text-neutral-100"
               }`}
             >
               <span className="flex items-center gap-1.5">
                 {!n.read && (
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
                 )}
-                <span className="text-xs text-neutral-400">
+                <span className="text-xs text-neutral-400 dark:text-neutral-500">
                   {NOTIFICATION_TYPE_LABEL[n.type] ?? n.type}
                 </span>
               </span>
               <span className="truncate">
-                {n.wbsCode && <span className="mr-1 text-neutral-400">{n.wbsCode}</span>}
+                {n.wbsCode && <span className="mr-1 text-neutral-400 dark:text-neutral-500">{n.wbsCode}</span>}
                 {n.message}
               </span>
             </DropdownMenu.Item>

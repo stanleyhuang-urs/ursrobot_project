@@ -78,7 +78,7 @@ export function ExportGanttModal({
       )}
       {!done ? (
         <div className="space-y-3">
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
             會下載兩個檔案:一個完整的 .xlsx(Settings/Lists/Gantt Day·Week·
             Month 五個分頁,含甘特條、階層顏色、下拉選單),以及一份 Apps
             Script(.gs)範本。上傳 .xlsx 到 Google 雲端硬碟並以「Google
@@ -89,7 +89,7 @@ export function ExportGanttModal({
           <select
             value={groupId}
             onChange={(e) => setGroupId(e.target.value)}
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           >
             {groups.map((g) => (
               <option key={g.id} value={g.id}>
@@ -108,15 +108,15 @@ export function ExportGanttModal({
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm text-neutral-700">
+          <p className="text-sm text-neutral-700 dark:text-neutral-100">
             已下載 .xlsx 與 .gs 兩個檔案。
           </p>
-          <ol className="list-decimal space-y-1 pl-4 text-sm text-neutral-500">
+          <ol className="list-decimal space-y-1 pl-4 text-sm text-neutral-500 dark:text-neutral-400">
             <li>將 .xlsx 上傳到 Google 雲端硬碟,以「Google 試算表」開啟</li>
             <li>擴充功能 → Apps Script,貼上 .gs 檔內容並儲存</li>
             <li>重新整理試算表頁面,即可使用「Gantt」選單的所有功能</li>
           </ol>
-          <p className="text-xs text-neutral-400">
+          <p className="text-xs text-neutral-400 dark:text-neutral-500">
             此功能無法直接產生雲端上的 Google 試算表檔案(.gsheet
             只是雲端硬碟裡的捷徑,需要 Google API 授權才能建立),因此仍需要這
             一次性的上傳與貼上腳本步驟。
@@ -124,7 +124,7 @@ export function ExportGanttModal({
           <button
             type="button"
             onClick={() => reset(false)}
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 px-3 py-2 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
           >
             關閉
           </button>

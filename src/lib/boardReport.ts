@@ -27,42 +27,73 @@ export type StatusBucketCounts = {
   done: number;
 };
 
+function bucketSets(board: BoardWithData) {
+  return {
+    notStarted: new Set(board.reportNotStartedOptionIds),
+    planned: new Set(board.reportPlannedOptionIds),
+    paused: new Set(board.reportPausedOptionIds),
+    stuck: new Set(board.reportStuckOptionIds),
+    done: new Set(board.reportDoneOptionIds),
+  };
+}
+
+/** Same classification counts and item lists share, so they can never disagree on which bucket an item is in. */
+function classifyBucket(
+  item: ItemData,
+  statusColumnId: string | null,
+  sets: ReturnType<typeof bucketSets>
+): BucketKey {
+  if (!statusColumnId) return "inProgress";
+  const value = item.cellValues.find((cv) => cv.columnId === statusColumnId)?.value;
+  if (typeof value !== "string") return "inProgress";
+  if (sets.notStarted.has(value)) return "notStarted";
+  if (sets.planned.has(value)) return "planned";
+  if (sets.paused.has(value)) return "paused";
+  if (sets.stuck.has(value)) return "stuck";
+  if (sets.done.has(value)) return "done";
+  return "inProgress";
+}
+
 /** Splits items into the board's designated report buckets; anything unassigned counts as in-progress. */
 export function computeStatusBuckets(board: BoardWithData, items: ItemData[]): StatusBucketCounts {
-  const total = items.length;
-  if (!board.reportStatusColumnId) {
-    return { total, notStarted: 0, planned: 0, inProgress: total, paused: 0, stuck: 0, done: 0 };
-  }
-
-  const notStartedSet = new Set(board.reportNotStartedOptionIds);
-  const plannedSet = new Set(board.reportPlannedOptionIds);
-  const pausedSet = new Set(board.reportPausedOptionIds);
-  const stuckSet = new Set(board.reportStuckOptionIds);
-  const doneSet = new Set(board.reportDoneOptionIds);
-
-  let notStarted = 0;
-  let planned = 0;
-  let paused = 0;
-  let stuck = 0;
-  let done = 0;
+  const sets = bucketSets(board);
+  const counts: StatusBucketCounts = {
+    total: items.length,
+    notStarted: 0,
+    planned: 0,
+    inProgress: 0,
+    paused: 0,
+    stuck: 0,
+    done: 0,
+  };
   for (const item of items) {
-    const value = item.cellValues.find((cv) => cv.columnId === board.reportStatusColumnId)?.value;
-    if (typeof value !== "string") continue;
-    if (notStartedSet.has(value)) notStarted++;
-    else if (plannedSet.has(value)) planned++;
-    else if (pausedSet.has(value)) paused++;
-    else if (stuckSet.has(value)) stuck++;
-    else if (doneSet.has(value)) done++;
+    counts[classifyBucket(item, board.reportStatusColumnId, sets)]++;
   }
-  const inProgress = total - notStarted - planned - paused - stuck - done;
-  return { total, notStarted, planned, inProgress, paused, stuck, done };
+  return counts;
+}
+
+/** Same bucketing as computeStatusBuckets, but returns the actual items per bucket instead of just counts. */
+export function groupItemsByBucket(board: BoardWithData, items: ItemData[]): Record<BucketKey, ItemData[]> {
+  const sets = bucketSets(board);
+  const result: Record<BucketKey, ItemData[]> = {
+    notStarted: [],
+    planned: [],
+    inProgress: [],
+    paused: [],
+    stuck: [],
+    done: [],
+  };
+  for (const item of items) {
+    result[classifyBucket(item, board.reportStatusColumnId, sets)].push(item);
+  }
+  return result;
 }
 
 // Same 6 buckets and colors as the stat cards above the charts (BoardReport's
 // StatCard row) — every other status visualization reuses this one mapping
 // so a bucket always means the same label/color everywhere in the report.
 const BUCKET_ORDER = ["notStarted", "planned", "inProgress", "paused", "stuck", "done"] as const;
-type BucketKey = (typeof BUCKET_ORDER)[number];
+export type BucketKey = (typeof BUCKET_ORDER)[number];
 const BUCKET_LABELS: Record<BucketKey, string> = {
   notStarted: "尚未處理",
   planned: "計畫中",
@@ -80,16 +111,21 @@ const BUCKET_COLORS: Record<BucketKey, string> = {
   done: "#00c875",
 };
 
-export type BucketSlice = { key: BucketKey; label: string; color: string; count: number };
+export type BucketSlice = { key: BucketKey; label: string; color: string; count: number; items: ItemData[] };
 
 /** Turns a bucket-counts object into the non-empty slices to plot, in a
- *  fixed order, so callers never have to know the bucket keys/colors. */
-export function bucketSlices(buckets: StatusBucketCounts): BucketSlice[] {
+ *  fixed order, so callers never have to know the bucket keys/colors.
+ *  Pass the matching groupItemsByBucket() result to attach each slice's items. */
+export function bucketSlices(
+  buckets: StatusBucketCounts,
+  itemsByBucket?: Record<BucketKey, ItemData[]>
+): BucketSlice[] {
   return BUCKET_ORDER.map((key) => ({
     key,
     label: BUCKET_LABELS[key],
     color: BUCKET_COLORS[key],
     count: buckets[key],
+    items: itemsByBucket?.[key] ?? [],
   })).filter((s) => s.count > 0);
 }
 
@@ -115,7 +151,8 @@ export function computeTasksByOwnerBuckets(
     .map((u) => {
       const ownerItems = itemsByOwner.get(u.id) ?? [];
       const buckets = computeStatusBuckets(board, ownerItems);
-      return { userId: u.id, userName: u.name, total: buckets.total, slices: bucketSlices(buckets) };
+      const grouped = groupItemsByBucket(board, ownerItems);
+      return { userId: u.id, userName: u.name, total: buckets.total, slices: bucketSlices(buckets, grouped) };
     })
     .filter((o) => o.total > 0)
     .sort((a, b) => b.total - a.total);

@@ -74,13 +74,13 @@ function SortableUserRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`grid ${ROW_GRID} items-center gap-2 border-b border-neutral-100 px-4 py-2.5 text-sm last:border-b-0`}
+      className={`grid ${ROW_GRID} items-center gap-2 border-b border-neutral-100 dark:border-neutral-700 px-4 py-2.5 text-sm last:border-b-0`}
     >
       <button
         type="button"
         {...attributes}
         {...listeners}
-        className="cursor-grab text-neutral-300 hover:text-neutral-500"
+        className="cursor-grab text-neutral-300 dark:text-neutral-600 hover:text-neutral-500 dark:hover:text-neutral-400"
         aria-label="拖曳排序"
       >
         <GripVertical size={14} />
@@ -95,22 +95,22 @@ function SortableUserRow({
       >
         <Avatar name={user.name} avatarUrl={user.avatarUrl} size={32} />
       </button>
-      <span className="flex min-w-0 items-center gap-1 truncate text-neutral-800">
+      <span className="flex min-w-0 items-center gap-1 truncate text-neutral-800 dark:text-neutral-100">
         {user.name}
         {isLocked && (
           <Lock size={12} className="shrink-0 text-red-500" aria-label="帳號已鎖定" />
         )}
       </span>
-      <span className="truncate text-neutral-500">{user.email}</span>
-      <span className="text-neutral-500">{roleLabel(user.role)}</span>
-      <span className="text-neutral-400">
+      <span className="truncate text-neutral-500 dark:text-neutral-400">{user.email}</span>
+      <span className="text-neutral-500 dark:text-neutral-400">{roleLabel(user.role)}</span>
+      <span className="text-neutral-400 dark:text-neutral-500">
         {new Date(user.createdAt).toLocaleDateString("zh-TW")}
       </span>
       {user.role === "MEMBER" ? (
         <select
           value={user.supervisorId ?? ""}
           onChange={(e) => updateUserSupervisor(user.id, e.target.value || null)}
-          className="rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+          className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-blue-500"
         >
           <option value="">未設定</option>
           {supervisors.map((s) => (
@@ -120,14 +120,14 @@ function SortableUserRow({
           ))}
         </select>
       ) : (
-        <span className="text-neutral-300">—</span>
+        <span className="text-neutral-300 dark:text-neutral-600">—</span>
       )}
       <span className="flex items-center justify-end gap-2">
         {isLocked && (
           <button
             type="button"
             onClick={onUnlock}
-            className="text-neutral-400 hover:text-green-600"
+            className="text-neutral-400 dark:text-neutral-500 hover:text-green-600"
             aria-label="解除帳號鎖定"
             title="解除鎖定"
           >
@@ -137,7 +137,7 @@ function SortableUserRow({
         <button
           type="button"
           onClick={onResetPassword}
-          className="text-neutral-400 hover:text-blue-600"
+          className="text-neutral-400 dark:text-neutral-500 hover:text-blue-600"
           aria-label="重設密碼"
           title="重設密碼"
         >
@@ -146,7 +146,7 @@ function SortableUserRow({
         <button
           type="button"
           onClick={onEdit}
-          className="text-neutral-400 hover:text-blue-600"
+          className="text-neutral-400 dark:text-neutral-500 hover:text-blue-600"
           aria-label="編輯使用者"
           title="編輯"
         >
@@ -155,7 +155,7 @@ function SortableUserRow({
         <button
           type="button"
           onClick={onDelete}
-          className="text-neutral-400 hover:text-red-600"
+          className="text-neutral-400 dark:text-neutral-500 hover:text-red-600"
           aria-label="刪除使用者"
           title="刪除"
         >
@@ -374,9 +374,9 @@ export function UserManagement({
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-neutral-200 bg-white">
+      <div className="overflow-x-auto rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
         <div
-          className={`grid ${ROW_GRID} gap-2 border-b border-neutral-100 px-4 py-2 text-xs font-medium text-neutral-500`}
+          className={`grid ${ROW_GRID} gap-2 border-b border-neutral-100 dark:border-neutral-700 px-4 py-2 text-xs font-medium text-neutral-500 dark:text-neutral-400`}
         >
           <span />
           <span>頭像</span>
@@ -428,26 +428,26 @@ export function UserManagement({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="姓名"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
             type="email"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="密碼(至少 8 個字元)"
             type="password"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as UserRole)}
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           >
             <option value="MEMBER">團隊成員</option>
             <option value="SUPERVISOR">主管</option>
@@ -457,7 +457,7 @@ export function UserManagement({
             <select
               value={supervisorId}
               onChange={(e) => setSupervisorId(e.target.value)}
-              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
             >
               <option value="">所屬主管(未設定)</option>
               {supervisors.map((s) => (
@@ -495,20 +495,20 @@ export function UserManagement({
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             placeholder="姓名"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <input
             value={editEmail}
             onChange={(e) => setEditEmail(e.target.value)}
             placeholder="Email"
             type="email"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <select
             value={editRole}
             disabled={editTarget?.id === currentUserId}
             onChange={(e) => setEditRole(e.target.value as UserRole)}
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:bg-neutral-100"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:bg-neutral-100 dark:disabled:bg-neutral-800"
           >
             <option value="MEMBER">團隊成員</option>
             <option value="SUPERVISOR">主管</option>
@@ -518,7 +518,7 @@ export function UserManagement({
             <select
               value={editSupervisorId}
               onChange={(e) => setEditSupervisorId(e.target.value)}
-              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
             >
               <option value="">所屬主管(未設定)</option>
               {supervisors
@@ -559,7 +559,7 @@ export function UserManagement({
             onChange={(e) => setResetPasswordValue(e.target.value)}
             placeholder="新密碼(至少 8 個字元)"
             type="password"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <button
             type="button"

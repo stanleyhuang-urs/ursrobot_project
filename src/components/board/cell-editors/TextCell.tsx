@@ -31,7 +31,7 @@ export function TextCell({
       onKeyDown={(e) => {
         if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
       }}
-      className="w-full rounded px-2 py-1 text-sm outline-none hover:bg-neutral-50 focus:bg-white focus:ring-1 focus:ring-blue-400"
+      className="w-full rounded px-2 py-1 text-sm outline-none hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:bg-white dark:focus:bg-neutral-900 focus:ring-1 focus:ring-blue-400"
     />
   );
 }

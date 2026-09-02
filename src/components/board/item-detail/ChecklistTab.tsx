@@ -51,19 +51,19 @@ export function ChecklistTab({ boardId, itemId }: { boardId: string; itemId: str
   return (
     <div>
       {todos.length > 0 && (
-        <p className="mb-3 text-xs text-neutral-400">
+        <p className="mb-3 text-xs text-neutral-400 dark:text-neutral-500">
           {doneCount} / {todos.length} 已完成
         </p>
       )}
-      {loading && <p className="text-sm text-neutral-400">載入中...</p>}
+      {loading && <p className="text-sm text-neutral-400 dark:text-neutral-500">載入中...</p>}
       {!loading && todos.length === 0 && (
-        <p className="mb-3 text-sm text-neutral-400">尚無待辦事項</p>
+        <p className="mb-3 text-sm text-neutral-400 dark:text-neutral-500">尚無待辦事項</p>
       )}
       <ul className="mb-4 space-y-1.5">
         {todos.map((t) => (
           <li
             key={t.id}
-            className="group flex items-center gap-2 rounded px-1 py-1 hover:bg-neutral-50"
+            className="group flex items-center gap-2 rounded px-1 py-1 hover:bg-neutral-50 dark:hover:bg-neutral-800"
           >
             <input
               type="checkbox"
@@ -73,7 +73,7 @@ export function ChecklistTab({ boardId, itemId }: { boardId: string; itemId: str
             />
             <span
               className={`min-w-0 flex-1 text-sm ${
-                t.done ? "text-neutral-400 line-through" : "text-neutral-800"
+                t.done ? "text-neutral-400 dark:text-neutral-500 line-through" : "text-neutral-800 dark:text-neutral-100"
               }`}
             >
               {t.text}
@@ -81,7 +81,7 @@ export function ChecklistTab({ boardId, itemId }: { boardId: string; itemId: str
             <button
               type="button"
               onClick={() => handleDelete(t.id)}
-              className="shrink-0 text-neutral-300 opacity-0 hover:text-red-600 group-hover:opacity-100"
+              className="shrink-0 text-neutral-300 dark:text-neutral-600 opacity-0 hover:text-red-600 group-hover:opacity-100"
               aria-label="刪除"
             >
               <Trash2 size={14} />
@@ -95,7 +95,7 @@ export function ChecklistTab({ boardId, itemId }: { boardId: string; itemId: str
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleAdd()}
           placeholder="+ 新增待辦事項"
-          className="flex-1 rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"
+          className="flex-1 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-1.5 text-sm outline-none focus:border-blue-500"
         />
         <button
           type="button"

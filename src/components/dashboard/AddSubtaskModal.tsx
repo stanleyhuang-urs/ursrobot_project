@@ -104,19 +104,19 @@ export function AddSubtaskModal({
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div>
-          <label className="mb-1 block text-xs text-neutral-500">任務名稱</label>
+          <label className="mb-1 block text-xs text-neutral-500 dark:text-neutral-400">任務名稱</label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={20}
             placeholder="留空預設為「新任務」"
-            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-xs text-neutral-500">指派給</label>
-          <div className="rounded-md border border-neutral-300">
+          <label className="mb-1 block text-xs text-neutral-500 dark:text-neutral-400">指派給</label>
+          <div className="rounded-md border border-neutral-300 dark:border-neutral-600">
             <PersonPicker
               users={users}
               selectedId={assigneeId || null}
@@ -126,7 +126,7 @@ export function AddSubtaskModal({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-1 text-xs text-neutral-500">
+          <label className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">
             起始
             <input
               type="date"
@@ -134,10 +134,10 @@ export function AddSubtaskModal({
               min={minDate}
               max={maxDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="rounded-md border border-neutral-300 px-1.5 py-1 text-sm outline-none focus:border-blue-500"
+              className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-1.5 py-1 text-sm outline-none focus:border-blue-500"
             />
           </label>
-          <label className="flex items-center gap-1 text-xs text-neutral-500">
+          <label className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">
             結束
             <input
               type="date"
@@ -145,20 +145,20 @@ export function AddSubtaskModal({
               min={minDate}
               max={maxDate}
               onChange={(e) => handleEndDateChange(e.target.value)}
-              className="rounded-md border border-neutral-300 px-1.5 py-1 text-sm outline-none focus:border-blue-500"
+              className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-1.5 py-1 text-sm outline-none focus:border-blue-500"
             />
           </label>
-          <label className="flex items-center gap-1 text-xs text-neutral-500">
+          <label className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">
             天數
             <input
               type="number"
               min={1}
               value={days}
               onChange={(e) => setDays(Math.max(1, Number(e.target.value)))}
-              className="w-16 rounded-md border border-neutral-300 px-1.5 py-1 text-sm outline-none focus:border-blue-500"
+              className="w-16 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-1.5 py-1 text-sm outline-none focus:border-blue-500"
             />
           </label>
-          <label className="flex items-center gap-1 text-xs text-neutral-500">
+          <label className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">
             百分比
             <input
               type="number"
@@ -166,13 +166,13 @@ export function AddSubtaskModal({
               max={100}
               value={pct}
               onChange={(e) => setPct(Number(e.target.value))}
-              className="w-16 rounded-md border border-neutral-300 px-1.5 py-1 text-sm outline-none focus:border-blue-500"
+              className="w-16 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-1.5 py-1 text-sm outline-none focus:border-blue-500"
             />
           </label>
         </div>
 
         {(minDate || maxDate) && (
-          <p className="text-xs text-neutral-400">
+          <p className="text-xs text-neutral-400 dark:text-neutral-500">
             時程需介於父任務的 {minDate ?? "…"} ~ {maxDate ?? "…"} 之間
           </p>
         )}
@@ -181,7 +181,7 @@ export function AddSubtaskModal({
           <button
             type="button"
             onClick={() => handleClose(false)}
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
           >
             取消
           </button>

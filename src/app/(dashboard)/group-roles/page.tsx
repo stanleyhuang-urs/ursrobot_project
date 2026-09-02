@@ -48,8 +48,8 @@ export default async function GroupRolesSettingsPage() {
 
   return (
     <div className="p-6">
-      <h1 className="mb-1 text-lg font-semibold text-neutral-900">分組角色設定</h1>
-      <p className="mb-4 text-sm text-neutral-400">
+      <h1 className="mb-1 text-lg font-semibold text-neutral-900 dark:text-neutral-100">分組角色設定</h1>
+      <p className="mb-4 text-sm text-neutral-400 dark:text-neutral-500">
         設定每個分組的 Team Leader / SW-HW-ME-QA DM / PMM / PMD,決定誰能在該分組調整時程或管理項目。
       </p>
       <GroupRolesPage boards={boards} users={assignees} />

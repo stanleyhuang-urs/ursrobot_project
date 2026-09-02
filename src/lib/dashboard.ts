@@ -19,8 +19,23 @@ function addDays(date: Date, days: number): Date {
   return d;
 }
 
-/** All dates (inclusive) covering the requested period, anchored on today. */
-function datesForPeriod(period: WorkloadPeriod): Date[] {
+export type WorkloadRange = { from: string; to: string };
+
+/** All dates (inclusive) covering the requested period, anchored on today —
+ *  or, given an explicit {from, to} (both YYYY-MM-DD), every date in that
+ *  range instead. */
+function datesForPeriod(period: WorkloadPeriod | WorkloadRange): Date[] {
+  if (typeof period === "object") {
+    const dates: Date[] = [];
+    let cursor = new Date(period.from);
+    const end = new Date(period.to);
+    while (cursor <= end) {
+      dates.push(cursor);
+      cursor = addDays(cursor, 1);
+    }
+    return dates;
+  }
+
   const today = todayUtc();
   if (period === "day") return [today];
 
@@ -45,7 +60,7 @@ export type TeamWorkloadEntry = { userId: string; userName: string; avgPct: numb
 export function computeTeamWorkload(
   boards: BoardWithData[],
   users: UserOption[],
-  period: WorkloadPeriod = "day",
+  period: WorkloadPeriod | WorkloadRange = "day",
   holidays: Set<string> = new Set()
 ): TeamWorkloadEntry[] {
   const dates = datesForPeriod(period).map(toIsoDate);
@@ -94,7 +109,7 @@ export type MemberItemWorkloadEntry = {
 export function computeMemberItemWorkload(
   boards: BoardWithData[],
   userId: string,
-  period: WorkloadPeriod = "day",
+  period: WorkloadPeriod | WorkloadRange = "day",
   holidays: Set<string> = new Set()
 ): MemberItemWorkloadEntry[] {
   const dates = new Set(datesForPeriod(period).map(toIsoDate));

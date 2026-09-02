@@ -273,18 +273,18 @@ export function ImportWizard({
 
       {step === "source" && (
         <div>
-          <div className="mb-3 flex overflow-hidden rounded-md border border-neutral-200">
+          <div className="mb-3 flex overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
             <button
               type="button"
               onClick={() => setSourceTab("file")}
-              className={`flex-1 px-3 py-1.5 text-sm ${sourceTab === "file" ? "bg-neutral-900 text-white" : "bg-white text-neutral-600"}`}
+              className={`flex-1 px-3 py-1.5 text-sm ${sourceTab === "file" ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900" : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400"}`}
             >
               上傳檔案
             </button>
             <button
               type="button"
               onClick={() => setSourceTab("url")}
-              className={`flex-1 px-3 py-1.5 text-sm ${sourceTab === "url" ? "bg-neutral-900 text-white" : "bg-white text-neutral-600"}`}
+              className={`flex-1 px-3 py-1.5 text-sm ${sourceTab === "url" ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900" : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400"}`}
             >
               Google Sheet 連結
             </button>
@@ -304,7 +304,7 @@ export function ImportWizard({
                 type="button"
                 disabled={loading}
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50"
               >
                 {loading
                   ? "解析中..."
@@ -312,7 +312,7 @@ export function ImportWizard({
                     ? `已選擇: ${selectedFileName}`
                     : "選擇檔案"}
               </button>
-              <p className="mt-2 text-xs text-neutral-400">
+              <p className="mt-2 text-xs text-neutral-400 dark:text-neutral-500">
                 支援 .csv / .xlsx / .xls,最多讀取前 40 欄、前 2000 列。
               </p>
             </div>
@@ -322,7 +322,7 @@ export function ImportWizard({
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://docs.google.com/spreadsheets/d/..."
-                className="mb-2 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="mb-2 w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
               />
               <button
                 type="button"
@@ -332,14 +332,14 @@ export function ImportWizard({
               >
                 {loading ? "讀取中..." : "讀取"}
               </button>
-              <p className="mt-2 text-xs text-neutral-400">
+              <p className="mt-2 text-xs text-neutral-400 dark:text-neutral-500">
                 此 Sheet 需設定為「知道連結的使用者」皆可檢視。若讀取失敗,請改用「上傳檔案」。
               </p>
               {error && (
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
-                  className="mt-2 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
+                  className="mt-2 w-full rounded-md border border-neutral-300 dark:border-neutral-600 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800"
                 >
                   使用 Google 帳號登入後重新讀取
                 </button>
@@ -351,7 +351,7 @@ export function ImportWizard({
 
       {step === "sheet" && parsed && (
         <div>
-          <p className="mb-2 text-sm text-neutral-600">選擇要匯入的工作表:</p>
+          <p className="mb-2 text-sm text-neutral-600 dark:text-neutral-400">選擇要匯入的工作表:</p>
           <div className="mb-4 space-y-1">
             {parsed.sheets.map((s, i) => (
               <button
@@ -360,11 +360,11 @@ export function ImportWizard({
                 onClick={() => setSheetIndex(i)}
                 className={`block w-full rounded-md border px-3 py-2 text-left text-sm ${
                   i === sheetIndex
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-neutral-200 hover:bg-neutral-50"
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
+                    : "border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800"
                 }`}
               >
-                {s.name} <span className="text-xs text-neutral-400">({s.rows.length} 列)</span>
+                {s.name} <span className="text-xs text-neutral-400 dark:text-neutral-500">({s.rows.length} 列)</span>
               </button>
             ))}
           </div>
@@ -380,19 +380,19 @@ export function ImportWizard({
 
       {step === "header" && sheet && (
         <div>
-          <p className="mb-2 text-sm text-neutral-600">
+          <p className="mb-2 text-sm text-neutral-600 dark:text-neutral-400">
             點選哪一列是欄位標題列(目前選擇第 {headerRowIndex + 1} 列):
           </p>
-          <div className="mb-4 max-h-64 overflow-auto rounded-md border border-neutral-200">
+          <div className="mb-4 max-h-64 overflow-auto rounded-md border border-neutral-200 dark:border-neutral-700">
             {sheet.rows.slice(0, 12).map((row, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => setHeaderRowIndex(i)}
-                className={`block w-full truncate border-b border-neutral-100 px-3 py-1.5 text-left text-xs last:border-b-0 ${
+                className={`block w-full truncate border-b border-neutral-100 dark:border-neutral-700 px-3 py-1.5 text-left text-xs last:border-b-0 ${
                   i === headerRowIndex
-                    ? "bg-blue-50 font-medium text-blue-700"
-                    : "hover:bg-neutral-50 text-neutral-600"
+                    ? "bg-blue-50 dark:bg-blue-950 font-medium text-blue-700 dark:text-blue-300"
+                    : "hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400"
                 }`}
               >
                 {i + 1}. {row.filter(Boolean).slice(0, 8).join(" | ") || "(空白列)"}
@@ -412,15 +412,15 @@ export function ImportWizard({
 
       {step === "mapping" && (
         <div>
-          <p className="mb-2 text-sm text-neutral-600">設定每一欄要匯入成什麼:</p>
+          <p className="mb-2 text-sm text-neutral-600 dark:text-neutral-400">設定每一欄要匯入成什麼:</p>
           <div className="mb-4 max-h-80 space-y-2 overflow-auto">
             {headerColumns.map(({ index, header }) => (
-              <div key={index} className="rounded-md border border-neutral-200 p-2">
+              <div key={index} className="rounded-md border border-neutral-200 dark:border-neutral-700 p-2">
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="truncate text-sm font-medium text-neutral-800">
+                  <span className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">
                     {header}
                   </span>
-                  <span className="truncate text-xs text-neutral-400">
+                  <span className="truncate text-xs text-neutral-400 dark:text-neutral-500">
                     例: {dataRowsAfterHeader.slice(0, 2).map((r) => r[index]).filter(Boolean).join(", ") || "-"}
                   </span>
                 </div>
@@ -429,7 +429,7 @@ export function ImportWizard({
                   onChange={(e) =>
                     setChoices((prev) => ({ ...prev, [index]: e.target.value }))
                   }
-                  className="w-full rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-blue-500"
+                  className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-blue-500"
                 >
                   <option value="ignore">忽略</option>
                   <option value="name">項目名稱</option>
@@ -458,7 +458,7 @@ export function ImportWizard({
                       setNewNames((prev) => ({ ...prev, [index]: e.target.value }))
                     }
                     placeholder="新欄位名稱"
-                    className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-blue-500"
+                    className="mt-1 w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-blue-500"
                   />
                 )}
                 {choices[index] === "new:PERSON" && (
@@ -494,13 +494,13 @@ export function ImportWizard({
 
       {step === "target" && (
         <div>
-          <p className="mb-2 text-sm text-neutral-600">匯入到哪個分組:</p>
+          <p className="mb-2 text-sm text-neutral-600 dark:text-neutral-400">匯入到哪個分組:</p>
           {!creatingNewGroup ? (
             <div className="mb-3">
               <select
                 value={targetGroupId}
                 onChange={(e) => setTargetGroupId(e.target.value)}
-                className="mb-2 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                className="mb-2 w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
               >
                 {groups.map((g) => (
                   <option key={g.id} value={g.id}>
@@ -523,12 +523,12 @@ export function ImportWizard({
                 onChange={(e) => setNewGroupName(e.target.value)}
                 placeholder="新分組名稱"
                 autoFocus
-                className="mb-2 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="mb-2 w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
               />
               <button
                 type="button"
                 onClick={() => setCreatingNewGroup(false)}
-                className="text-xs text-neutral-500 hover:underline"
+                className="text-xs text-neutral-500 dark:text-neutral-400 hover:underline"
               >
                 改用現有分組
               </button>
@@ -549,7 +549,7 @@ export function ImportWizard({
 
       {step === "confirm" && result && (
         <div>
-          <p className="mb-2 text-sm text-neutral-700">
+          <p className="mb-2 text-sm text-neutral-700 dark:text-neutral-100">
             匯入完成:新增了 {result.itemCount} 筆項目
             {result.newColumnCount > 0 && `、${result.newColumnCount} 個新欄位`}。
           </p>

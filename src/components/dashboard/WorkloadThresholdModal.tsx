@@ -46,41 +46,41 @@ export function WorkloadThresholdModal({
             type="color"
             value={greenColor}
             onChange={(e) => setGreenColor(e.target.value)}
-            className="h-8 w-8 shrink-0 cursor-pointer rounded border border-neutral-300"
+            className="h-8 w-8 shrink-0 cursor-pointer rounded border border-neutral-300 dark:border-neutral-600"
           />
-          <span className="w-16 shrink-0 text-sm text-neutral-600">低於</span>
+          <span className="w-16 shrink-0 text-sm text-neutral-600 dark:text-neutral-400">低於</span>
           <input
             type="number"
             value={greenMax}
             onChange={(e) => setGreenMax(Number(e.target.value))}
-            className="w-20 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-blue-500"
+            className="w-20 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-blue-500"
           />
-          <span className="text-sm text-neutral-500">% 顯示此色</span>
+          <span className="text-sm text-neutral-500 dark:text-neutral-400">% 顯示此色</span>
         </div>
         <div className="flex items-center gap-2">
           <input
             type="color"
             value={yellowColor}
             onChange={(e) => setYellowColor(e.target.value)}
-            className="h-8 w-8 shrink-0 cursor-pointer rounded border border-neutral-300"
+            className="h-8 w-8 shrink-0 cursor-pointer rounded border border-neutral-300 dark:border-neutral-600"
           />
-          <span className="w-16 shrink-0 text-sm text-neutral-600">低於</span>
+          <span className="w-16 shrink-0 text-sm text-neutral-600 dark:text-neutral-400">低於</span>
           <input
             type="number"
             value={yellowMax}
             onChange={(e) => setYellowMax(Number(e.target.value))}
-            className="w-20 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-blue-500"
+            className="w-20 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-blue-500"
           />
-          <span className="text-sm text-neutral-500">% 顯示此色</span>
+          <span className="text-sm text-neutral-500 dark:text-neutral-400">% 顯示此色</span>
         </div>
         <div className="flex items-center gap-2">
           <input
             type="color"
             value={redColor}
             onChange={(e) => setRedColor(e.target.value)}
-            className="h-8 w-8 shrink-0 cursor-pointer rounded border border-neutral-300"
+            className="h-8 w-8 shrink-0 cursor-pointer rounded border border-neutral-300 dark:border-neutral-600"
           />
-          <span className="text-sm text-neutral-500">{yellowMax}% 以上顯示此色</span>
+          <span className="text-sm text-neutral-500 dark:text-neutral-400">{yellowMax}% 以上顯示此色</span>
         </div>
       </div>
       <button

@@ -53,27 +53,27 @@ function SortableResourceRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`grid ${ROW_GRID} items-center gap-2 border-b border-neutral-100 px-4 py-2.5 text-sm last:border-b-0`}
+      className={`grid ${ROW_GRID} items-center gap-2 border-b border-neutral-100 dark:border-neutral-700 px-4 py-2.5 text-sm last:border-b-0`}
     >
       <button
         type="button"
         {...attributes}
         {...listeners}
-        className="cursor-grab text-neutral-300 hover:text-neutral-500"
+        className="cursor-grab text-neutral-300 dark:text-neutral-600 hover:text-neutral-500 dark:hover:text-neutral-400"
         aria-label="拖曳排序"
       >
         <GripVertical size={14} />
       </button>
-      <span className="truncate text-neutral-800">{resource.name}</span>
-      <span className="truncate text-neutral-500">{resource.category || "—"}</span>
-      <span className="truncate text-neutral-500">{resource.contact || "—"}</span>
-      <span className="truncate text-neutral-400">{resource.note || "—"}</span>
-      <span className="truncate text-neutral-600">{resource.manager?.name || "—"}</span>
+      <span className="truncate text-neutral-800 dark:text-neutral-100">{resource.name}</span>
+      <span className="truncate text-neutral-500 dark:text-neutral-400">{resource.category || "—"}</span>
+      <span className="truncate text-neutral-500 dark:text-neutral-400">{resource.contact || "—"}</span>
+      <span className="truncate text-neutral-400 dark:text-neutral-500">{resource.note || "—"}</span>
+      <span className="truncate text-neutral-600 dark:text-neutral-400">{resource.manager?.name || "—"}</span>
       <span className="flex items-center justify-end gap-2">
         <button
           type="button"
           onClick={onEdit}
-          className="text-neutral-400 hover:text-blue-600"
+          className="text-neutral-400 dark:text-neutral-500 hover:text-blue-600"
           aria-label="編輯資源"
           title="編輯"
         >
@@ -82,7 +82,7 @@ function SortableResourceRow({
         <button
           type="button"
           onClick={onDelete}
-          className="text-neutral-400 hover:text-red-600"
+          className="text-neutral-400 dark:text-neutral-500 hover:text-red-600"
           aria-label="刪除資源"
           title="刪除"
         >
@@ -229,9 +229,9 @@ export function ResourceManagement({
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-neutral-200 bg-white">
+      <div className="overflow-x-auto rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
         <div
-          className={`grid ${ROW_GRID} gap-2 border-b border-neutral-100 px-4 py-2 text-xs font-medium text-neutral-500`}
+          className={`grid ${ROW_GRID} gap-2 border-b border-neutral-100 dark:border-neutral-700 px-4 py-2 text-xs font-medium text-neutral-500 dark:text-neutral-400`}
         >
           <span />
           <span>名稱</span>
@@ -242,7 +242,7 @@ export function ResourceManagement({
           <span />
         </div>
         {orderedResources.length === 0 ? (
-          <p className="p-4 text-sm text-neutral-400">尚無資源</p>
+          <p className="p-4 text-sm text-neutral-400 dark:text-neutral-500">尚無資源</p>
         ) : (
           <DndContext
             sensors={sensors}
@@ -281,30 +281,30 @@ export function ResourceManagement({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="名稱"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <input
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             placeholder="類別(例如:工具、廠商、設備)"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <input
             value={contact}
             onChange={(e) => setContact(e.target.value)}
             placeholder="聯絡人/聯絡方式"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="備註"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <select
             value={managerId}
             onChange={(e) => setManagerId(e.target.value)}
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           >
             <option value="">負責窗口(未設定)</option>
             {users.map((u) => (
@@ -341,30 +341,30 @@ export function ResourceManagement({
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             placeholder="名稱"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <input
             value={editCategory}
             onChange={(e) => setEditCategory(e.target.value)}
             placeholder="類別(例如:工具、廠商、設備)"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <input
             value={editContact}
             onChange={(e) => setEditContact(e.target.value)}
             placeholder="聯絡人/聯絡方式"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <input
             value={editNote}
             onChange={(e) => setEditNote(e.target.value)}
             placeholder="備註"
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           <select
             value={editManagerId}
             onChange={(e) => setEditManagerId(e.target.value)}
-            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-blue-500"
           >
             <option value="">負責窗口(未設定)</option>
             {users.map((u) => (

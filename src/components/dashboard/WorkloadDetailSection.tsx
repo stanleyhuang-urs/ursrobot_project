@@ -229,12 +229,12 @@ export function WorkloadDetailSection({
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-neutral-700">成員工作量明細</h2>
+        <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-100">成員工作量明細</h2>
         {canManageThreshold && (
           <button
             type="button"
             onClick={() => setSettingsOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-600 hover:bg-neutral-50"
+            className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2.5 py-1 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
           >
             <Settings size={13} /> 顏色門檻設定
           </button>
@@ -242,7 +242,7 @@ export function WorkloadDetailSection({
       </div>
 
       {users.length === 0 ? (
-        <p className="text-sm text-neutral-400">目前沒有成員資料。</p>
+        <p className="text-sm text-neutral-400 dark:text-neutral-500">目前沒有成員資料。</p>
       ) : (
         <div ref={scrollContainerRef} className="overflow-x-auto">
           <div className="relative" style={{ width: LABEL_WIDTH + timelineWidth }}>
@@ -253,9 +253,9 @@ export function WorkloadDetailSection({
                 title="今天"
               />
             )}
-            <div className="mb-2 overflow-hidden rounded-md border border-neutral-200">
-              <div className="flex border-b border-neutral-100 bg-neutral-50 text-[10px] font-medium text-neutral-500">
-                <div style={{ width: LABEL_WIDTH }} className="shrink-0 border-r border-neutral-100 px-2 py-1">
+            <div className="mb-2 overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
+              <div className="flex border-b border-neutral-100 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-[10px] font-medium text-neutral-500 dark:text-neutral-400">
+                <div style={{ width: LABEL_WIDTH }} className="shrink-0 border-r border-neutral-100 dark:border-neutral-700 px-2 py-1">
                   成員
                 </div>
                 <div className="flex">
@@ -263,21 +263,21 @@ export function WorkloadDetailSection({
                     <div
                       key={`${g.label}-${i}`}
                       style={{ width: g.count * WEEK_WIDTH }}
-                      className="shrink-0 truncate border-r border-neutral-100 px-1 py-1"
+                      className="shrink-0 truncate border-r border-neutral-100 dark:border-neutral-700 px-1 py-1"
                     >
                       {g.label}
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="flex bg-neutral-50 text-[9px] text-neutral-400">
-                <div style={{ width: LABEL_WIDTH }} className="shrink-0 border-r border-neutral-100" />
+              <div className="flex bg-neutral-50 dark:bg-neutral-800 text-[9px] text-neutral-400 dark:text-neutral-500">
+                <div style={{ width: LABEL_WIDTH }} className="shrink-0 border-r border-neutral-100 dark:border-neutral-700" />
                 <div className="flex">
                   {weeks.map((w, i) => (
                     <div
                       key={i}
                       style={{ width: WEEK_WIDTH }}
-                      className={`shrink-0 truncate text-center ${w.isMonthStart ? "border-l border-neutral-300" : ""}`}
+                      className={`shrink-0 truncate text-center ${w.isMonthStart ? "border-l border-neutral-300 dark:border-neutral-600" : ""}`}
                     >
                       {w.label}
                     </div>
@@ -317,29 +317,29 @@ export function WorkloadDetailSection({
                 return (
                   <div
                     key={user.id}
-                    className="overflow-hidden rounded-md border border-neutral-200 bg-white"
+                    className="overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900"
                   >
                     <button
                       type="button"
                       onClick={() => toggle(user.id)}
-                      className="flex w-full items-center text-left hover:bg-neutral-50"
+                      className="flex w-full items-center text-left hover:bg-neutral-50 dark:hover:bg-neutral-800"
                     >
                       <div
                         style={{ width: LABEL_WIDTH }}
-                        className="flex shrink-0 items-center gap-1 border-r border-neutral-100 px-2 py-2"
+                        className="flex shrink-0 items-center gap-1 border-r border-neutral-100 dark:border-neutral-700 px-2 py-2"
                       >
                         {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-800">
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">
                           {user.name}
                         </span>
-                        <span className="shrink-0 text-[10px] text-neutral-400">{tasks.length}</span>
+                        <span className="shrink-0 text-[10px] text-neutral-400 dark:text-neutral-500">{tasks.length}</span>
                       </div>
                       <div className="flex">
                         {weeks.map((w, i) => (
                           <div
                             key={i}
                             title={`${w.label}: ${weekly[i] ?? 0}%`}
-                            className={w.isMonthStart ? "border-l border-neutral-200" : ""}
+                            className={w.isMonthStart ? "border-l border-neutral-200 dark:border-neutral-700" : ""}
                             style={{
                               width: WEEK_WIDTH,
                               height: 20,
@@ -352,9 +352,9 @@ export function WorkloadDetailSection({
                     </button>
 
                     {isOpen && (
-                      <div className="border-t border-neutral-100 bg-neutral-50/50 pb-1">
+                      <div className="border-t border-neutral-100 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/50 pb-1">
                         {tasks.length === 0 ? (
-                          <p className="px-2 py-2 text-xs text-neutral-400">目前沒有指派中的任務</p>
+                          <p className="px-2 py-2 text-xs text-neutral-400 dark:text-neutral-500">目前沒有指派中的任務</p>
                         ) : (
                           tasks.map((t) => {
                             const hasRange = t.startDate && t.endDate;
@@ -366,7 +366,7 @@ export function WorkloadDetailSection({
                               <div key={`${t.boardId}-${t.itemId}`} className="flex items-center">
                                 <div
                                   style={{ width: LABEL_WIDTH }}
-                                  className="shrink-0 truncate border-r border-neutral-100 px-2 py-1 text-xs text-neutral-600"
+                                  className="shrink-0 truncate border-r border-neutral-100 dark:border-neutral-700 px-2 py-1 text-xs text-neutral-600 dark:text-neutral-400"
                                   title={t.itemName}
                                 >
                                   <Link
@@ -379,7 +379,7 @@ export function WorkloadDetailSection({
                                 <div className="relative flex items-center" style={{ width: timelineWidth, height: 18 }}>
                                   {isEditingPct ? (
                                     <div
-                                      className="absolute top-0 z-10 flex items-center gap-1 rounded border border-blue-300 bg-white px-1 py-0.5 shadow-sm"
+                                      className="absolute top-0 z-10 flex items-center gap-1 rounded border border-blue-300 bg-white dark:bg-neutral-900 px-1 py-0.5 shadow-sm"
                                       style={{ left: hasRange ? startIdx * WEEK_WIDTH : 0 }}
                                     >
                                       <input
@@ -393,7 +393,7 @@ export function WorkloadDetailSection({
                                           if (e.key === "Enter") savePct(user.id, t.boardId, t.itemId);
                                           if (e.key === "Escape") setEditingKey(null);
                                         }}
-                                        className="w-11 rounded border border-neutral-300 px-1 py-0.5 text-[10px] outline-none focus:border-blue-500"
+                                        className="w-11 rounded border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-1 py-0.5 text-[10px] outline-none focus:border-blue-500"
                                       />
                                       <button
                                         type="button"
@@ -406,7 +406,7 @@ export function WorkloadDetailSection({
                                       <button
                                         type="button"
                                         onClick={() => setEditingKey(null)}
-                                        className="text-[10px] text-neutral-400 hover:text-neutral-600"
+                                        className="text-[10px] text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400"
                                       >
                                         ✕
                                       </button>
@@ -454,7 +454,7 @@ export function WorkloadDetailSection({
                               <div className="flex items-center">
                                 <div
                                   style={{ width: LABEL_WIDTH }}
-                                  className="shrink-0 border-r border-neutral-100 px-2 py-1 text-[10px] text-neutral-500"
+                                  className="shrink-0 border-r border-neutral-100 dark:border-neutral-700 px-2 py-1 text-[10px] text-neutral-500 dark:text-neutral-400"
                                 >
                                   拖曳或點選,亦可於下方輸入
                                 </div>
@@ -471,7 +471,7 @@ export function WorkloadDetailSection({
                                         type="button"
                                         onPointerDown={() => handleWeekPointerDown(user.id, i)}
                                         onPointerEnter={() => handleWeekPointerEnter(user.id, i)}
-                                        className={w.isMonthStart ? "border-l border-neutral-200" : ""}
+                                        className={w.isMonthStart ? "border-l border-neutral-200 dark:border-neutral-700" : ""}
                                         style={{
                                           width: WEEK_WIDTH,
                                           height: 20,
@@ -484,7 +484,7 @@ export function WorkloadDetailSection({
                                   })}
                                   {rangeStartDays !== null && (
                                     <div
-                                      className="pointer-events-none absolute top-0 whitespace-nowrap text-[10px] font-medium text-neutral-700"
+                                      className="pointer-events-none absolute top-0 whitespace-nowrap text-[10px] font-medium text-neutral-700 dark:text-neutral-100"
                                       style={{
                                         left: rangeLeftPx - 6,
                                         transform: "translateX(-100%)",
@@ -498,12 +498,12 @@ export function WorkloadDetailSection({
                                 </div>
                               </div>
 
-                              <div className="border-t border-neutral-100 bg-blue-50/40 px-2 py-2">
+                              <div className="border-t border-neutral-100 dark:border-neutral-700 bg-blue-50/40 dark:bg-blue-950/40 px-2 py-2">
                                 {formError && (
                                   <p className="mb-1.5 text-xs text-red-600">{formError}</p>
                                 )}
                                 {(formMinDate || formMaxDate) && (
-                                  <p className="mb-1.5 text-xs text-neutral-400">
+                                  <p className="mb-1.5 text-xs text-neutral-400 dark:text-neutral-500">
                                     時程需介於父任務的 {formMinDate ?? "…"} ~ {formMaxDate ?? "…"} 之間
                                   </p>
                                 )}
@@ -524,11 +524,11 @@ export function WorkloadDetailSection({
                                     onChange={(e) => setFormName(e.target.value)}
                                     placeholder="任務名稱(留空預設為「新任務」)"
                                     maxLength={20}
-                                    className="w-40 rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-blue-500"
+                                    className="w-40 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-blue-500"
                                   />
                                 </div>
                                 <div className="mt-1.5 flex flex-wrap items-center gap-3">
-                                  <label className="flex items-center gap-1 text-[10px] text-neutral-500">
+                                  <label className="flex items-center gap-1 text-[10px] text-neutral-500 dark:text-neutral-400">
                                     起始
                                     <input
                                       type="date"
@@ -536,10 +536,10 @@ export function WorkloadDetailSection({
                                       min={formMinDate}
                                       max={formMaxDate}
                                       onChange={(e) => setFormStartDate(e.target.value)}
-                                      className="rounded-md border border-neutral-300 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
+                                      className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
                                     />
                                   </label>
-                                  <label className="flex items-center gap-1 text-[10px] text-neutral-500">
+                                  <label className="flex items-center gap-1 text-[10px] text-neutral-500 dark:text-neutral-400">
                                     結束
                                     <input
                                       type="date"
@@ -547,20 +547,20 @@ export function WorkloadDetailSection({
                                       min={formMinDate}
                                       max={formMaxDate}
                                       onChange={(e) => handleEndDateChange(e.target.value)}
-                                      className="rounded-md border border-neutral-300 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
+                                      className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
                                     />
                                   </label>
-                                  <label className="flex items-center gap-1 text-[10px] text-neutral-500">
+                                  <label className="flex items-center gap-1 text-[10px] text-neutral-500 dark:text-neutral-400">
                                     天數
                                     <input
                                       type="number"
                                       min={1}
                                       value={formDays}
                                       onChange={(e) => handleDaysChange(Number(e.target.value))}
-                                      className="w-14 rounded-md border border-neutral-300 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
+                                      className="w-14 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
                                     />
                                   </label>
-                                  <label className="flex items-center gap-1 text-[10px] text-neutral-500">
+                                  <label className="flex items-center gap-1 text-[10px] text-neutral-500 dark:text-neutral-400">
                                     百分比
                                     <input
                                       type="number"
@@ -568,7 +568,7 @@ export function WorkloadDetailSection({
                                       max={100}
                                       value={formPct}
                                       onChange={(e) => setFormPct(Number(e.target.value))}
-                                      className="w-14 rounded-md border border-neutral-300 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
+                                      className="w-14 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-1.5 py-1 text-xs outline-none focus:border-blue-500"
                                     />
                                   </label>
                                   <button
@@ -582,7 +582,7 @@ export function WorkloadDetailSection({
                                   <button
                                     type="button"
                                     onClick={resetCreating}
-                                    className="rounded-md border border-neutral-300 px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-50"
+                                    className="rounded-md border border-neutral-300 dark:border-neutral-600 px-3 py-1 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
                                   >
                                     取消
                                   </button>

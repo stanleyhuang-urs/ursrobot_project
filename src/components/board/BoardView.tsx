@@ -64,10 +64,10 @@ export function BoardView({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
+      <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-6 py-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold text-neutral-900">{board.name}</h1>
+            <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{board.name}</h1>
             {board.visibility === "RESTRICTED" && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
                 限制存取
@@ -75,7 +75,7 @@ export function BoardView({
             )}
           </div>
           {progressColumn && (
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">
               進度欄位:{progressColumn.name}
             </p>
           )}
@@ -85,7 +85,7 @@ export function BoardView({
             <button
               type="button"
               onClick={() => setImportOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+              className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
             >
               <Upload size={14} /> 匯入
             </button>
@@ -94,7 +94,7 @@ export function BoardView({
             <button
               type="button"
               onClick={() => setExportOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+              className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
             >
               <Download size={14} /> 匯出
             </button>
@@ -103,7 +103,7 @@ export function BoardView({
             <button
               type="button"
               onClick={() => setResourceMappingOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+              className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
             >
               <Users2 size={14} /> Resource 對應
             </button>
@@ -112,7 +112,7 @@ export function BoardView({
             <button
               type="button"
               onClick={() => setAutomationOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+              className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
             >
               <Zap size={14} /> 自動化
             </button>
@@ -121,19 +121,19 @@ export function BoardView({
             <button
               type="button"
               onClick={() => setSharingOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+              className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
             >
               <Share2 size={14} /> 分享設定
             </button>
           )}
-          <div className="flex overflow-hidden rounded-md border border-neutral-200">
+          <div className="flex overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
             <button
               type="button"
               onClick={() => setView("table")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${
                 view === "table"
-                  ? "bg-neutral-900 text-white"
-                  : "bg-white text-neutral-600 hover:bg-neutral-50"
+                  ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900"
+                  : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
               }`}
             >
               <Table2 size={14} /> 表格
@@ -143,8 +143,8 @@ export function BoardView({
               onClick={() => setView("kanban")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${
                 view === "kanban"
-                  ? "bg-neutral-900 text-white"
-                  : "bg-white text-neutral-600 hover:bg-neutral-50"
+                  ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900"
+                  : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
               }`}
             >
               <LayoutGrid size={14} /> 看板
@@ -154,8 +154,8 @@ export function BoardView({
               onClick={() => setView("gantt")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${
                 view === "gantt"
-                  ? "bg-neutral-900 text-white"
-                  : "bg-white text-neutral-600 hover:bg-neutral-50"
+                  ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900"
+                  : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
               }`}
             >
               <GanttChartSquare size={14} /> 甘特圖
@@ -165,8 +165,8 @@ export function BoardView({
               onClick={() => setView("report")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${
                 view === "report"
-                  ? "bg-neutral-900 text-white"
-                  : "bg-white text-neutral-600 hover:bg-neutral-50"
+                  ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900"
+                  : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
               }`}
             >
               <BarChart3 size={14} /> 報表

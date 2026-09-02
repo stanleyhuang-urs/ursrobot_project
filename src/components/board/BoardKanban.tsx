@@ -206,7 +206,7 @@ export function BoardKanban({
 
   if (!column) {
     return (
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-neutral-500 dark:text-neutral-400">
         看板檢視需要至少一個「狀態」欄位,請先新增一個狀態欄位。
       </p>
     );
@@ -216,11 +216,11 @@ export function BoardKanban({
     <div>
       <div className="mb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-neutral-500">依欄位分組:</span>
+          <span className="text-sm text-neutral-500 dark:text-neutral-400">依欄位分組:</span>
           <select
             value={column.id}
             onChange={(e) => onChangeColumn(e.target.value)}
-            className="rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-blue-500"
+            className="rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-blue-500"
           >
             {statusColumns.map((c) => (
               <option key={c.id} value={c.id}>
@@ -230,18 +230,18 @@ export function BoardKanban({
           </select>
         </div>
         {isSupervisor && (
-          <div className="flex overflow-hidden rounded-md border border-neutral-200 text-xs">
+          <div className="flex overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700 text-xs">
             <button
               type="button"
               onClick={() => setScope("team")}
-              className={`px-2.5 py-1 ${scope === "team" ? "bg-neutral-900 text-white" : "bg-white text-neutral-600 hover:bg-neutral-50"}`}
+              className={`px-2.5 py-1 ${scope === "team" ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900" : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"}`}
             >
               我的團隊
             </button>
             <button
               type="button"
               onClick={() => setScope("all")}
-              className={`px-2.5 py-1 ${scope === "all" ? "bg-neutral-900 text-white" : "bg-white text-neutral-600 hover:bg-neutral-50"}`}
+              className={`px-2.5 py-1 ${scope === "all" ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900" : "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"}`}
             >
               全部
             </button>

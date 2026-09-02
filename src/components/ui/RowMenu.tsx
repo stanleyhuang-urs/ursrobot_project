@@ -14,7 +14,7 @@ export function RowMenu({ children }: RowMenuProps) {
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+          className="rounded p-1 text-neutral-400 dark:text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-700 dark:hover:text-neutral-100"
           aria-label="更多操作"
         >
           <MoreHorizontal size={16} />
@@ -23,7 +23,7 @@ export function RowMenu({ children }: RowMenuProps) {
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="end"
-          className="z-50 min-w-[140px] rounded-md border border-neutral-200 bg-white p-1 shadow-md"
+          className="z-50 min-w-[140px] rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-1 shadow-md"
         >
           {children}
         </DropdownMenu.Content>
@@ -44,8 +44,8 @@ export function RowMenuItem({
   return (
     <DropdownMenu.Item
       onSelect={onSelect}
-      className={`cursor-pointer rounded px-2 py-1.5 text-sm outline-none hover:bg-neutral-100 ${
-        danger ? "text-red-600" : "text-neutral-700"
+      className={`cursor-pointer rounded px-2 py-1.5 text-sm outline-none hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
+        danger ? "text-red-600" : "text-neutral-700 dark:text-neutral-100"
       }`}
     >
       {children}

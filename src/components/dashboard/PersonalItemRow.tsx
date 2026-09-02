@@ -55,15 +55,15 @@ export function PersonalItemRow({
       <div className="flex min-w-0 items-center gap-1">
         <Link
           href={`/boards/${item.boardId}?highlight=${item.itemId}`}
-          className="min-w-0 flex-1 truncate text-sm text-neutral-800 hover:text-blue-600"
+          className="min-w-0 flex-1 truncate text-sm text-neutral-800 dark:text-neutral-100 hover:text-blue-600"
         >
           {item.itemName}
         </Link>
         <button
           type="button"
           onClick={() => setDetailOpen(true)}
-          className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
-            commentCount > 0 ? "text-blue-600" : "text-neutral-300"
+          className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-600 dark:hover:text-neutral-400 ${
+            commentCount > 0 ? "text-blue-600" : "text-neutral-300 dark:text-neutral-600"
           }`}
           aria-label="留言"
         >
@@ -75,8 +75,8 @@ export function PersonalItemRow({
             type="button"
             onClick={() => setAssignOpen(true)}
             title={item.fullItem.assignments.map((a) => `${a.user.name} ${a.allocationPct}%`).join(", ")}
-            className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 hover:text-neutral-600 ${
-              assignmentCount > 0 ? "text-blue-600" : "text-neutral-300"
+            className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-600 dark:hover:text-neutral-400 ${
+              assignmentCount > 0 ? "text-blue-600" : "text-neutral-300 dark:text-neutral-600"
             }`}
             aria-label="指派"
           >
@@ -88,7 +88,7 @@ export function PersonalItemRow({
           <button
             type="button"
             onClick={() => setAddSubtaskOpen(true)}
-            className="flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs text-neutral-300 hover:bg-neutral-100 hover:text-neutral-600"
+            className="flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs text-neutral-300 dark:text-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-600 dark:hover:text-neutral-400"
             aria-label="新增子任務"
           >
             <Plus size={14} />
@@ -97,14 +97,14 @@ export function PersonalItemRow({
       </div>
 
       {showAssignees && (
-        <span className="truncate text-xs text-neutral-500">
+        <span className="truncate text-xs text-neutral-500 dark:text-neutral-400">
           {item.assignees
             .map((a) => (a.allocationPct !== null ? `${a.name} ${a.allocationPct}%` : a.name))
             .join(", ")}
         </span>
       )}
 
-      <span className="truncate text-xs text-neutral-400">{item.boardName}</span>
+      <span className="truncate text-xs text-neutral-400 dark:text-neutral-500">{item.boardName}</span>
 
       <span className="truncate">
         {item.status ? (
@@ -115,17 +115,17 @@ export function PersonalItemRow({
             {item.status.label}
           </span>
         ) : (
-          <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs text-neutral-500">
+          <span className="rounded-full bg-neutral-200 dark:bg-neutral-700 px-2 py-0.5 text-xs text-neutral-500 dark:text-neutral-400">
             狀態未設置
           </span>
         )}
       </span>
 
-      <span className="text-xs text-neutral-500">
+      <span className="text-xs text-neutral-500 dark:text-neutral-400">
         {item.progressPct !== null && `${Math.round(item.progressPct * 100)}%`}
       </span>
 
-      <span className="truncate text-xs text-neutral-500">
+      <span className="truncate text-xs text-neutral-500 dark:text-neutral-400">
         {item.dueDate &&
           `${item.startDate ? `${formatDate(item.startDate)} ~ ` : ""}${formatDate(item.dueDate)}`}
       </span>
