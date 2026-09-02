@@ -31,25 +31,11 @@ import {
   unlockUser,
 } from "@/lib/actions/user";
 import type { UserRole } from "@prisma/client";
+import { fileToAvatarDataUrl } from "@/lib/avatarImage";
 
 type UserRow = Awaited<ReturnType<typeof listUsers>>[number];
 
-const AVATAR_SIZE = 128;
 const ROW_GRID = "grid-cols-[24px_48px_1fr_1fr_90px_140px_160px_120px]";
-
-async function fileToAvatarDataUrl(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, AVATAR_SIZE / Math.max(bitmap.width, bitmap.height));
-  const width = Math.round(bitmap.width * scale);
-  const height = Math.round(bitmap.height * scale);
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("無法處理圖片");
-  ctx.drawImage(bitmap, 0, 0, width, height);
-  return canvas.toDataURL("image/jpeg", 0.85);
-}
 
 function roleLabel(role: UserRole) {
   return role === "ADMIN" ? "管理者" : role === "SUPERVISOR" ? "主管" : "團隊成員";

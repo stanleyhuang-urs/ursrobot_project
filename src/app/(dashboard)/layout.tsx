@@ -10,15 +10,23 @@ export default async function DashboardLayout({
   children: ReactNode;
 }) {
   const session = await requireSession();
-  const boards = await prisma.board.findMany({
-    where: accessibleBoardWhere(session),
-    orderBy: { createdAt: "asc" },
-    select: { id: true, name: true },
-  });
+  const [boards, currentUser] = await Promise.all([
+    prisma.board.findMany({
+      where: accessibleBoardWhere(session),
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true },
+    }),
+    prisma.user.findUnique({ where: { id: session.userId }, select: { avatarUrl: true } }),
+  ]);
 
   return (
     <div className="flex h-screen w-full">
-      <BoardSidebar boards={boards} userName={session.name} userRole={session.role} />
+      <BoardSidebar
+        boards={boards}
+        userName={session.name}
+        userRole={session.role}
+        avatarUrl={currentUser?.avatarUrl}
+      />
       <div className="flex-1 overflow-auto bg-neutral-50">{children}</div>
     </div>
   );

@@ -18,8 +18,10 @@ import {
 import type { UserRole } from "@prisma/client";
 import { canManageBoard } from "@/lib/permissions";
 import { Modal } from "@/components/ui/Modal";
+import { Avatar } from "@/components/ui/Avatar";
 import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { ProfileModal } from "./ProfileModal";
 import { createBoard, renameBoard, deleteBoard } from "@/lib/actions/board";
 import { logout } from "@/lib/actions/auth";
 
@@ -36,12 +38,15 @@ export function BoardSidebar({
   boards,
   userName,
   userRole,
+  avatarUrl,
 }: {
   boards: Board[];
   userName: string;
   userRole: UserRole;
+  avatarUrl?: string | null;
 }) {
   const canManage = canManageBoard(userRole);
+  const [profileOpen, setProfileOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -284,7 +289,15 @@ export function BoardSidebar({
 
       <div className="border-t border-neutral-200 px-4 py-3">
         <div className="mb-2 flex items-center justify-between">
-          <p className="truncate text-xs text-neutral-500">{userName}</p>
+          <button
+            type="button"
+            onClick={() => setProfileOpen(true)}
+            title="個人資料、照片、密碼"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-0.5 outline-none hover:bg-neutral-100 focus:ring-1 focus:ring-blue-400"
+          >
+            <Avatar name={userName} avatarUrl={avatarUrl} size={22} />
+            <span className="truncate text-xs text-neutral-500">{userName}</span>
+          </button>
           <NotificationBell />
         </div>
         <form action={logout}>
@@ -296,6 +309,12 @@ export function BoardSidebar({
           </button>
         </form>
       </div>
+      <ProfileModal
+        userName={userName}
+        avatarUrl={avatarUrl ?? null}
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+      />
 
       <div
         onPointerDown={startResize}

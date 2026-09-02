@@ -241,6 +241,53 @@ export async function adminResetUserPassword(userId: string, newPassword: string
   revalidatePath("/users");
 }
 
+/** Self-service version of updateUserAvatar — any logged-in user may set
+ *  their own photo, no ADMIN check. */
+export async function updateOwnAvatar(avatarUrl: string | null) {
+  const session = await requireSession();
+  if (avatarUrl && avatarUrl.length > 2_000_000) {
+    throw new Error("圖片檔案過大,請使用較小的圖片");
+  }
+
+  await prisma.user.update({
+    where: { id: session.userId },
+    data: { avatarUrl },
+  });
+
+  revalidatePath("/users");
+  revalidatePath("/boards");
+  revalidatePath("/dashboard");
+}
+
+/** Self-service password change — unlike adminResetUserPassword, requires
+ *  the current password so a briefly-unattended session can't be used to
+ *  silently lock the real owner out. */
+export async function updateOwnPassword(currentPassword: string, newPassword: string) {
+  const session = await requireSession();
+  if (newPassword.length < 8) {
+    throw new Error("新密碼至少需要 8 個字元");
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  if (!user) {
+    throw new Error("找不到使用者");
+  }
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    throw new Error("目前密碼不正確");
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({
+    where: { id: session.userId },
+    data: {
+      passwordHash,
+      resetToken: null,
+      resetTokenExpiresAt: null,
+    },
+  });
+}
+
 export async function unlockUser(userId: string) {
   const session = await requireSession();
   if (session.role !== "ADMIN") {
