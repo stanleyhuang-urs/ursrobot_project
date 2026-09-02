@@ -757,6 +757,8 @@ export function BoardGantt({
         ganttStartColumnId={startColumnId}
         ganttDurationColumnId={durationColumnId}
         ganttEndColumnId={endColumnId}
+        predColumnId={predColumnId}
+        groupItems={detailItem ? board.items.filter((i) => i.groupId === detailItem.groupId) : undefined}
         lockedScheduleFields={lockedScheduleFields}
         userRole={userRole}
         currentUserId={currentUserId}

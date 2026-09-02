@@ -30,6 +30,8 @@ export function ItemDetailModal({
   ganttStartColumnId,
   ganttDurationColumnId,
   ganttEndColumnId,
+  predColumnId,
+  groupItems,
   lockedScheduleFields,
   userRole,
   currentUserId,
@@ -45,6 +47,10 @@ export function ItemDetailModal({
   ganttStartColumnId?: string | null;
   ganttDurationColumnId?: string | null;
   ganttEndColumnId?: string | null;
+  /** Pred's dropdown needs every other item in the same group — see
+   *  CellEditor's predColumnId/groupItems. */
+  predColumnId?: string | null;
+  groupItems?: ItemData[];
   lockedScheduleFields?: Map<string, ScheduleLock>;
   userRole: UserRole;
   currentUserId: string;
@@ -96,6 +102,8 @@ export function ItemDetailModal({
           ganttStartColumnId={ganttStartColumnId ?? null}
           ganttDurationColumnId={ganttDurationColumnId ?? null}
           ganttEndColumnId={ganttEndColumnId ?? null}
+          predColumnId={predColumnId}
+          groupItems={groupItems}
           lockedScheduleFields={lockedScheduleFields}
           userRole={userRole}
           currentUserId={currentUserId}

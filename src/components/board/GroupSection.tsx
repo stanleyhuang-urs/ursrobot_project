@@ -26,6 +26,7 @@ export function GroupSection({
   ganttStartColumnId,
   ganttDurationColumnId,
   ganttEndColumnId,
+  predColumnId,
   lockedScheduleFields,
   userRole,
   currentUserId,
@@ -48,6 +49,7 @@ export function GroupSection({
   ganttStartColumnId: string | null;
   ganttDurationColumnId: string | null;
   ganttEndColumnId: string | null;
+  predColumnId?: string | null;
   lockedScheduleFields: Map<string, ScheduleLock>;
   userRole: UserRole;
   currentUserId: string;
@@ -176,6 +178,7 @@ export function GroupSection({
                 ganttStartColumnId={ganttStartColumnId}
                 ganttDurationColumnId={ganttDurationColumnId}
                 ganttEndColumnId={ganttEndColumnId}
+                predColumnId={predColumnId}
                 lockedScheduleFields={lockedScheduleFields}
                 userRole={userRole}
                 currentUserId={currentUserId}
@@ -224,6 +227,7 @@ export function GroupSection({
                 ganttStartColumnId={ganttStartColumnId}
                 ganttDurationColumnId={ganttDurationColumnId}
                 ganttEndColumnId={ganttEndColumnId}
+                predColumnId={predColumnId}
                 lockedScheduleFields={lockedScheduleFields}
                 userRole={userRole}
                 currentUserId={currentUserId}

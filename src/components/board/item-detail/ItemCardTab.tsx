@@ -19,6 +19,8 @@ export function ItemCardTab({
   ganttStartColumnId,
   ganttDurationColumnId,
   ganttEndColumnId,
+  predColumnId,
+  groupItems,
   lockedScheduleFields,
   userRole,
   currentUserId,
@@ -31,6 +33,8 @@ export function ItemCardTab({
   ganttStartColumnId: string | null;
   ganttDurationColumnId: string | null;
   ganttEndColumnId: string | null;
+  predColumnId?: string | null;
+  groupItems?: ItemData[];
   lockedScheduleFields?: Map<string, ScheduleLock>;
   userRole: UserRole;
   currentUserId: string;
@@ -127,6 +131,8 @@ export function ItemCardTab({
                 users={users}
                 canEdit={canEdit}
                 isProgressColumn={col.id === progressColumnId}
+                predColumnId={predColumnId}
+                groupItems={groupItems}
               />
             </span>
           </div>

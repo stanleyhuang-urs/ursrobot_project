@@ -1,10 +1,11 @@
-import type { ColumnData, UserOption } from "@/types/board";
+import type { ColumnData, ItemData, UserOption } from "@/types/board";
 import { getStatusOptions } from "@/types/column";
 import { TextCell } from "./TextCell";
 import { StatusCell } from "./StatusCell";
 import { PersonCell } from "./PersonCell";
 import { DateCell } from "./DateCell";
 import { NumberCell } from "./NumberCell";
+import { PredCell } from "./PredCell";
 
 function ReadOnlyCell({
   column,
@@ -54,6 +55,8 @@ export function CellEditor({
   users,
   canEdit = true,
   isProgressColumn = false,
+  predColumnId,
+  groupItems,
 }: {
   boardId: string;
   itemId: string;
@@ -62,9 +65,26 @@ export function CellEditor({
   users: UserOption[];
   canEdit?: boolean;
   isProgressColumn?: boolean;
+  /** When column is the board's designated Pred column and groupItems is
+   *  given, Pred renders as a dropdown of the item's group siblings instead
+   *  of a free-text WBS code field. */
+  predColumnId?: string | null;
+  groupItems?: ItemData[];
 }) {
   if (!canEdit) {
     return <ReadOnlyCell column={column} value={value} users={users} isProgressColumn={isProgressColumn} />;
+  }
+
+  if (column.id === predColumnId && groupItems) {
+    return (
+      <PredCell
+        boardId={boardId}
+        itemId={itemId}
+        columnId={column.id}
+        value={typeof value === "string" ? value : null}
+        groupItems={groupItems}
+      />
+    );
   }
 
   switch (column.type) {

@@ -37,6 +37,7 @@ export function ItemRow({
   ganttStartColumnId,
   ganttDurationColumnId,
   ganttEndColumnId,
+  predColumnId,
   lockedScheduleFields,
   userRole,
   currentUserId,
@@ -64,6 +65,7 @@ export function ItemRow({
   ganttStartColumnId: string | null;
   ganttDurationColumnId: string | null;
   ganttEndColumnId: string | null;
+  predColumnId?: string | null;
   lockedScheduleFields: Map<string, ScheduleLock>;
   userRole: UserRole;
   currentUserId: string;
@@ -151,6 +153,7 @@ export function ItemRow({
           ganttStartColumnId={ganttStartColumnId}
           ganttDurationColumnId={ganttDurationColumnId}
           ganttEndColumnId={ganttEndColumnId}
+          predColumnId={predColumnId}
           lockedScheduleFields={lockedScheduleFields}
           userRole={userRole}
           currentUserId={currentUserId}
@@ -270,6 +273,8 @@ export function ItemRow({
           ganttStartColumnId={ganttStartColumnId}
           ganttDurationColumnId={ganttDurationColumnId}
           ganttEndColumnId={ganttEndColumnId}
+          predColumnId={predColumnId}
+          groupItems={allGroupItems}
           lockedScheduleFields={lockedScheduleFields}
           userRole={userRole}
           currentUserId={currentUserId}
@@ -286,6 +291,8 @@ export function ItemRow({
           ganttStartColumnId={ganttStartColumnId}
           ganttDurationColumnId={ganttDurationColumnId}
           ganttEndColumnId={ganttEndColumnId}
+          predColumnId={predColumnId}
+          groupItems={allGroupItems}
           lockedScheduleFields={lockedScheduleFields}
           userRole={userRole}
           currentUserId={currentUserId}
@@ -372,6 +379,8 @@ export function ItemRow({
                   value={valuesByColumn.get(col.id) ?? null}
                   users={users}
                   canEdit={cellCanEdit}
+                  predColumnId={predColumnId}
+                  groupItems={allGroupItems}
                   isProgressColumn={col.id === progressColumnId}
                 />
               )}
