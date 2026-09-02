@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { BoardWithData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { computeOverdueUpcoming } from "@/lib/dashboard";
@@ -35,6 +36,7 @@ export function BoardReport({
   userRole: UserRole;
   currentUserId: string;
 }) {
+  const router = useRouter();
   const isSupervisor = userRole === "SUPERVISOR";
   const teamIds = isSupervisor
     ? [currentUserId, ...users.filter((u) => u.supervisorId === currentUserId).map((u) => u.id)]
@@ -170,7 +172,11 @@ export function BoardReport({
           <ul className="space-y-1.5">
             {overdue.map((e) => (
               <li key={e.itemId} className="flex items-center justify-between text-sm">
-                <Link href={`/boards/${e.boardId}?highlight=${e.itemId}`} className="truncate text-neutral-700 hover:text-blue-600">
+                <Link
+                  href={`/boards/${e.boardId}?highlight=${e.itemId}`}
+                  onClick={() => router.refresh()}
+                  className="truncate text-neutral-700 hover:text-blue-600"
+                >
                   {e.itemName}
                 </Link>
                 <span className="shrink-0 text-xs text-red-600">

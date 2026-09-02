@@ -37,6 +37,15 @@ export function BoardView({
     setGanttNavigateHighlight(itemId);
     setView("table");
   }
+  // A ?highlight= link (notifications, overdue tasks, workload detail) can
+  // be clicked from any tab — jump to the table view so BoardTable actually
+  // mounts and opens the item's card, instead of silently updating the URL
+  // behind whichever tab (e.g. 報表) happens to be showing.
+  const [prevHighlightItemId, setPrevHighlightItemId] = useState(highlightItemId);
+  if (highlightItemId !== prevHighlightItemId) {
+    setPrevHighlightItemId(highlightItemId);
+    if (highlightItemId) setView("table");
+  }
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [resourceMappingOpen, setResourceMappingOpen] = useState(false);
