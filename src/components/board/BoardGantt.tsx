@@ -37,6 +37,18 @@ function isoWeekNumber(date: Date): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
+/** ISO date of the Monday starting `date`'s week — used to detect a new
+ *  week bucket by comparing dates directly instead of checking for a
+ *  literal Monday, since business-day mode can omit the Monday itself
+ *  (holiday) from `days` entirely. */
+function mondayOfWeek(date: Date): string {
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const monday = new Date(date);
+  monday.setDate(monday.getDate() + diff);
+  return toIsoDate(monday);
+}
+
 function buildHeaderSegments(days: Date[], zoom: Zoom): HeaderSegment[] {
   if (zoom === "day") {
     return days.map((d) => ({ key: toIsoDate(d), label: formatDay(d), days: 1 }));
@@ -55,9 +67,16 @@ function buildHeaderSegments(days: Date[], zoom: Zoom): HeaderSegment[] {
     bucket = [];
   }
   for (const d of days) {
+    const last = bucket[bucket.length - 1];
+    // Compare actual calendar boundaries against the bucket's own last day,
+    // not a literal "is this the 1st/a Monday" check — business-day mode
+    // can skip that exact date (weekend/holiday) entirely, which silently
+    // merged the whole following month/week into the wrong bucket.
     const startsNewBucket =
-      bucket.length > 0 &&
-      (zoom === "week" ? d.getDay() === 1 : d.getDate() === 1);
+      last !== undefined &&
+      (zoom === "week"
+        ? mondayOfWeek(d) !== mondayOfWeek(last)
+        : d.getFullYear() !== last.getFullYear() || d.getMonth() !== last.getMonth());
     if (startsNewBucket) flush();
     bucket.push(d);
   }
