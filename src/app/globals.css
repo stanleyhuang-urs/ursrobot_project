@@ -36,3 +36,17 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Native date/time inputs (calendar icon + the picker popup itself) follow
+ * the OS light palette by default regardless of our own theme — this tells
+ * the browser which palette to actually render them in. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  color-scheme: light;
+}
+.dark input[type="date"],
+.dark input[type="datetime-local"],
+.dark input[type="time"] {
+  color-scheme: dark;
+}
