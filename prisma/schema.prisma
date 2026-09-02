@@ -166,6 +166,7 @@ model BoardMember {
   createdAt DateTime @default(now())
 
   @@unique([boardId, userId])
+  @@index([userId])
 }
 
 model Group {
@@ -181,6 +182,8 @@ model Group {
   roleAssignments GroupRoleAssignment[]
   members         GroupMember[]
   resourceMembers GroupResourceMember[]
+
+  @@index([boardId])
 }
 
 // A user holding TEAM_LEADER or PMD for a Group can edit the schedule
@@ -197,6 +200,7 @@ model GroupRoleAssignment {
   user    User      @relation("GroupRoleAssignments", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, role, userId])
+  @@index([groupId, userId])
 }
 
 // The roster of users actually doing SW/HW/ME/QA work in a Group — this is
@@ -250,6 +254,8 @@ model Column {
   manualDurationForBoards Board[]     @relation("BoardManualDurationColumn")
   ruleTriggersFor AutomationRule[] @relation("RuleTriggerColumn")
   ruleSetsFor     AutomationRule[] @relation("RuleSetColumn")
+
+  @@index([boardId])
 }
 
 model Item {
@@ -275,6 +281,10 @@ model Item {
   attachments   Attachment[]
   activityLog   ActivityLogEntry[]
   todoItems     TodoItem[]
+
+  @@index([boardId])
+  @@index([groupId])
+  @@index([parentId])
 }
 
 model Attachment {
@@ -287,6 +297,8 @@ model Attachment {
   uploaderId String
   uploader   User     @relation(fields: [uploaderId], references: [id])
   createdAt  DateTime @default(now())
+
+  @@index([itemId])
 }
 
 model ActivityLogEntry {
@@ -297,6 +309,8 @@ model ActivityLogEntry {
   actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
   message   String
   createdAt DateTime @default(now())
+
+  @@index([itemId])
 }
 
 model TodoItem {
@@ -307,6 +321,8 @@ model TodoItem {
   done      Boolean  @default(false)
   order     Int      @default(0)
   createdAt DateTime @default(now())
+
+  @@index([itemId])
 }
 
 model Assignment {
@@ -318,6 +334,7 @@ model Assignment {
   allocationPct Int    @default(100)
 
   @@unique([itemId, userId])
+  @@index([userId])
 }
 
 model Comment {
@@ -328,6 +345,8 @@ model Comment {
   author    User     @relation(fields: [authorId], references: [id])
   body      String
   createdAt DateTime @default(now())
+
+  @@index([itemId])
 }
 
 enum NotificationType {
@@ -372,6 +391,9 @@ model Notification {
   message   String
   read      Boolean          @default(false)
   createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([itemId])
 }
 
 model WorkloadThreshold {
