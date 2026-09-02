@@ -34,7 +34,10 @@ function StatCard({
       className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4 text-center enabled:hover:border-neutral-300 dark:enabled:hover:border-neutral-600 enabled:hover:bg-neutral-50 dark:enabled:hover:bg-neutral-800 disabled:cursor-default"
     >
       <p className="text-xs text-neutral-500 dark:text-neutral-400">{label}</p>
-      <p className="mt-1 text-2xl font-semibold" style={{ color: color ?? "#1f2937" }}>
+      <p
+        className={`mt-1 text-2xl font-semibold ${color ? "" : "text-neutral-800 dark:text-neutral-100"}`}
+        style={color ? { color } : undefined}
+      >
         {value}
       </p>
     </button>
