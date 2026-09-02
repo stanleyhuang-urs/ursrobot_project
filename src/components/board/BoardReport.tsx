@@ -131,20 +131,30 @@ export function BoardReport({
           {owners.length === 0 ? (
             <p className="text-sm text-neutral-400">尚無資料</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {owners.map((o) => (
-                <div key={o.userId} className="flex items-center gap-3">
-                  <span className="w-16 shrink-0 truncate text-sm text-neutral-700">{o.userName}</span>
-                  <div className="flex h-3 flex-1 overflow-hidden rounded-full bg-neutral-100">
+                <div key={o.userId}>
+                  <div className="flex items-center gap-3">
+                    <span className="w-16 shrink-0 truncate text-sm text-neutral-700">{o.userName}</span>
+                    <div className="flex h-3 flex-1 overflow-hidden rounded-full bg-neutral-100">
+                      {o.slices.map((s) => (
+                        <div
+                          key={s.key}
+                          title={`${s.label} ${s.count}`}
+                          style={{ width: `${(s.count / o.total) * 100}%`, backgroundColor: s.color }}
+                        />
+                      ))}
+                    </div>
+                    <span className="w-6 shrink-0 text-right text-sm text-neutral-500">{o.total}</span>
+                  </div>
+                  <div className="ml-[76px] mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
                     {o.slices.map((s) => (
-                      <div
-                        key={s.key}
-                        title={`${s.label} ${s.count}`}
-                        style={{ width: `${(s.count / o.total) * 100}%`, backgroundColor: s.color }}
-                      />
+                      <span key={s.key} className="flex items-center gap-1 text-xs text-neutral-500">
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+                        {s.label} {s.count}
+                      </span>
                     ))}
                   </div>
-                  <span className="w-6 shrink-0 text-right text-sm text-neutral-500">{o.total}</span>
                 </div>
               ))}
             </div>
