@@ -22,14 +22,21 @@ export function PredCell({
   columnId,
   value,
   groupItems,
+  wbsCodes,
 }: {
   boardId: string;
   itemId: string;
   columnId: string;
   value: string | null;
   groupItems: ItemData[];
+  /** Precomputed via computeWbsCodes(groupItems) by a memoized ancestor
+   *  (GroupSection) — pass this on the table's per-row hot path so 2000
+   *  rows don't each redo an O(n) WBS-numbering pass over the whole group.
+   *  Falls back to computing it locally for lower-frequency callers (the
+   *  item detail modal, opened one item at a time) that don't have one. */
+  wbsCodes?: Map<string, string>;
 }) {
-  const codes = computeWbsCodes(groupItems);
+  const codes = wbsCodes ?? computeWbsCodes(groupItems);
   const options = groupItems
     .filter((i) => i.id !== itemId)
     .map((i) => ({ code: codes.get(i.id) ?? "", name: i.name }))

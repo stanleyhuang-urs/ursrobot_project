@@ -138,7 +138,19 @@ export function BoardTable({
   const [groupFilterId, setGroupFilterId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [nameWidth, setNameWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  // Starting fully expanded meant every render — including the very first,
+  // server-rendered one — walked and rendered every item on the board, no
+  // matter how deep. Collapsing anything with children by default (the
+  // highlight-driven auto-expand below still opens the right ancestor
+  // chain when needed) means a board's initial render cost tracks its
+  // top-level item count, not its total item count.
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => {
+    const parentIds = new Set<string>();
+    for (const item of board.items) {
+      if (item.parentId) parentIds.add(item.parentId);
+    }
+    return parentIds;
+  });
   const hasAutoSizedRef = useRef(false);
   const scrollPanesRef = useRef<Map<string, HTMLDivElement>>(new Map());
 

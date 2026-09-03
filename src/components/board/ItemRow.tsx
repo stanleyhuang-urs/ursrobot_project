@@ -381,6 +381,7 @@ export function ItemRow({
                   canEdit={cellCanEdit}
                   predColumnId={predColumnId}
                   groupItems={allGroupItems}
+                  wbsCodes={wbsCodes}
                   isProgressColumn={col.id === progressColumnId}
                 />
               )}

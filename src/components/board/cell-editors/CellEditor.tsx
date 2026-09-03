@@ -57,6 +57,7 @@ export function CellEditor({
   isProgressColumn = false,
   predColumnId,
   groupItems,
+  wbsCodes,
 }: {
   boardId: string;
   itemId: string;
@@ -70,6 +71,8 @@ export function CellEditor({
    *  of a free-text WBS code field. */
   predColumnId?: string | null;
   groupItems?: ItemData[];
+  /** Passed straight through to PredCell — see its own doc comment. */
+  wbsCodes?: Map<string, string>;
 }) {
   if (!canEdit) {
     return <ReadOnlyCell column={column} value={value} users={users} isProgressColumn={isProgressColumn} />;
@@ -83,6 +86,7 @@ export function CellEditor({
         columnId={column.id}
         value={typeof value === "string" ? value : null}
         groupItems={groupItems}
+        wbsCodes={wbsCodes}
       />
     );
   }
