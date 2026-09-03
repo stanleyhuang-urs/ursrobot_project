@@ -216,13 +216,31 @@ export async function insertItem(
   const boardId = await requireGroupStructureAccess(session, groupId);
 
   const [reference, board] = await Promise.all([
-    prisma.item.findUnique({ where: { id: referenceItemId } }),
-    prisma.board.findUnique({ where: { id: boardId }, select: { typeColumnId: true } }),
+    prisma.item.findUnique({ where: { id: referenceItemId }, include: { cellValues: true } }),
+    prisma.board.findUnique({
+      where: { id: boardId },
+      select: { typeColumnId: true, columns: { select: { id: true, name: true, type: true } } },
+    }),
   ]);
   if (!reference || reference.groupId !== groupId) throw new Error("找不到參考項目");
   const typeIds = await loadTypeOptionIds(board?.typeColumnId ?? null);
 
   const targetOrder = position === "before" ? reference.order : reference.order + 1;
+
+  const cellValues: { columnId: string; value: string | number }[] = [];
+  if (board?.typeColumnId && typeIds?.taskId) {
+    cellValues.push({ columnId: board.typeColumnId, value: typeIds.taskId });
+  }
+  // Inserted as a sibling of `reference`, so its Lvl should match reference's
+  // own Lvl — not parent's Lvl + 1 (that's only correct for a new *child*,
+  // see buildNewItemCellValues).
+  const lvlColumn = board?.columns.find((c) => c.name === "Lvl" && c.type === "NUMBER");
+  if (lvlColumn) {
+    const referenceLvl = reference.cellValues.find((cv) => cv.columnId === lvlColumn.id)?.value;
+    if (typeof referenceLvl === "number") {
+      cellValues.push({ columnId: lvlColumn.id, value: referenceLvl });
+    }
+  }
 
   await prisma.$transaction([
     prisma.item.updateMany({
@@ -237,9 +255,7 @@ export async function insertItem(
         name: "新項目",
         order: targetOrder,
         createdById: session.userId,
-        ...(board?.typeColumnId && typeIds?.taskId
-          ? { cellValues: { create: { columnId: board.typeColumnId, value: typeIds.taskId } } }
-          : {}),
+        cellValues: { create: cellValues },
       },
     }),
   ]);
