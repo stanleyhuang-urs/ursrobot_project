@@ -227,8 +227,7 @@ export function BoardView({
 
       {canManageBoard(userRole) && (
         <ExportGanttModal
-          boardId={board.id}
-          groups={board.groups}
+          board={board}
           open={exportOpen}
           onOpenChange={setExportOpen}
         />

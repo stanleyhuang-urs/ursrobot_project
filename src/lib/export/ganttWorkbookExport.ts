@@ -1,38 +1,31 @@
 import ExcelJS from "exceljs";
-import type { BoardWithData, ColumnData, GroupData, ItemData } from "@/types/board";
+import type { BoardWithData, ColumnData, GroupData, ItemData, UserOption } from "@/types/board";
 import { computeWbsCodes } from "@/lib/wbs";
-import { getStatusOptions } from "@/types/column";
+import { getStatusOptions, getPersonIds } from "@/types/column";
+import { computeRolledUpDateRange } from "@/lib/gantt";
+import { toHolidaySet } from "@/lib/holidays";
+import { BASE_DETAIL_HEADERS } from "@/lib/export/exportFields";
 
-const DETAIL_HEADERS = [
-  "Lvl",
-  "WBS",
-  "Task Name",
-  "Type",
-  "Priority",
-  "Status",
-  "Resource",
-  "Pred",
-  "Link",
-  "Lag",
-  "Comment",
-  "Start (set)",
-  "Start",
-  "Dur",
-  "Days",
-  "Finish",
-  "% Done",
-];
-const DETAIL_COL_COUNT = DETAIL_HEADERS.length; // 17 — the visible/editable detail columns
+const BASE_DETAIL_COL_COUNT = BASE_DETAIL_HEADERS.length; // 17 — the fixed template columns
 const COLUMN_WIDTHS = [6, 12, 40, 12, 10, 12, 24, 10, 8, 8, 30, 12, 12, 8, 8, 12, 10];
+const DEFAULT_EXTRA_COLUMN_WIDTH = 16;
 
 // Hidden helper columns, placed exactly where the reference template puts
-// them: R..V (type-code + WBS level 1-4 running counters) right after the
-// visible detail area, and two more (level 5-6 counters) tacked on after
-// the entire timeline ends — WBS only needs to look past 4 levels deep in
-// the rare case a board nests that far, so keeping them out of the main
-// block avoids widening every row's "visible" columns for a rare case.
-const HELPER_PREFIX_COUNT = 5; // R,S,T,U,V
-const TIMELINE_START_COL = DETAIL_COL_COUNT + HELPER_PREFIX_COUNT + 1; // 23 (W)
+// them: right after the visible detail area (fixed columns + any selected
+// extra fields) — type-code + WBS level 1-4 running counters — and two more
+// (level 5-6 counters) tacked on after the entire timeline ends — WBS only
+// needs to look past 4 levels deep in the rare case a board nests that far,
+// so keeping them out of the main block avoids widening every row's
+// "visible" columns for a rare case.
+const HELPER_PREFIX_COUNT = 5; // type-code, level1, level2, level3, level4
+function timelineStartCol(detailColCount: number): number {
+  return detailColCount + HELPER_PREFIX_COUNT + 1;
+}
+
+// A generous, fixed-size range so WORKDAY/NETWORKDAYS keep working if the
+// user adds more rows to the Holidays sheet after opening the export —
+// blank cells within the range are simply ignored by both functions.
+const HOLIDAYS_RANGE = "Holidays!$A$6:$A$1005";
 
 // Colours reverse-engineered from the reference sheet's conditional-format
 // rules (Excel's Interior.Color is BGR-packed, not RGB — converted here).
@@ -92,6 +85,32 @@ function parseDate(raw: string | number | null): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/** Reads an optional extra field's cell value into the form it should be
+ *  written to the sheet — most notably resolving a PERSON column's stored
+ *  user/resource id(s) into the display name(s), since the raw id would be
+ *  meaningless outside the app. */
+function resolveExtraValue(
+  item: ItemData,
+  column: ColumnData,
+  users: UserOption[]
+): string | number | Date | null {
+  const raw = getRawValue(item, column);
+  switch (column.type) {
+    case "PERSON": {
+      const names = getPersonIds(raw).map((id) => users.find((u) => u.id === id)?.name ?? id);
+      return names.length > 0 ? names.join(", ") : null;
+    }
+    case "STATUS":
+      return getStatusLabel(item, column) || null;
+    case "DATE":
+      return parseDate(raw);
+    case "NUMBER":
+      return typeof raw === "number" ? raw : null;
+    default:
+      return typeof raw === "string" ? raw : null;
+  }
+}
+
 function orderedItems(items: ItemData[]): {
   ordered: ItemData[];
   childrenOf: Map<string | null, ItemData[]>;
@@ -139,9 +158,9 @@ function colLetter(col: number): string {
 
 /** A level-N running counter: how many times Lvl=N has occurred since the
  *  last row whose Lvl was shallower than N — i.e. this row's position
- *  among its level-N siblings under the current parent. Levels 1-4 live in
- *  S:V (right after the detail columns); levels 5-6 live in blfCol/blgCol
- *  (right after the timeline — see TIMELINE_START_COL). */
+ *  among its level-N siblings under the current parent. Position-independent
+ *  (only ever reads column A), so it doesn't need to know where the extra
+ *  fields or helper columns actually landed. */
 function levelCounterFormula(row: number, level: number): string {
   const a = `$A$7:$A${row}`;
   if (level === 1) {
@@ -157,52 +176,58 @@ function typeCodeFormula(row: number): string {
   return `IF($D${row}="Summary","S",IF($D${row}="Milestone","M",IF($D${row}="Task","T","")))`;
 }
 
-/** WBS text built from the level counters, e.g. S7&"."&T7&"."&U7 for a
- *  level-3 row — only appends a segment while $A (Lvl) reaches that deep. */
-function wbsFormula(row: number, blfCol: string, blgCol: string): string {
+/** WBS text built from the level counters, e.g. lvl1&"."&lvl2&"."&lvl3 for a
+ *  level-3 row — only appends a segment while $A (Lvl) reaches that deep.
+ *  levelCols[i] is the column letter holding the level-(i+1) counter — these
+ *  shift depending on how many extra fields were selected for export, so
+ *  they're passed in rather than hardcoded. */
+function wbsFormula(row: number, levelCols: string[]): string {
   return (
-    `IF($A${row}="","",S${row}` +
-    `&IF($A${row}>=2,"."&T${row},"")` +
-    `&IF($A${row}>=3,"."&U${row},"")` +
-    `&IF($A${row}>=4,"."&V${row},"")` +
-    `&IF($A${row}>=5,"."&${blfCol}${row},"")` +
-    `&IF($A${row}>=6,"."&${blgCol}${row},""))`
+    `IF($A${row}="","",${levelCols[0]}${row}` +
+    `&IF($A${row}>=2,"."&${levelCols[1]}${row},"")` +
+    `&IF($A${row}>=3,"."&${levelCols[2]}${row},"")` +
+    `&IF($A${row}>=4,"."&${levelCols[3]}${row},"")` +
+    `&IF($A${row}>=5,"."&${levelCols[4]}${row},"")` +
+    `&IF($A${row}>=6,"."&${levelCols[5]}${row},""))`
   );
 }
 
 /** Start: a Summary rolls up to the earliest of its descendants (matched by
  *  WBS-text prefix); a Task/Milestone with a resolvable Pred+Link derives
  *  from its predecessor's own Start/Finish + Lag (WORKDAY-based, matching
- *  FS/SS/FF/SF exactly as the app's own scheduling engine does); otherwise
- *  it falls back to the manual Start (set) column, or today. */
+ *  FS/SS/FF/SF exactly as the app's own scheduling engine does, and skipping
+ *  the dates listed on the Holidays sheet in addition to weekends);
+ *  otherwise it falls back to the manual Start (set) column, or today. */
 function startFormula(row: number, lastDataRow: number): string {
   const b = `$B$7:$B${lastDataRow}`;
   return (
     `IF($A${row}="","",IF($D${row}="Summary",` +
     `IF(COUNTIF(${b},$B${row}&".*")>0,MIN(OFFSET($M${row},1,0,COUNTIF(${b},$B${row}&".*"),1)),TODAY()),` +
     `IF(AND($H${row}<>"",$I${row}<>"",ISNUMBER(MATCH($H${row}&"",${b},0))),` +
-    `IF($I${row}="FS",WORKDAY(INDEX($P$7:$P${lastDataRow},MATCH($H${row}&"",${b},0)),1+IF($J${row}="",0,$J${row})),` +
-    `IF($I${row}="SS",WORKDAY(INDEX($M$7:$M${lastDataRow},MATCH($H${row}&"",${b},0)),IF($J${row}="",0,$J${row})),` +
-    `IF($I${row}="FF",WORKDAY(INDEX($P$7:$P${lastDataRow},MATCH($H${row}&"",${b},0)),IF($J${row}="",0,$J${row})-(MAX(N($N${row}),1)-1)),` +
-    `IF($I${row}="SF",WORKDAY(INDEX($M$7:$M${lastDataRow},MATCH($H${row}&"",${b},0)),IF($J${row}="",0,$J${row})-(MAX(N($N${row}),1)-1)),` +
+    `IF($I${row}="FS",WORKDAY(INDEX($P$7:$P${lastDataRow},MATCH($H${row}&"",${b},0)),1+IF($J${row}="",0,$J${row}),${HOLIDAYS_RANGE}),` +
+    `IF($I${row}="SS",WORKDAY(INDEX($M$7:$M${lastDataRow},MATCH($H${row}&"",${b},0)),IF($J${row}="",0,$J${row}),${HOLIDAYS_RANGE}),` +
+    `IF($I${row}="FF",WORKDAY(INDEX($P$7:$P${lastDataRow},MATCH($H${row}&"",${b},0)),IF($J${row}="",0,$J${row})-(MAX(N($N${row}),1)-1),${HOLIDAYS_RANGE}),` +
+    `IF($I${row}="SF",WORKDAY(INDEX($M$7:$M${lastDataRow},MATCH($H${row}&"",${b},0)),IF($J${row}="",0,$J${row})-(MAX(N($N${row}),1)-1),${HOLIDAYS_RANGE}),` +
     `TODAY())))),IF($L${row}<>"",$L${row},TODAY()))))`
   );
 }
 
-/** Days: NETWORKDAYS(Start,Finish) for a Summary, 0 for a Milestone,
- *  otherwise a plain mirror of the manual Dur input (N). */
+/** Days: NETWORKDAYS(Start,Finish) for a Summary (excluding the Holidays
+ *  sheet's dates as well as weekends), 0 for a Milestone, otherwise a plain
+ *  mirror of the manual Dur input (N). */
 function daysFormula(row: number): string {
-  return `IF($A${row}="","",IF($D${row}="Summary",NETWORKDAYS($M${row},$P${row}),IF($D${row}="Milestone",0,IF($N${row}="","",$N${row}))))`;
+  return `IF($A${row}="","",IF($D${row}="Summary",NETWORKDAYS($M${row},$P${row},${HOLIDAYS_RANGE}),IF($D${row}="Milestone",0,IF($N${row}="","",$N${row}))))`;
 }
 
 /** Finish: for a Summary, the latest of its descendants' own Finish; for a
- *  Milestone, same day as Start; otherwise Start + Dur (WORKDAY-based). */
+ *  Milestone, same day as Start; otherwise Start + Dur (WORKDAY-based,
+ *  skipping the Holidays sheet's dates). */
 function finishFormula(row: number, lastDataRow: number): string {
   const b = `$B$7:$B${lastDataRow}`;
   return (
     `IF($A${row}="","",IF($D${row}="Summary",` +
     `MAX(OFFSET($P${row},1,0,MAX(COUNTIF(${b},$B${row}&".*"),1),1)),` +
-    `IF($D${row}="Milestone",$M${row},WORKDAY($M${row},MAX(N($N${row}),1)-1))))`
+    `IF($D${row}="Milestone",$M${row},WORKDAY($M${row},MAX(N($N${row}),1)-1,${HOLIDAYS_RANGE}))))`
   );
 }
 
@@ -224,9 +249,29 @@ type RowMeta = {
   dur: number | null;
   finish: Date | null;
   pctDone: number | null;
+  extra: Record<string, string | number | Date | null>;
+  /** Set only for a Summary row kept by a Lvl-depth export filter whose own
+   *  children were cut — the live spreadsheet rollup formula would find no
+   *  matching child rows in that case, so this static value (computed here
+   *  from the full, unfiltered item tree) is written instead. */
+  startOverride: Date | null;
+  finishOverride: Date | null;
 };
 
-function buildRowMeta(board: BoardWithData, group: GroupData): RowMeta[] {
+/** Builds one row per exported item, in display order, including any
+ *  selected extra fields. When maxLevel is set, items deeper than it are
+ *  dropped from the export — always trimming from the bottom (never
+ *  creating a gap in the kept Lvl sequence) so the WBS numbering formulas
+ *  stay correct; a kept Summary whose own children got trimmed this way
+ *  gets its Start/Finish computed here instead, from the full tree. */
+function buildRowMeta(
+  board: BoardWithData,
+  group: GroupData,
+  extraColumns: ColumnData[],
+  users: UserOption[],
+  holidaySet: Set<string>,
+  maxLevel: number | null
+): RowMeta[] {
   const items = board.items.filter((i) => i.groupId === group.id);
   const wbsCodes = computeWbsCodes(items);
   const { ordered, childrenOf } = orderedItems(items);
@@ -268,7 +313,7 @@ function buildRowMeta(board: BoardWithData, group: GroupData): RowMeta[] {
     return count > 0 ? sum / count : null;
   }
 
-  return basics.map(({ item, wbs, hasChildren, type }) => {
+  const allRows: RowMeta[] = basics.map(({ item, wbs, hasChildren, type }) => {
     const startRaw = getRawValueByColumnId(item, board.ganttStartColumnId);
     const finishRaw = getRawValueByColumnId(item, board.ganttEndColumnId);
     const durRaw = getRawValueByColumnId(item, board.ganttDurationColumnId);
@@ -293,8 +338,33 @@ function buildRowMeta(board: BoardWithData, group: GroupData): RowMeta[] {
       dur: typeof durRaw === "number" ? durRaw : null,
       finish: parseDate(finishRaw),
       pctDone: hasChildren ? rollupPercent(wbs) : leafPercent(item),
+      extra: Object.fromEntries(extraColumns.map((c) => [c.id, resolveExtraValue(item, c, users)])),
+      startOverride: null,
+      finishOverride: null,
     };
   });
+
+  if (maxLevel == null) return allRows;
+
+  const kept = allRows.filter((r) => r.lvl <= maxLevel);
+  if (board.ganttStartColumnId && board.ganttDurationColumnId) {
+    for (const r of kept) {
+      if (!r.hasChildren || r.lvl !== maxLevel) continue;
+      const rolled = computeRolledUpDateRange(
+        r.item,
+        items,
+        board.ganttStartColumnId,
+        board.ganttDurationColumnId,
+        board.ganttDurationMode,
+        holidaySet
+      );
+      if (rolled) {
+        r.startOverride = rolled.start;
+        r.finishOverride = rolled.end;
+      }
+    }
+  }
+  return kept;
 }
 
 // All timeline date math below uses UTC components exclusively. DATE
@@ -342,12 +412,13 @@ function computeDateRange(rows: RowMeta[]): { start: Date; end: Date } {
   return { start: addUtcDays(start, -7), end: addUtcDays(end, 60) };
 }
 
-function writeBanner(sheet: ExcelJS.Worksheet, title: string, instructions: string) {
+function writeBanner(sheet: ExcelJS.Worksheet, title: string, instructions: string, headers: string[]) {
   sheet.getCell("A1").value = title;
   sheet.getCell("A1").font = { bold: true, size: 14 };
   sheet.getCell("A3").value = instructions;
   sheet.getCell("A3").font = { italic: true, color: { argb: "FF666666" } };
-  sheet.mergeCells("A5:Q5");
+  const lastCol = colLetter(headers.length);
+  sheet.mergeCells(`A5:${lastCol}5`);
   sheet.getCell("A5").value = "TASK DETAILS";
   sheet.getCell("A5").font = { bold: true };
   sheet.getCell("A5").fill = {
@@ -357,12 +428,12 @@ function writeBanner(sheet: ExcelJS.Worksheet, title: string, instructions: stri
   };
 
   const headerRow = sheet.getRow(6);
-  DETAIL_HEADERS.forEach((h, i) => {
+  headers.forEach((h, i) => {
     headerRow.getCell(i + 1).value = h;
   });
   headerRow.font = { bold: true };
-  COLUMN_WIDTHS.forEach((w, i) => {
-    sheet.getColumn(i + 1).width = w;
+  headers.forEach((_, i) => {
+    sheet.getColumn(i + 1).width = COLUMN_WIDTHS[i] ?? DEFAULT_EXTRA_COLUMN_WIDTH;
   });
 }
 
@@ -398,12 +469,22 @@ function writeDetailRow(
   rowIndex: number,
   m: RowMeta,
   lastDataRow: number,
+  detailColCount: number,
+  extraColumns: ColumnData[],
   blfCol: string,
   blgCol: string
 ) {
   const row = sheet.getRow(rowIndex);
   row.getCell(1).value = m.lvl;
-  row.getCell(2).value = { formula: wbsFormula(rowIndex, blfCol, blgCol) };
+  const levelCols = [
+    colLetter(detailColCount + 2),
+    colLetter(detailColCount + 3),
+    colLetter(detailColCount + 4),
+    colLetter(detailColCount + 5),
+    blfCol,
+    blgCol,
+  ];
+  row.getCell(2).value = { formula: wbsFormula(rowIndex, levelCols) };
   row.getCell(3).value = m.item.name;
   row.getCell(4).value = m.type;
   row.getCell(5).value = m.priority;
@@ -417,29 +498,42 @@ function writeDetailRow(
     row.getCell(12).value = m.startSet;
     row.getCell(12).numFmt = "yyyy-mm-dd";
   }
-  row.getCell(13).value = { formula: startFormula(rowIndex, lastDataRow) };
+  row.getCell(13).value = m.startOverride ?? { formula: startFormula(rowIndex, lastDataRow) };
   row.getCell(13).numFmt = "yyyy-mm-dd";
   if (m.dur !== null) {
     row.getCell(14).value = m.dur;
   }
   row.getCell(15).value = { formula: daysFormula(rowIndex) };
-  row.getCell(16).value = { formula: finishFormula(rowIndex, lastDataRow) };
+  row.getCell(16).value = m.finishOverride ?? { formula: finishFormula(rowIndex, lastDataRow) };
   row.getCell(16).numFmt = "yyyy-mm-dd";
   if (m.pctDone !== null) {
     row.getCell(17).value = m.pctDone;
     row.getCell(17).numFmt = "0%";
   }
 
-  row.getCell(18).value = { formula: typeCodeFormula(rowIndex) };
-  row.getCell(19).value = { formula: levelCounterFormula(rowIndex, 1) };
-  row.getCell(20).value = { formula: levelCounterFormula(rowIndex, 2) };
-  row.getCell(21).value = { formula: levelCounterFormula(rowIndex, 3) };
-  row.getCell(22).value = { formula: levelCounterFormula(rowIndex, 4) };
+  extraColumns.forEach((col, i) => {
+    const value = m.extra[col.id];
+    if (value === null || value === undefined) return;
+    const cell = row.getCell(BASE_DETAIL_COL_COUNT + 1 + i);
+    cell.value = value;
+    if (value instanceof Date) cell.numFmt = "yyyy-mm-dd";
+  });
+
+  row.getCell(detailColCount + 1).value = { formula: typeCodeFormula(rowIndex) };
+  row.getCell(detailColCount + 2).value = { formula: levelCounterFormula(rowIndex, 1) };
+  row.getCell(detailColCount + 3).value = { formula: levelCounterFormula(rowIndex, 2) };
+  row.getCell(detailColCount + 4).value = { formula: levelCounterFormula(rowIndex, 3) };
+  row.getCell(detailColCount + 5).value = { formula: levelCounterFormula(rowIndex, 4) };
 }
 
-function writeMirrorRow(sheet: ExcelJS.Worksheet, rowIndex: number) {
+function writeMirrorRow(
+  sheet: ExcelJS.Worksheet,
+  rowIndex: number,
+  detailColCount: number,
+  extraColumns: ColumnData[]
+) {
   const row = sheet.getRow(rowIndex);
-  for (let col = 1; col <= DETAIL_COL_COUNT; col++) {
+  for (let col = 1; col <= detailColCount; col++) {
     const c = colLetter(col);
     row.getCell(col).value = {
       formula: `IF(INDEX('Gantt (Day)'!$${c}:$${c},ROW())="","",INDEX('Gantt (Day)'!$${c}:$${c},ROW()))`,
@@ -448,6 +542,9 @@ function writeMirrorRow(sheet: ExcelJS.Worksheet, rowIndex: number) {
   row.getCell(13).numFmt = "yyyy-mm-dd";
   row.getCell(16).numFmt = "yyyy-mm-dd";
   row.getCell(17).numFmt = "0%";
+  extraColumns.forEach((col, i) => {
+    if (col.type === "DATE") row.getCell(BASE_DETAIL_COL_COUNT + 1 + i).numFmt = "yyyy-mm-dd";
+  });
 }
 
 /** Merged month/year label blocks on row 5 above the timeline, matching the
@@ -481,15 +578,17 @@ function writePeriodLabels(
 }
 
 /** Bar/level-colour/today-marker conditional formatting, identical formulas
- *  across Day/Week/Month since all three share the same A-Q column layout —
- *  Week/Month's cells resolve through their own INDEX-formula mirrors. */
+ *  across Day/Week/Month since all three share the same detail-column
+ *  layout — Week/Month's cells resolve through their own INDEX-formula
+ *  mirrors. */
 function applyConditionalFormatting(
   sheet: ExcelJS.Worksheet,
   tlStartCol: number,
   tlEndCol: number,
   lastDataRow: number,
   levelColors: string[],
-  isDaySheet: boolean
+  isDaySheet: boolean,
+  detailColCount: number
 ) {
   const startLetter = colLetter(tlStartCol);
   const endLetter = colLetter(tlEndCol);
@@ -544,7 +643,7 @@ function applyConditionalFormatting(
     ],
   });
 
-  const detailRef = `A7:Q${lastDataRow}`;
+  const detailRef = `A7:${colLetter(detailColCount)}${lastDataRow}`;
   sheet.addConditionalFormatting({
     ref: detailRef,
     rules: levelColors.slice(0, 6).map((color, i) => ({
@@ -562,13 +661,17 @@ function buildDaySheet(
   group: GroupData,
   rows: RowMeta[],
   range: { start: Date; end: Date },
-  levelColors: string[]
+  levelColors: string[],
+  headers: string[],
+  detailColCount: number,
+  extraColumns: ColumnData[]
 ): number {
   const sheet = workbook.addWorksheet("Gantt (Day)");
   writeBanner(
     sheet,
     `${board.name} - ${group.name}`,
-    "EDIT blue cells. Type dropdown: Summary rolls up its children. No Start set -> today."
+    "EDIT blue cells. Type dropdown: Summary rolls up its children. No Start set -> today.",
+    headers
   );
 
   const lastDataRow = Math.max(7, 6 + rows.length);
@@ -576,7 +679,7 @@ function buildDaySheet(
   // Timeline first — its width (and so the two far-right WBS level-5/6
   // helper columns' position, right after it) doesn't depend on row
   // content, only on the date range.
-  const tl0 = TIMELINE_START_COL;
+  const tl0 = timelineStartCol(detailColCount);
   let col = tl0;
   let cursor = range.start;
   const colDates: { col: number; date: Date }[] = [];
@@ -600,24 +703,24 @@ function buildDaySheet(
 
   rows.forEach((m, i) => {
     const rowIndex = 7 + i;
-    writeDetailRow(sheet, rowIndex, m, lastDataRow, blfCol, blgCol);
+    writeDetailRow(sheet, rowIndex, m, lastDataRow, detailColCount, extraColumns, blfCol, blgCol);
     sheet.getCell(rowIndex, blfColNum).value = { formula: levelCounterFormula(rowIndex, 5) };
     sheet.getCell(rowIndex, blgColNum).value = { formula: levelCounterFormula(rowIndex, 6) };
   });
   applyDetailValidation(sheet, lastDataRow, board);
 
-  // R:V (type-code + level 1-4 counters) and the level 5-6 counters past
-  // the timeline are working columns for the WBS formula, not meant to be
-  // read directly.
-  for (let c = DETAIL_COL_COUNT + 1; c <= DETAIL_COL_COUNT + HELPER_PREFIX_COUNT; c++) {
+  // Type-code + level 1-4 counters and the level 5-6 counters past the
+  // timeline are working columns for the WBS formula, not meant to be read
+  // directly.
+  for (let c = detailColCount + 1; c <= detailColCount + HELPER_PREFIX_COUNT; c++) {
     sheet.getColumn(c).hidden = true;
   }
   sheet.getColumn(blfColNum).hidden = true;
   sheet.getColumn(blgColNum).hidden = true;
 
-  applyConditionalFormatting(sheet, tl0, tlEnd, lastDataRow, levelColors, true);
-  sheet.autoFilter = `A6:${colLetter(DETAIL_COL_COUNT)}${lastDataRow}`;
-  sheet.views = [{ state: "frozen", xSplit: DETAIL_COL_COUNT, ySplit: 6 }];
+  applyConditionalFormatting(sheet, tl0, tlEnd, lastDataRow, levelColors, true, detailColCount);
+  sheet.autoFilter = `A6:${colLetter(detailColCount)}${lastDataRow}`;
+  sheet.views = [{ state: "frozen", xSplit: detailColCount, ySplit: 6 }];
 
   return lastDataRow;
 }
@@ -630,15 +733,23 @@ function buildMirrorSheet(
   rowCount: number,
   range: { start: Date; end: Date },
   levelColors: string[],
-  granularity: "week" | "month"
+  granularity: "week" | "month",
+  headers: string[],
+  detailColCount: number,
+  extraColumns: ColumnData[]
 ) {
   const sheet = workbook.addWorksheet(name);
-  writeBanner(sheet, `${board.name} - ${group.name}`, `View only - edit on 'Gantt (Day)'. Scale: ${granularity === "week" ? "Week" : "Month"}.`);
+  writeBanner(
+    sheet,
+    `${board.name} - ${group.name}`,
+    `View only - edit on 'Gantt (Day)'. Scale: ${granularity === "week" ? "Week" : "Month"}.`,
+    headers
+  );
 
   const lastDataRow = Math.max(7, 6 + rowCount);
-  for (let r = 7; r <= lastDataRow; r++) writeMirrorRow(sheet, r);
+  for (let r = 7; r <= lastDataRow; r++) writeMirrorRow(sheet, r, detailColCount, extraColumns);
 
-  const tl0 = DETAIL_COL_COUNT + 1;
+  const tl0 = detailColCount + 1;
   let col = tl0;
   const colDates: { col: number; date: Date }[] = [];
   if (granularity === "week") {
@@ -673,9 +784,9 @@ function buildMirrorSheet(
   const tlEnd = Math.max(tl0, col - 1);
   writePeriodLabels(sheet, colDates, granularity === "week" ? "month" : "year");
 
-  applyConditionalFormatting(sheet, tl0, tlEnd, lastDataRow, levelColors, false);
-  sheet.autoFilter = `A6:${colLetter(DETAIL_COL_COUNT)}${lastDataRow}`;
-  sheet.views = [{ state: "frozen", xSplit: DETAIL_COL_COUNT, ySplit: 6 }];
+  applyConditionalFormatting(sheet, tl0, tlEnd, lastDataRow, levelColors, false, detailColCount);
+  sheet.autoFilter = `A6:${colLetter(detailColCount)}${lastDataRow}`;
+  sheet.views = [{ state: "frozen", xSplit: detailColCount, ySplit: 6 }];
 }
 
 function buildSettingsSheet(workbook: ExcelJS.Workbook, levelColors: string[]) {
@@ -720,23 +831,105 @@ function buildListsSheet(workbook: ExcelJS.Workbook, rows: RowMeta[]) {
   });
 }
 
+/** Seeds the workbook's own Holidays sheet from the app's company-wide
+ *  holiday list — the Start/Days/Finish formulas on every Gantt sheet
+ *  reference this sheet's date column (see HOLIDAYS_RANGE) so business-day
+ *  math keeps skipping these dates even after the file leaves the app,
+ *  and editing/adding rows here (within the reserved range) recalculates
+ *  those formulas live. */
+function buildHolidaysSheet(workbook: ExcelJS.Workbook, holidays: { date: string; name: string }[]) {
+  const sheet = workbook.addWorksheet("Holidays");
+  sheet.getColumn(1).width = 14;
+  sheet.getColumn(2).width = 24;
+  sheet.getCell("A1").value = "國定假日 (Holidays)";
+  sheet.getCell("A1").font = { bold: true, size: 14 };
+  sheet.getCell("A3").value =
+    "在下方新增/修改/刪除日期(最多 1000 筆),Gantt 各分頁的 Start/Days/Finish 公式會自動避開這些日期,不會排入工作天。";
+  sheet.getCell("A3").font = { italic: true, color: { argb: "FF666666" } };
+  sheet.getCell("A5").value = "Date";
+  sheet.getCell("B5").value = "Name";
+  sheet.getRow(5).font = { bold: true };
+
+  holidays.forEach((h, i) => {
+    const row = 6 + i;
+    const date = parseDate(h.date);
+    const cell = sheet.getCell(row, 1);
+    cell.value = date ?? h.date;
+    if (date) cell.numFmt = "yyyy-mm-dd";
+    sheet.getCell(row, 2).value = h.name;
+  });
+}
+
+export type GanttExportOptions = {
+  /** Board column ids beyond the fixed template to include, e.g. custom
+   *  PERSON columns like 負責人/測試工具. */
+  extraColumnIds?: string[];
+  /** Only export items at this Lvl depth or shallower; null/undefined
+   *  exports the full hierarchy (unchanged default behaviour). */
+  maxLevel?: number | null;
+  /** Users + Resources, for resolving PERSON-type extra fields to names. */
+  users?: UserOption[];
+  /** Company-wide holiday list, seeded into the workbook's own Holidays
+   *  sheet and referenced by the Start/Days/Finish formulas. */
+  holidays?: { date: string; name: string }[];
+};
+
 /**
- * Builds a full 5-sheet workbook (Settings / Lists / Gantt Day / Week /
+ * Builds a full workbook (Settings / Lists / Holidays / Gantt Day / Week /
  * Month) matching the reference Google Sheet's own layout and conditional
  * formatting, so it can be opened directly as a Google Sheet ("Open with
  * Google Sheets") rather than pasted piecemeal into an existing one.
  */
-export async function buildGanttWorkbook(board: BoardWithData, group: GroupData): Promise<Buffer> {
-  const rows = buildRowMeta(board, group);
+export async function buildGanttWorkbook(
+  board: BoardWithData,
+  group: GroupData,
+  options: GanttExportOptions = {}
+): Promise<Buffer> {
+  const users = options.users ?? [];
+  const holidays = options.holidays ?? [];
+  const holidaySet = toHolidaySet(holidays);
+  const maxLevel = options.maxLevel ?? null;
+
+  const selectedIds = new Set(options.extraColumnIds ?? []);
+  const extraColumns = board.columns.filter((c) => selectedIds.has(c.id));
+  const headers = [...BASE_DETAIL_HEADERS, ...extraColumns.map((c) => c.name)];
+  const detailColCount = headers.length;
+
+  const rows = buildRowMeta(board, group, extraColumns, users, holidaySet, maxLevel);
   const range = computeDateRange(rows);
   const levelColors = board.levelColors.length === 6 ? board.levelColors : DEFAULT_LEVEL_COLORS;
 
   const workbook = new ExcelJS.Workbook();
   buildSettingsSheet(workbook, levelColors);
   buildListsSheet(workbook, rows);
-  buildDaySheet(workbook, board, group, rows, range, levelColors);
-  buildMirrorSheet(workbook, "Gantt (Week)", board, group, rows.length, range, levelColors, "week");
-  buildMirrorSheet(workbook, "Gantt (Month)", board, group, rows.length, range, levelColors, "month");
+  buildHolidaysSheet(workbook, holidays);
+  buildDaySheet(workbook, board, group, rows, range, levelColors, headers, detailColCount, extraColumns);
+  buildMirrorSheet(
+    workbook,
+    "Gantt (Week)",
+    board,
+    group,
+    rows.length,
+    range,
+    levelColors,
+    "week",
+    headers,
+    detailColCount,
+    extraColumns
+  );
+  buildMirrorSheet(
+    workbook,
+    "Gantt (Month)",
+    board,
+    group,
+    rows.length,
+    range,
+    levelColors,
+    "month",
+    headers,
+    detailColCount,
+    extraColumns
+  );
 
   const arrayBuffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(arrayBuffer);
