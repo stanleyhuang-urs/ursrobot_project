@@ -22,8 +22,17 @@ const DETAIL_HEADERS = [
   "Finish",
   "% Done",
 ];
-const DETAIL_COL_COUNT = DETAIL_HEADERS.length; // 17 — timeline starts at column 18
+const DETAIL_COL_COUNT = DETAIL_HEADERS.length; // 17 — the visible/editable detail columns
 const COLUMN_WIDTHS = [6, 12, 40, 12, 10, 12, 24, 10, 8, 8, 30, 12, 12, 8, 8, 12, 10];
+
+// Hidden helper columns, placed exactly where the reference template puts
+// them: R..V (type-code + WBS level 1-4 running counters) right after the
+// visible detail area, and two more (level 5-6 counters) tacked on after
+// the entire timeline ends — WBS only needs to look past 4 levels deep in
+// the rare case a board nests that far, so keeping them out of the main
+// block avoids widening every row's "visible" columns for a rare case.
+const HELPER_PREFIX_COUNT = 5; // R,S,T,U,V
+const TIMELINE_START_COL = DETAIL_COL_COUNT + HELPER_PREFIX_COUNT + 1; // 23 (W)
 
 // Colours reverse-engineered from the reference sheet's conditional-format
 // rules (Excel's Interior.Color is BGR-packed, not RGB — converted here).
@@ -118,6 +127,85 @@ function colLetter(col: number): string {
   return s;
 }
 
+/**
+ * Formulas below reproduce the reference template's own — a running
+ * COUNTIF-based WBS numbering scheme (see the level-counter helper columns
+ * below) plus a Pred/Link/Lag-driven Start/Finish, all expressed as plain
+ * (non-shared) per-cell formulas so the exported workbook keeps recomputing
+ * itself in Excel/Sheets after rows are added, removed, or reordered —
+ * exactly like the reference — instead of the static values this export
+ * used to bake in.
+ */
+
+/** A level-N running counter: how many times Lvl=N has occurred since the
+ *  last row whose Lvl was shallower than N — i.e. this row's position
+ *  among its level-N siblings under the current parent. Levels 1-4 live in
+ *  S:V (right after the detail columns); levels 5-6 live in blfCol/blgCol
+ *  (right after the timeline — see TIMELINE_START_COL). */
+function levelCounterFormula(row: number, level: number): string {
+  const a = `$A$7:$A${row}`;
+  if (level === 1) {
+    return `IF($A${row}="","",COUNTIF(${a},1))`;
+  }
+  return (
+    `IF($A${row}="","",IF($A${row}<${level},0,COUNTIF(INDEX(${a},` +
+    `MAX(1,SUMPRODUCT(MAX((${a}<${level})*(${a}<>"")*ROW(${a})))-6)):$A${row},${level})))`
+  );
+}
+
+function typeCodeFormula(row: number): string {
+  return `IF($D${row}="Summary","S",IF($D${row}="Milestone","M",IF($D${row}="Task","T","")))`;
+}
+
+/** WBS text built from the level counters, e.g. S7&"."&T7&"."&U7 for a
+ *  level-3 row — only appends a segment while $A (Lvl) reaches that deep. */
+function wbsFormula(row: number, blfCol: string, blgCol: string): string {
+  return (
+    `IF($A${row}="","",S${row}` +
+    `&IF($A${row}>=2,"."&T${row},"")` +
+    `&IF($A${row}>=3,"."&U${row},"")` +
+    `&IF($A${row}>=4,"."&V${row},"")` +
+    `&IF($A${row}>=5,"."&${blfCol}${row},"")` +
+    `&IF($A${row}>=6,"."&${blgCol}${row},""))`
+  );
+}
+
+/** Start: a Summary rolls up to the earliest of its descendants (matched by
+ *  WBS-text prefix); a Task/Milestone with a resolvable Pred+Link derives
+ *  from its predecessor's own Start/Finish + Lag (WORKDAY-based, matching
+ *  FS/SS/FF/SF exactly as the app's own scheduling engine does); otherwise
+ *  it falls back to the manual Start (set) column, or today. */
+function startFormula(row: number, lastDataRow: number): string {
+  const b = `$B$7:$B${lastDataRow}`;
+  return (
+    `IF($A${row}="","",IF($D${row}="Summary",` +
+    `IF(COUNTIF(${b},$B${row}&".*")>0,MIN(OFFSET($M${row},1,0,COUNTIF(${b},$B${row}&".*"),1)),TODAY()),` +
+    `IF(AND($H${row}<>"",$I${row}<>"",ISNUMBER(MATCH($H${row}&"",${b},0))),` +
+    `IF($I${row}="FS",WORKDAY(INDEX($P$7:$P${lastDataRow},MATCH($H${row}&"",${b},0)),1+IF($J${row}="",0,$J${row})),` +
+    `IF($I${row}="SS",WORKDAY(INDEX($M$7:$M${lastDataRow},MATCH($H${row}&"",${b},0)),IF($J${row}="",0,$J${row})),` +
+    `IF($I${row}="FF",WORKDAY(INDEX($P$7:$P${lastDataRow},MATCH($H${row}&"",${b},0)),IF($J${row}="",0,$J${row})-(MAX(N($N${row}),1)-1)),` +
+    `IF($I${row}="SF",WORKDAY(INDEX($M$7:$M${lastDataRow},MATCH($H${row}&"",${b},0)),IF($J${row}="",0,$J${row})-(MAX(N($N${row}),1)-1)),` +
+    `TODAY())))),IF($L${row}<>"",$L${row},TODAY()))))`
+  );
+}
+
+/** Days: NETWORKDAYS(Start,Finish) for a Summary, 0 for a Milestone,
+ *  otherwise a plain mirror of the manual Dur input (N). */
+function daysFormula(row: number): string {
+  return `IF($A${row}="","",IF($D${row}="Summary",NETWORKDAYS($M${row},$P${row}),IF($D${row}="Milestone",0,IF($N${row}="","",$N${row}))))`;
+}
+
+/** Finish: for a Summary, the latest of its descendants' own Finish; for a
+ *  Milestone, same day as Start; otherwise Start + Dur (WORKDAY-based). */
+function finishFormula(row: number, lastDataRow: number): string {
+  const b = `$B$7:$B${lastDataRow}`;
+  return (
+    `IF($A${row}="","",IF($D${row}="Summary",` +
+    `MAX(OFFSET($P${row},1,0,MAX(COUNTIF(${b},$B${row}&".*"),1),1)),` +
+    `IF($D${row}="Milestone",$M${row},WORKDAY($M${row},MAX(N($N${row}),1)-1))))`
+  );
+}
+
 type RowMeta = {
   item: ItemData;
   wbs: string;
@@ -131,6 +219,7 @@ type RowMeta = {
   link: string;
   lag: number | null;
   comment: string;
+  startSet: Date | null;
   start: Date | null;
   dur: number | null;
   finish: Date | null;
@@ -183,6 +272,7 @@ function buildRowMeta(board: BoardWithData, group: GroupData): RowMeta[] {
     const startRaw = getRawValueByColumnId(item, board.ganttStartColumnId);
     const finishRaw = getRawValueByColumnId(item, board.ganttEndColumnId);
     const durRaw = getRawValueByColumnId(item, board.ganttDurationColumnId);
+    const startSetRaw = getRawValueByColumnId(item, board.manualStartColumnId);
     const lagRaw = getRawValue(item, lagColumn);
 
     return {
@@ -198,6 +288,7 @@ function buildRowMeta(board: BoardWithData, group: GroupData): RowMeta[] {
       link: getStatusLabel(item, linkColumn),
       lag: typeof lagRaw === "number" ? lagRaw : null,
       comment: (getRawValue(item, commentColumn) as string | null) ?? "",
+      startSet: parseDate(startSetRaw),
       start: parseDate(startRaw),
       dur: typeof durRaw === "number" ? durRaw : null,
       finish: parseDate(finishRaw),
@@ -302,10 +393,17 @@ function applyDetailValidation(sheet: ExcelJS.Worksheet, lastRow: number, board:
   }
 }
 
-function writeDetailRow(sheet: ExcelJS.Worksheet, rowIndex: number, m: RowMeta) {
+function writeDetailRow(
+  sheet: ExcelJS.Worksheet,
+  rowIndex: number,
+  m: RowMeta,
+  lastDataRow: number,
+  blfCol: string,
+  blgCol: string
+) {
   const row = sheet.getRow(rowIndex);
   row.getCell(1).value = m.lvl;
-  row.getCell(2).value = m.wbs;
+  row.getCell(2).value = { formula: wbsFormula(rowIndex, blfCol, blgCol) };
   row.getCell(3).value = m.item.name;
   row.getCell(4).value = m.type;
   row.getCell(5).value = m.priority;
@@ -315,24 +413,28 @@ function writeDetailRow(sheet: ExcelJS.Worksheet, rowIndex: number, m: RowMeta) 
   row.getCell(9).value = m.link;
   row.getCell(10).value = m.lag ?? "";
   row.getCell(11).value = m.comment;
-  // column 12 "Start (set)" intentionally left blank — this app always
-  // stores the effective/resolved start, not a manual override.
-  if (m.start) {
-    row.getCell(13).value = m.start;
-    row.getCell(13).numFmt = "yyyy-mm-dd";
+  if (m.startSet) {
+    row.getCell(12).value = m.startSet;
+    row.getCell(12).numFmt = "yyyy-mm-dd";
   }
+  row.getCell(13).value = { formula: startFormula(rowIndex, lastDataRow) };
+  row.getCell(13).numFmt = "yyyy-mm-dd";
   if (m.dur !== null) {
     row.getCell(14).value = m.dur;
-    row.getCell(15).value = m.dur;
   }
-  if (m.finish) {
-    row.getCell(16).value = m.finish;
-    row.getCell(16).numFmt = "yyyy-mm-dd";
-  }
+  row.getCell(15).value = { formula: daysFormula(rowIndex) };
+  row.getCell(16).value = { formula: finishFormula(rowIndex, lastDataRow) };
+  row.getCell(16).numFmt = "yyyy-mm-dd";
   if (m.pctDone !== null) {
     row.getCell(17).value = m.pctDone;
     row.getCell(17).numFmt = "0%";
   }
+
+  row.getCell(18).value = { formula: typeCodeFormula(rowIndex) };
+  row.getCell(19).value = { formula: levelCounterFormula(rowIndex, 1) };
+  row.getCell(20).value = { formula: levelCounterFormula(rowIndex, 2) };
+  row.getCell(21).value = { formula: levelCounterFormula(rowIndex, 3) };
+  row.getCell(22).value = { formula: levelCounterFormula(rowIndex, 4) };
 }
 
 function writeMirrorRow(sheet: ExcelJS.Worksheet, rowIndex: number) {
@@ -469,11 +571,12 @@ function buildDaySheet(
     "EDIT blue cells. Type dropdown: Summary rolls up its children. No Start set -> today."
   );
 
-  rows.forEach((m, i) => writeDetailRow(sheet, 7 + i, m));
   const lastDataRow = Math.max(7, 6 + rows.length);
-  applyDetailValidation(sheet, lastDataRow, board);
 
-  const tl0 = DETAIL_COL_COUNT + 1;
+  // Timeline first — its width (and so the two far-right WBS level-5/6
+  // helper columns' position, right after it) doesn't depend on row
+  // content, only on the date range.
+  const tl0 = TIMELINE_START_COL;
   let col = tl0;
   let cursor = range.start;
   const colDates: { col: number; date: Date }[] = [];
@@ -489,10 +592,31 @@ function buildDaySheet(
     col++;
   }
   const tlEnd = col - 1;
+  const blfColNum = tlEnd + 1;
+  const blgColNum = tlEnd + 2;
+  const blfCol = colLetter(blfColNum);
+  const blgCol = colLetter(blgColNum);
   writePeriodLabels(sheet, colDates, "month");
 
+  rows.forEach((m, i) => {
+    const rowIndex = 7 + i;
+    writeDetailRow(sheet, rowIndex, m, lastDataRow, blfCol, blgCol);
+    sheet.getCell(rowIndex, blfColNum).value = { formula: levelCounterFormula(rowIndex, 5) };
+    sheet.getCell(rowIndex, blgColNum).value = { formula: levelCounterFormula(rowIndex, 6) };
+  });
+  applyDetailValidation(sheet, lastDataRow, board);
+
+  // R:V (type-code + level 1-4 counters) and the level 5-6 counters past
+  // the timeline are working columns for the WBS formula, not meant to be
+  // read directly.
+  for (let c = DETAIL_COL_COUNT + 1; c <= DETAIL_COL_COUNT + HELPER_PREFIX_COUNT; c++) {
+    sheet.getColumn(c).hidden = true;
+  }
+  sheet.getColumn(blfColNum).hidden = true;
+  sheet.getColumn(blgColNum).hidden = true;
+
   applyConditionalFormatting(sheet, tl0, tlEnd, lastDataRow, levelColors, true);
-  sheet.autoFilter = `A6:${colLetter(tlEnd)}6`;
+  sheet.autoFilter = `A6:${colLetter(DETAIL_COL_COUNT)}${lastDataRow}`;
   sheet.views = [{ state: "frozen", xSplit: DETAIL_COL_COUNT, ySplit: 6 }];
 
   return lastDataRow;
@@ -550,7 +674,7 @@ function buildMirrorSheet(
   writePeriodLabels(sheet, colDates, granularity === "week" ? "month" : "year");
 
   applyConditionalFormatting(sheet, tl0, tlEnd, lastDataRow, levelColors, false);
-  sheet.autoFilter = `A6:${colLetter(tlEnd)}6`;
+  sheet.autoFilter = `A6:${colLetter(DETAIL_COL_COUNT)}${lastDataRow}`;
   sheet.views = [{ state: "frozen", xSplit: DETAIL_COL_COUNT, ySplit: 6 }];
 }
 
