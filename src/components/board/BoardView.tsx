@@ -87,7 +87,7 @@ export function BoardView({
               onClick={() => setImportOpen(true)}
               className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
             >
-              <Upload size={14} /> 匯入
+              <Download size={14} /> 匯入
             </button>
           )}
           {canManageBoard(userRole) && (
@@ -96,7 +96,7 @@ export function BoardView({
               onClick={() => setExportOpen(true)}
               className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
             >
-              <Download size={14} /> 匯出
+              <Upload size={14} /> 匯出
             </button>
           )}
           {canManageBoard(userRole) && (
