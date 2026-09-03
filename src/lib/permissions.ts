@@ -55,14 +55,19 @@ export function canModifyItemSchedule(
 }
 
 /**
- * Gantt bar editing (人員分配、拖曳調整時程) is limited to the item's own
- * assignee(s) — via a Gantt Assignment or a PERSON-column value naming them
- * — an ADMIN, or a SUPERVISOR whose own team includes an assignee. Unlike
- * canEditCellValue/canManageStructure, a SUPERVISOR does NOT get a blanket
- * bypass here — e.g. Henry (SUPERVISOR) editing a task assigned only to
- * Stanley (not on Henry's team) must be refused, matching the same
- * team-scoping AssignmentModal already applies to who a supervisor can
- * assign work to.
+ * 人員分配(assigning people to a task, with their allocation %) is a
+ * leadership action — restricted to TEAM_LEADER/PMD (unconditional within
+ * their group, via hasGroupScheduleRole), a discipline DM (SW_DM/HW_DM/
+ * ME_DM/QA, scoped to their own discipline's roster, via isAssignedToTeam),
+ * an ADMIN, or a SUPERVISOR whose own team includes the assignee. A plain
+ * MEMBER — even one personally assigned to the item themselves — does NOT
+ * get this: being assigned to a task is not the same as being allowed to
+ * hand pieces of it to other people, only TEAM_LEADER/PMD/DM/ADMIN/
+ * SUPERVISOR do that. Unlike canEditCellValue/canManageStructure, a
+ * SUPERVISOR does NOT get a blanket bypass here — e.g. Henry (SUPERVISOR)
+ * editing a task assigned only to Stanley (not on Henry's team) must be
+ * refused, matching the same team-scoping AssignmentModal already applies
+ * to who a supervisor can assign work to.
  */
 export function canEditGanttItem(
   role: UserRole,
@@ -73,7 +78,7 @@ export function canEditGanttItem(
   if (hasGroupScheduleRole) return true;
   if (role === "ADMIN") return true;
   if (role === "SUPERVISOR") return isAssignedToUser || isAssignedToTeam;
-  return isAssignedToUser;
+  return isAssignedToTeam;
 }
 
 /**

@@ -115,13 +115,20 @@ describe("canEditGanttItem", () => {
     expect(canEditGanttItem("SUPERVISOR", false, false, false)).toBe(false);
   });
 
-  it("MEMBER may only edit an item they are themselves assigned to — team membership doesn't count", () => {
-    expect(canEditGanttItem("MEMBER", true, false, false)).toBe(true);
-    // Unlike SUPERVISOR, MEMBER's own "team" (e.g. a discipline roster via a
-    // group DM role) does NOT bypass this on its own — only hasGroupScheduleRole
-    // (TEAM_LEADER/PMD) or personal assignment do.
-    expect(canEditGanttItem("MEMBER", false, true, false)).toBe(false);
+  it("a plain MEMBER can never manage assignments — not even on a task assigned to themselves", () => {
+    // 人員分配 is a leadership action: only TEAM_LEADER/PMD (hasGroupScheduleRole),
+    // a discipline DM (isAssignedToTeam), ADMIN, or a team-scoped SUPERVISOR may
+    // do it. Being personally assigned to a task doesn't grant the right to
+    // hand pieces of it to someone else.
+    expect(canEditGanttItem("MEMBER", true, false, false)).toBe(false);
     expect(canEditGanttItem("MEMBER", false, false, false)).toBe(false);
+  });
+
+  it("a MEMBER holding a discipline DM role may manage assignments scoped to their own roster", () => {
+    // isAssignedToTeam here represents "the item's assignee is on this DM's
+    // discipline roster" (see groupDisciplineTeamUserIds) — the MEMBER-role
+    // equivalent of a SUPERVISOR's own direct-report scoping.
+    expect(canEditGanttItem("MEMBER", false, true, false)).toBe(true);
   });
 });
 
