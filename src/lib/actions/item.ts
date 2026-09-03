@@ -56,12 +56,45 @@ const itemDetailInclude = {
   assignments: { include: { user: { select: { id: true, name: true } } } },
 } as const;
 
+/** 負責人 = the creating user, Priority = Normal, Status = Planned,
+ *  start(set) = today — defaults every newly created item gets, whether
+ *  it's a new child (createItem) or a new sibling (insertItem). Each only
+ *  applies if the matching column exists on the board (by name) — boards
+ *  without these columns are unaffected. */
+function buildDefaultCellValues(
+  columns: { id: string; name: string; type: string; options: unknown }[],
+  userId: string
+): { columnId: string; value: string | number }[] {
+  const cellValues: { columnId: string; value: string | number }[] = [];
+
+  const ownerColumn = columns.find((c) => c.name === "負責人" && c.type === "PERSON");
+  if (ownerColumn) cellValues.push({ columnId: ownerColumn.id, value: userId });
+
+  const priorityColumn = columns.find((c) => c.name === "Priority" && c.type === "STATUS");
+  if (priorityColumn) {
+    const normal = getStatusOptions(priorityColumn.options).find((o) => o.label.toUpperCase() === "NORMAL");
+    if (normal) cellValues.push({ columnId: priorityColumn.id, value: normal.id });
+  }
+
+  const statusColumn = columns.find((c) => c.name === "Status" && c.type === "STATUS");
+  if (statusColumn) {
+    const planned = getStatusOptions(statusColumn.options).find((o) => o.label.toLowerCase() === "planned");
+    if (planned) cellValues.push({ columnId: statusColumn.id, value: planned.id });
+  }
+
+  const startSetColumn = columns.find((c) => c.name === "start(set)" && c.type === "DATE");
+  if (startSetColumn) {
+    cellValues.push({ columnId: startSetColumn.id, value: new Date().toISOString().slice(0, 10) });
+  }
+
+  return cellValues;
+}
+
 /** A new sub-item inherits sensible defaults from its parent/board instead
- *  of starting blank: Lvl = parent's Lvl + 1, Pred = parent's WBS code,
- *  負責人 = the creating user, Priority = Normal, Status = Planned,
- *  Start/start(set) = today. Each only applies if the matching column
- *  exists on the board (by name) — boards created before these conventions,
- *  or without a Gantt start column mapped, are unaffected. */
+ *  of starting blank: Lvl = parent's Lvl + 1, Pred = parent's WBS code, plus
+ *  the shared defaults from buildDefaultCellValues. Each only applies if the
+ *  matching column exists on the board (by name) — boards created before
+ *  these conventions, or without a Gantt start column mapped, are unaffected. */
 async function buildNewItemCellValues(
   boardId: string,
   groupId: string,
@@ -114,32 +147,17 @@ async function buildNewItemCellValues(
     if (parentCode) cellValues.push({ columnId: board.predColumnId, value: parentCode });
   }
 
-  const ownerColumn = columns.find((c) => c.name === "負責人" && c.type === "PERSON");
-  if (ownerColumn) cellValues.push({ columnId: ownerColumn.id, value: userId });
-
-  const priorityColumn = columns.find((c) => c.name === "Priority" && c.type === "STATUS");
-  if (priorityColumn) {
-    const normal = getStatusOptions(priorityColumn.options).find((o) => o.label.toUpperCase() === "NORMAL");
-    if (normal) cellValues.push({ columnId: priorityColumn.id, value: normal.id });
-  }
-
-  const statusColumn = columns.find((c) => c.name === "Status" && c.type === "STATUS");
-  if (statusColumn) {
-    const planned = getStatusOptions(statusColumn.options).find((o) => o.label.toLowerCase() === "planned");
-    if (planned) cellValues.push({ columnId: statusColumn.id, value: planned.id });
-  }
+  cellValues.push(...buildDefaultCellValues(columns, userId));
 
   // In "always computed" boards, Start/Days/Finish are locked and derived
   // from manualStartColumnId/manualDurationColumnId — writing Start directly
   // here would just get overwritten (and violate the lock's own invariant).
-  // Only start(set) gets today; syncPredecessorSchedule below computes the rest.
+  // Only start(set) gets today (via buildDefaultCellValues above);
+  // syncPredecessorSchedule below computes the rest.
   const alwaysComputed = !!board?.manualStartColumnId && !!board?.manualDurationColumnId;
-  const today = new Date().toISOString().slice(0, 10);
   if (board?.ganttStartColumnId && !alwaysComputed) {
-    cellValues.push({ columnId: board.ganttStartColumnId, value: today });
+    cellValues.push({ columnId: board.ganttStartColumnId, value: new Date().toISOString().slice(0, 10) });
   }
-  const startSetColumn = columns.find((c) => c.name === "start(set)" && c.type === "DATE");
-  if (startSetColumn) cellValues.push({ columnId: startSetColumn.id, value: today });
 
   return {
     typeColumnId: board?.typeColumnId ?? null,
@@ -219,7 +237,7 @@ export async function insertItem(
     prisma.item.findUnique({ where: { id: referenceItemId }, include: { cellValues: true } }),
     prisma.board.findUnique({
       where: { id: boardId },
-      select: { typeColumnId: true, columns: { select: { id: true, name: true, type: true } } },
+      select: { typeColumnId: true, columns: { select: { id: true, name: true, type: true, options: true } } },
     }),
   ]);
   if (!reference || reference.groupId !== groupId) throw new Error("找不到參考項目");
@@ -227,6 +245,7 @@ export async function insertItem(
 
   const targetOrder = position === "before" ? reference.order : reference.order + 1;
 
+  const columns = board?.columns ?? [];
   const cellValues: { columnId: string; value: string | number }[] = [];
   if (board?.typeColumnId && typeIds?.taskId) {
     cellValues.push({ columnId: board.typeColumnId, value: typeIds.taskId });
@@ -234,13 +253,14 @@ export async function insertItem(
   // Inserted as a sibling of `reference`, so its Lvl should match reference's
   // own Lvl — not parent's Lvl + 1 (that's only correct for a new *child*,
   // see buildNewItemCellValues).
-  const lvlColumn = board?.columns.find((c) => c.name === "Lvl" && c.type === "NUMBER");
+  const lvlColumn = columns.find((c) => c.name === "Lvl" && c.type === "NUMBER");
   if (lvlColumn) {
     const referenceLvl = reference.cellValues.find((cv) => cv.columnId === lvlColumn.id)?.value;
     if (typeof referenceLvl === "number") {
       cellValues.push({ columnId: lvlColumn.id, value: referenceLvl });
     }
   }
+  cellValues.push(...buildDefaultCellValues(columns, session.userId));
 
   await prisma.$transaction([
     prisma.item.updateMany({
