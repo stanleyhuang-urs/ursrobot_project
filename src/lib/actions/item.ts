@@ -8,7 +8,6 @@ import { requireBoardAccess, requireGroupBoardAccess, requireItemBoardAccess } f
 import { logActivity } from "@/lib/activityLog";
 import { getStatusOptions } from "@/types/column";
 import { loadGroupRoleContext } from "@/lib/groupRoleContext";
-import { computeWbsCodes } from "@/lib/wbs";
 import { syncPredecessorSchedule } from "@/lib/predecessorLink";
 import type { SessionPayload } from "@/lib/jwt";
 
@@ -57,10 +56,11 @@ const itemDetailInclude = {
 } as const;
 
 /** 負責人 = the creating user, Priority = Normal, Status = Planned,
- *  start(set) = today — defaults every newly created item gets, whether
- *  it's a new child (createItem) or a new sibling (insertItem). Each only
- *  applies if the matching column exists on the board (by name) — boards
- *  without these columns are unaffected. */
+ *  start(set) = today, duration = 0 — defaults every newly created item
+ *  gets, whether it's a new child (createItem) or a new sibling
+ *  (insertItem). Each only applies if the matching column exists on the
+ *  board (by name) — boards without these columns are unaffected. Pred is
+ *  deliberately not defaulted — see insertItem/buildNewItemCellValues. */
 function buildDefaultCellValues(
   columns: { id: string; name: string; type: string; options: unknown }[],
   userId: string
@@ -87,14 +87,17 @@ function buildDefaultCellValues(
     cellValues.push({ columnId: startSetColumn.id, value: new Date().toISOString().slice(0, 10) });
   }
 
+  const durationColumn = columns.find((c) => c.name === "duration" && c.type === "NUMBER");
+  if (durationColumn) cellValues.push({ columnId: durationColumn.id, value: 0 });
+
   return cellValues;
 }
 
 /** A new sub-item inherits sensible defaults from its parent/board instead
- *  of starting blank: Lvl = parent's Lvl + 1, Pred = parent's WBS code, plus
- *  the shared defaults from buildDefaultCellValues. Each only applies if the
- *  matching column exists on the board (by name) — boards created before
- *  these conventions, or without a Gantt start column mapped, are unaffected. */
+ *  of starting blank: Lvl = parent's Lvl + 1, plus the shared defaults from
+ *  buildDefaultCellValues. Each only applies if the matching column exists
+ *  on the board (by name) — boards created before these conventions, or
+ *  without a Gantt start column mapped, are unaffected. */
 async function buildNewItemCellValues(
   boardId: string,
   groupId: string,
@@ -106,13 +109,12 @@ async function buildNewItemCellValues(
   alwaysComputedTrigger: string | null;
   cellValues: { columnId: string; value: string | number }[];
 }> {
-  const [board, parent, groupItems] = await Promise.all([
+  const [board, parent] = await Promise.all([
     prisma.board.findUnique({
       where: { id: boardId },
       select: {
         typeColumnId: true,
         ganttStartColumnId: true,
-        predColumnId: true,
         manualStartColumnId: true,
         manualDurationColumnId: true,
         columns: { select: { id: true, name: true, type: true, options: true } },
@@ -121,9 +123,6 @@ async function buildNewItemCellValues(
     parentId
       ? prisma.item.findUnique({ where: { id: parentId }, select: { cellValues: true } })
       : Promise.resolve(null),
-    parentId
-      ? prisma.item.findMany({ where: { groupId }, select: { id: true, parentId: true, order: true } })
-      : Promise.resolve([]),
   ]);
   const typeIds = await loadTypeOptionIds(board?.typeColumnId ?? null);
 
@@ -140,11 +139,6 @@ async function buildNewItemCellValues(
     if (typeof parentLvl === "number") {
       cellValues.push({ columnId: lvlColumn.id, value: parentLvl + 1 });
     }
-  }
-
-  if (board?.predColumnId && parentId) {
-    const parentCode = computeWbsCodes(groupItems).get(parentId);
-    if (parentCode) cellValues.push({ columnId: board.predColumnId, value: parentCode });
   }
 
   cellValues.push(...buildDefaultCellValues(columns, userId));
@@ -237,7 +231,12 @@ export async function insertItem(
     prisma.item.findUnique({ where: { id: referenceItemId }, include: { cellValues: true } }),
     prisma.board.findUnique({
       where: { id: boardId },
-      select: { typeColumnId: true, columns: { select: { id: true, name: true, type: true, options: true } } },
+      select: {
+        typeColumnId: true,
+        manualStartColumnId: true,
+        manualDurationColumnId: true,
+        columns: { select: { id: true, name: true, type: true, options: true } },
+      },
     }),
   ]);
   if (!reference || reference.groupId !== groupId) throw new Error("找不到參考項目");
@@ -262,7 +261,7 @@ export async function insertItem(
   }
   cellValues.push(...buildDefaultCellValues(columns, session.userId));
 
-  await prisma.$transaction([
+  const [, created] = await prisma.$transaction([
     prisma.item.updateMany({
       where: { groupId, parentId, order: { gte: targetOrder } },
       data: { order: { increment: 1 } },
@@ -279,6 +278,14 @@ export async function insertItem(
       },
     }),
   ]);
+
+  // Same as createItem: with start(set)=today and duration=0 now set (see
+  // buildDefaultCellValues), an "always computed" board can already resolve
+  // this item's own Start/Days/Finish — compute and persist them immediately
+  // instead of leaving the new row blank until some other edit triggers it.
+  if (board?.manualStartColumnId && board?.manualDurationColumnId) {
+    await syncPredecessorSchedule(boardId, created.id, board.manualStartColumnId);
+  }
 
   revalidatePath(`/boards/${boardId}`);
 }
