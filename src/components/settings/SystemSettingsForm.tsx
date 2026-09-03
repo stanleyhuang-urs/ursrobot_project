@@ -50,7 +50,7 @@ function EmailNotificationsCard({ initial }: { initial: boolean }) {
         >
           <span
             className={`absolute top-0.5 h-5 w-5 rounded-full bg-white dark:bg-neutral-900 shadow transition-transform ${
-              enabled ? "translate-x-[22px]" : "translate-x-0.5"
+              enabled ? "translate-x-[1.375rem]" : "translate-x-0.5"
             }`}
           />
         </button>
