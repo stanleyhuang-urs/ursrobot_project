@@ -1,5 +1,31 @@
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import { getPersonIds } from "@/types/column";
+import { getItemDateRange } from "@/lib/gantt";
+
+function todayUtc(): Date {
+  return new Date(new Date().toISOString().slice(0, 10));
+}
+
+/** Ids of every item whose Gantt end date has passed — same definition
+ *  computeOverdueUpcoming uses, so an item counted here counts as overdue
+ *  everywhere else in the app. Excludes nothing itself — classifyBucket is
+ *  what keeps a "done" item from also showing as overdue. */
+function computeOverdueIds(board: BoardWithData, items: ItemData[], holidays: Set<string>): Set<string> {
+  const ids = new Set<string>();
+  if (!board.ganttStartColumnId || !board.ganttDurationColumnId) return ids;
+  const today = todayUtc();
+  for (const item of items) {
+    const range = getItemDateRange(
+      item,
+      board.ganttStartColumnId,
+      board.ganttDurationColumnId,
+      board.ganttDurationMode,
+      holidays
+    );
+    if (range && range.end < today) ids.add(item.id);
+  }
+  return ids;
+}
 
 /** Every user id considered "responsible" for an item: PERSON column values plus Gantt Assignments. */
 export function itemOwnerIds(item: ItemData, board: BoardWithData): string[] {
@@ -24,6 +50,7 @@ export type StatusBucketCounts = {
   inProgress: number;
   paused: number;
   stuck: number;
+  overdue: number;
   done: number;
 };
 
@@ -37,26 +64,34 @@ function bucketSets(board: BoardWithData) {
   };
 }
 
-/** Same classification counts and item lists share, so they can never disagree on which bucket an item is in. */
+/** Same classification counts and item lists share, so they can never disagree on which bucket an item is in.
+ *  逾期 takes priority over every status except 已完成 — same precedence the
+ *  Gantt/table/dashboard task-name coloring already uses (resolveItemNameColor). */
 function classifyBucket(
   item: ItemData,
   statusColumnId: string | null,
-  sets: ReturnType<typeof bucketSets>
+  sets: ReturnType<typeof bucketSets>,
+  overdueIds: Set<string>
 ): BucketKey {
-  if (!statusColumnId) return "inProgress";
-  const value = item.cellValues.find((cv) => cv.columnId === statusColumnId)?.value;
+  const value = statusColumnId ? item.cellValues.find((cv) => cv.columnId === statusColumnId)?.value : undefined;
+  if (typeof value === "string" && sets.done.has(value)) return "done";
+  if (overdueIds.has(item.id)) return "overdue";
   if (typeof value !== "string") return "inProgress";
   if (sets.notStarted.has(value)) return "notStarted";
   if (sets.planned.has(value)) return "planned";
   if (sets.paused.has(value)) return "paused";
   if (sets.stuck.has(value)) return "stuck";
-  if (sets.done.has(value)) return "done";
   return "inProgress";
 }
 
 /** Splits items into the board's designated report buckets; anything unassigned counts as in-progress. */
-export function computeStatusBuckets(board: BoardWithData, items: ItemData[]): StatusBucketCounts {
+export function computeStatusBuckets(
+  board: BoardWithData,
+  items: ItemData[],
+  holidays: Set<string> = new Set()
+): StatusBucketCounts {
   const sets = bucketSets(board);
+  const overdueIds = computeOverdueIds(board, items, holidays);
   const counts: StatusBucketCounts = {
     total: items.length,
     notStarted: 0,
@@ -64,35 +99,42 @@ export function computeStatusBuckets(board: BoardWithData, items: ItemData[]): S
     inProgress: 0,
     paused: 0,
     stuck: 0,
+    overdue: 0,
     done: 0,
   };
   for (const item of items) {
-    counts[classifyBucket(item, board.reportStatusColumnId, sets)]++;
+    counts[classifyBucket(item, board.reportStatusColumnId, sets, overdueIds)]++;
   }
   return counts;
 }
 
 /** Same bucketing as computeStatusBuckets, but returns the actual items per bucket instead of just counts. */
-export function groupItemsByBucket(board: BoardWithData, items: ItemData[]): Record<BucketKey, ItemData[]> {
+export function groupItemsByBucket(
+  board: BoardWithData,
+  items: ItemData[],
+  holidays: Set<string> = new Set()
+): Record<BucketKey, ItemData[]> {
   const sets = bucketSets(board);
+  const overdueIds = computeOverdueIds(board, items, holidays);
   const result: Record<BucketKey, ItemData[]> = {
     notStarted: [],
     planned: [],
     inProgress: [],
     paused: [],
     stuck: [],
+    overdue: [],
     done: [],
   };
   for (const item of items) {
-    result[classifyBucket(item, board.reportStatusColumnId, sets)].push(item);
+    result[classifyBucket(item, board.reportStatusColumnId, sets, overdueIds)].push(item);
   }
   return result;
 }
 
-// Same 6 buckets and colors as the stat cards above the charts (BoardReport's
+// Same 7 buckets and colors as the stat cards above the charts (BoardReport's
 // StatCard row) — every other status visualization reuses this one mapping
 // so a bucket always means the same label/color everywhere in the report.
-const BUCKET_ORDER = ["notStarted", "planned", "inProgress", "paused", "stuck", "done"] as const;
+const BUCKET_ORDER = ["notStarted", "planned", "inProgress", "paused", "stuck", "overdue", "done"] as const;
 export type BucketKey = (typeof BUCKET_ORDER)[number];
 const BUCKET_LABELS: Record<BucketKey, string> = {
   notStarted: "尚未處理",
@@ -100,6 +142,7 @@ const BUCKET_LABELS: Record<BucketKey, string> = {
   inProgress: "進行中",
   paused: "暫停",
   stuck: "卡住",
+  overdue: "逾期",
   done: "已完成",
 };
 const BUCKET_COLORS: Record<BucketKey, string> = {
@@ -108,6 +151,7 @@ const BUCKET_COLORS: Record<BucketKey, string> = {
   inProgress: "#fdab3d",
   paused: "#a25ddc",
   stuck: "#e2445c",
+  overdue: "#d83a17",
   done: "#00c875",
 };
 
@@ -137,7 +181,8 @@ export type OwnerBucketBreakdown = { userId: string; userName: string; total: nu
 export function computeTasksByOwnerBuckets(
   board: BoardWithData,
   items: ItemData[],
-  users: UserOption[]
+  users: UserOption[],
+  holidays: Set<string> = new Set()
 ): OwnerBucketBreakdown[] {
   const itemsByOwner = new Map<string, ItemData[]>();
   for (const item of items) {
@@ -150,8 +195,8 @@ export function computeTasksByOwnerBuckets(
   return users
     .map((u) => {
       const ownerItems = itemsByOwner.get(u.id) ?? [];
-      const buckets = computeStatusBuckets(board, ownerItems);
-      const grouped = groupItemsByBucket(board, ownerItems);
+      const buckets = computeStatusBuckets(board, ownerItems, holidays);
+      const grouped = groupItemsByBucket(board, ownerItems, holidays);
       return { userId: u.id, userName: u.name, total: buckets.total, slices: bucketSlices(buckets, grouped) };
     })
     .filter((o) => o.total > 0)

@@ -214,6 +214,7 @@ export function BoardView({
             users={users}
             userRole={userRole}
             currentUserId={currentUserId}
+            holidays={holidays}
           />
         )}
       </div>

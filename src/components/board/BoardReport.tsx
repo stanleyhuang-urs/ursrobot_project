@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
-import type { UserRole } from "@prisma/client";
+import type { Holiday, UserRole } from "@prisma/client";
 import { computeOverdueUpcoming } from "@/lib/dashboard";
+import { toHolidaySet } from "@/lib/holidays";
 import {
   filterItemsByTeam,
   computeStatusBuckets,
@@ -124,11 +125,13 @@ export function BoardReport({
   users,
   userRole,
   currentUserId,
+  holidays,
 }: {
   board: BoardWithData;
   users: UserOption[];
   userRole: UserRole;
   currentUserId: string;
+  holidays: Holiday[];
 }) {
   const router = useRouter();
   const isSupervisor = userRole === "SUPERVISOR";
@@ -139,12 +142,13 @@ export function BoardReport({
   const effectiveTeamIds = scope === "team" ? teamIds : null;
   const [listModal, setListModal] = useState<{ title: string; items: ItemData[] } | null>(null);
 
+  const holidaySet = toHolidaySet(holidays);
   const items = filterItemsByTeam(board, effectiveTeamIds);
   const wbsByItemId = computeBoardWbsCodes(board.items);
-  const buckets = computeStatusBuckets(board, items);
-  const itemsByBucket = groupItemsByBucket(board, items);
+  const buckets = computeStatusBuckets(board, items, holidaySet);
+  const itemsByBucket = groupItemsByBucket(board, items, holidaySet);
   const statusBreakdown = bucketSlices(buckets, itemsByBucket);
-  const owners = computeTasksByOwnerBuckets(board, items, users);
+  const owners = computeTasksByOwnerBuckets(board, items, users, holidaySet);
   const { overdue } = computeOverdueUpcoming([board], effectiveTeamIds ?? undefined);
 
   const statusTotal = buckets.total;
@@ -180,7 +184,7 @@ export function BoardReport({
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         <StatCard label="全部任務" value={buckets.total} onClick={() => setListModal({ title: "全部任務", items })} />
         <StatCard
           label="尚未處理"
@@ -211,6 +215,12 @@ export function BoardReport({
           value={buckets.stuck}
           color="#e2445c"
           onClick={() => setListModal({ title: "卡住", items: itemsByBucket.stuck })}
+        />
+        <StatCard
+          label="逾期"
+          value={buckets.overdue}
+          color="#d83a17"
+          onClick={() => setListModal({ title: "逾期", items: itemsByBucket.overdue })}
         />
         <StatCard
           label="已完成"
