@@ -80,7 +80,17 @@ export function WorkloadThresholdModal({
             onChange={(e) => setRedColor(e.target.value)}
             className="h-8 w-8 shrink-0 cursor-pointer rounded border border-neutral-300 dark:border-neutral-600"
           />
-          <span className="text-sm text-neutral-500 dark:text-neutral-400">{yellowMax}% 以上顯示此色</span>
+          {/* Same boundary as the yellow row above — 低於 X 是黃色、X 以上是
+              紅色 — so editing it here moves that one threshold, and both
+              fields always agree. */}
+          <span className="w-16 shrink-0" />
+          <input
+            type="number"
+            value={yellowMax}
+            onChange={(e) => setYellowMax(Number(e.target.value))}
+            className="w-20 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-blue-500"
+          />
+          <span className="text-sm text-neutral-500 dark:text-neutral-400">% 以上顯示此色</span>
         </div>
       </div>
       <button

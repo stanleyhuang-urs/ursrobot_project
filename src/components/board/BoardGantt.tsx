@@ -605,8 +605,12 @@ export function BoardGantt({
   }
 
   return (
-    <div className={isFullscreen ? "fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-neutral-950 p-4" : ""}>
-      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+    <div
+      className={
+        isFullscreen ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-white dark:bg-neutral-950 p-4" : ""
+      }
+    >
+      <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 text-sm">
         <span className="text-neutral-500 dark:text-neutral-400">時間刻度</span>
         <div className="flex overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700 text-xs">
           {(["day", "week", "month"] as const).map((z) => (
@@ -642,7 +646,7 @@ export function BoardGantt({
           {isFullscreen ? "退出全螢幕" : "全螢幕"}
         </button>
       </div>
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
+      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 text-sm">
         <div className="flex items-center gap-2">
           <span className="text-neutral-500 dark:text-neutral-400">專案(分組)</span>
           <select
@@ -686,7 +690,9 @@ export function BoardGantt({
           </button>
         )}
       </div>
-      <FilterBar columns={board.columns} users={users} filters={filters} onChange={setFilters} />
+      <div className="shrink-0">
+        <FilterBar columns={board.columns} users={users} filters={filters} onChange={setFilters} />
+      </div>
 
       {(!startColumnId || !durationColumnId) && (
         <p className="text-sm text-neutral-400 dark:text-neutral-500">
@@ -701,11 +707,14 @@ export function BoardGantt({
       )}
 
       {startColumnId && durationColumnId && days.length > 0 && (
-        <div>
+        // In fullscreen this is a flex column filling whatever height the
+        // toolbar above leaves over, so any number of filter rows still ends
+        // up with the chart exactly filling the rest of the viewport.
+        <div className={isFullscreen ? "flex min-h-0 flex-1 flex-col" : ""}>
           <div
             ref={topScrollRef}
             onScroll={syncFromTopScroll}
-            className="sticky top-0 z-30 mb-1 overflow-x-auto overflow-y-hidden bg-white dark:bg-neutral-900"
+            className="sticky top-0 z-30 mb-1 shrink-0 overflow-x-auto overflow-y-hidden bg-white dark:bg-neutral-900"
             style={{ height: 14 }}
           >
             <div style={{ width: contentWidth * (scalePct / 100), height: 1 }} />
@@ -717,7 +726,7 @@ export function BoardGantt({
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
-            className={`${isFullscreen ? "max-h-[calc(100vh-140px)]" : "max-h-[65vh]"} overflow-auto rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 ${
+            className={`${isFullscreen ? "min-h-0 flex-1" : "max-h-[65vh]"} overflow-auto rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 ${
               isPanning ? "cursor-grabbing select-none" : "cursor-grab"
             }`}
           >
