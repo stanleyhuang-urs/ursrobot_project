@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, Star, MessageSquare, UserPlus, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, MessageSquare, UserPlus, Plus, Maximize2, Minimize2 } from "lucide-react";
 import type { BoardWithData, ItemData, UserOption } from "@/types/board";
 import type { GanttDurationMode, Holiday, UserRole } from "@prisma/client";
 import { canManageGroupStructure, canEditGanttItem, canModifyItemSchedule } from "@/lib/permissions";
@@ -137,6 +137,17 @@ export function BoardGantt({
   const [groupFilterId, setGroupFilterId] = useState("");
   const [parentFilterId, setParentFilterId] = useState("");
   const [labelWidth, setLabelWidth] = useState(DEFAULT_LABEL_WIDTH);
+  const [scalePct, setScalePct] = useState(100);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setIsFullscreen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isFullscreen]);
 
   function startLabelResize(e: React.PointerEvent) {
     e.preventDefault();
@@ -168,7 +179,7 @@ export function BoardGantt({
     if (isWeekendDay(d)) return "#e9ecef";
     return undefined;
   }
-  const dayWidth = ZOOM_DAY_WIDTH[zoom];
+  const dayWidth = ZOOM_DAY_WIDTH[zoom] * (scalePct / 100);
   const scrollRef = useRef<HTMLDivElement>(null);
   const topScrollRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startX: number; startScrollLeft: number } | null>(null);
@@ -594,8 +605,8 @@ export function BoardGantt({
   }
 
   return (
-    <div>
-      <div className="mb-3 flex items-center gap-2 text-sm">
+    <div className={isFullscreen ? "fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-neutral-950 p-4" : ""}>
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
         <span className="text-neutral-500 dark:text-neutral-400">時間刻度</span>
         <div className="flex overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700 text-xs">
           {(["day", "week", "month"] as const).map((z) => (
@@ -611,6 +622,25 @@ export function BoardGantt({
             </button>
           ))}
         </div>
+        <span className="ml-2 text-neutral-500 dark:text-neutral-400">顯示比例</span>
+        <input
+          type="range"
+          min={50}
+          max={150}
+          step={5}
+          value={scalePct}
+          onChange={(e) => setScalePct(Number(e.target.value))}
+          className="w-28"
+        />
+        <span className="w-10 text-xs text-neutral-500 dark:text-neutral-400">{scalePct}%</span>
+        <button
+          type="button"
+          onClick={() => setIsFullscreen((v) => !v)}
+          className="ml-auto flex items-center gap-1 rounded-md border border-neutral-300 dark:border-neutral-600 px-2 py-1 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+        >
+          {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          {isFullscreen ? "退出全螢幕" : "全螢幕"}
+        </button>
       </div>
       <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
         <div className="flex items-center gap-2">
@@ -687,7 +717,7 @@ export function BoardGantt({
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
-            className={`max-h-[65vh] overflow-auto rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 ${
+            className={`${isFullscreen ? "max-h-[calc(100vh-140px)]" : "max-h-[65vh]"} overflow-auto rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 ${
               isPanning ? "cursor-grabbing select-none" : "cursor-grab"
             }`}
           >
