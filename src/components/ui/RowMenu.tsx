@@ -6,15 +6,21 @@ import { ReactNode } from "react";
 
 type RowMenuProps = {
   children: ReactNode;
+  /** Overrides the default bare-icon trigger — for places like the board
+   *  header where the menu sits among full-sized bordered buttons. */
+  triggerClassName?: string;
 };
 
-export function RowMenu({ children }: RowMenuProps) {
+export function RowMenu({ children, triggerClassName }: RowMenuProps) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="rounded p-1 text-neutral-400 dark:text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-700 dark:hover:text-neutral-100"
+          className={
+            triggerClassName ??
+            "rounded p-1 text-neutral-400 dark:text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-700 dark:hover:text-neutral-100"
+          }
           aria-label="更多操作"
         >
           <MoreHorizontal size={16} />

@@ -13,6 +13,7 @@ import { AddColumnDialog } from "./AddColumnDialog";
 import { ImportWizard } from "./ImportWizard";
 import { ResourceMappingModal } from "./ResourceMappingModal";
 import { AutomationRulesModal } from "./AutomationRulesModal";
+import { RowMenu, RowMenuItem } from "@/components/ui/RowMenu";
 import { ExportGanttModal } from "./ExportGanttModal";
 
 export function BoardView({
@@ -78,41 +79,40 @@ export function BoardView({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {canManageBoard(userRole) && (
-            <button
-              type="button"
-              onClick={() => setImportOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-            >
-              <Download size={14} /> 匯入
-            </button>
-          )}
-          {canManageBoard(userRole) && (
-            <button
-              type="button"
-              onClick={() => setExportOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-            >
-              <Upload size={14} /> 匯出
-            </button>
-          )}
-          {canManageBoard(userRole) && (
-            <button
-              type="button"
-              onClick={() => setResourceMappingOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-            >
-              <Users2 size={14} /> Resource 對應
-            </button>
-          )}
-          {canManageStructure(userRole) && (
-            <button
-              type="button"
-              onClick={() => setAutomationOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-            >
-              <Zap size={14} /> 自動化
-            </button>
+          {/* 匯入/匯出/Resource 對應/自動化 are occasional board-admin tasks,
+              so they live behind one "…" instead of taking four slots away
+              from the views the user switches between all day. */}
+          {(canManageBoard(userRole) || canManageStructure(userRole)) && (
+            <RowMenu triggerClassName="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800">
+              {canManageBoard(userRole) && (
+                <RowMenuItem onSelect={() => setImportOpen(true)}>
+                  <span className="flex items-center gap-2">
+                    <Download size={14} /> 匯入
+                  </span>
+                </RowMenuItem>
+              )}
+              {canManageBoard(userRole) && (
+                <RowMenuItem onSelect={() => setExportOpen(true)}>
+                  <span className="flex items-center gap-2">
+                    <Upload size={14} /> 匯出
+                  </span>
+                </RowMenuItem>
+              )}
+              {canManageBoard(userRole) && (
+                <RowMenuItem onSelect={() => setResourceMappingOpen(true)}>
+                  <span className="flex items-center gap-2">
+                    <Users2 size={14} /> Resource 對應
+                  </span>
+                </RowMenuItem>
+              )}
+              {canManageStructure(userRole) && (
+                <RowMenuItem onSelect={() => setAutomationOpen(true)}>
+                  <span className="flex items-center gap-2">
+                    <Zap size={14} /> 自動化
+                  </span>
+                </RowMenuItem>
+              )}
+            </RowMenu>
           )}
           <div className="flex overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
             <button
