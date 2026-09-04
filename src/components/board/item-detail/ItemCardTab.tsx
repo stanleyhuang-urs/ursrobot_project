@@ -7,6 +7,7 @@ import { renameItem } from "@/lib/actions/item";
 import { canEditCellValue, canManageStructure, canModifyItemSchedule } from "@/lib/permissions";
 import { isItemAssignedToUser } from "@/lib/itemAssignment";
 import type { ScheduleLock } from "@/lib/predecessorLink";
+import { computeWbsCodes } from "@/lib/wbs";
 import { CellEditor } from "../cell-editors/CellEditor";
 import type { ColumnData, ItemData, UserOption } from "@/types/board";
 
@@ -69,6 +70,8 @@ export function ItemCardTab({
   const personColumnIds = columns.filter((c) => c.type === "PERSON").map((c) => c.id);
   const isAssignedToUser = isItemAssignedToUser(item, personColumnIds, currentUserId);
   const lock = lockedScheduleFields?.get(item.id);
+  const wbsCode = groupItems ? computeWbsCodes(groupItems).get(item.id) : undefined;
+  const parentName = groupItems?.find((i) => i.id === item.parentId)?.name;
 
   function saveName() {
     if (name.trim() && name !== item.name) {
@@ -82,18 +85,26 @@ export function ItemCardTab({
     <div className="overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
       <div className="border-b border-neutral-100 dark:border-neutral-700 px-4 py-3">
         <p className="mb-1 text-xs text-neutral-400 dark:text-neutral-500">項目名稱</p>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={saveName}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-          }}
-          readOnly={!canEditStructure}
-          className="w-full rounded px-1 py-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100 outline-none hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:bg-white dark:focus:bg-neutral-900 focus:ring-1 focus:ring-blue-400"
-        />
+        <div className="flex items-center gap-2">
+          {wbsCode && (
+            <span className="shrink-0 text-sm font-medium text-neutral-400 dark:text-neutral-500">
+              {wbsCode}
+            </span>
+          )}
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={saveName}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+            }}
+            readOnly={!canEditStructure}
+            className="w-full rounded px-1 py-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100 outline-none hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:bg-white dark:focus:bg-neutral-900 focus:ring-1 focus:ring-blue-400"
+          />
+        </div>
       </div>
-      {columns.map((col) => {
+      {columns.map((col, index) => {
+        const isLastColumn = index === columns.length - 1;
         const isScheduleColumn =
           col.id === ganttStartColumnId || col.id === ganttDurationColumnId || col.id === ganttEndColumnId;
         const isLockedField =
@@ -113,28 +124,41 @@ export function ItemCardTab({
                 : null
             : null;
         return (
-          <div
-            key={col.id}
-            className={`flex items-center justify-between border-b border-neutral-100 dark:border-neutral-700 px-4 py-2.5 last:border-b-0 ${
-              scheduleBlockedReason ? "cursor-not-allowed" : ""
-            }`}
-            title={isLockedField ? "由前置依賴或子項目統計自動計算" : undefined}
-            onClick={scheduleBlockedReason ? () => alert(scheduleBlockedReason) : undefined}
-          >
-            <span className="text-xs text-neutral-400 dark:text-neutral-500">{col.name}</span>
-            <span className="w-40 text-sm text-neutral-800 dark:text-neutral-100">
-              <CellEditor
-                boardId={boardId}
-                itemId={item.id}
-                column={col}
-                value={valuesByColumn.get(col.id) ?? null}
-                users={users}
-                canEdit={canEdit}
-                isProgressColumn={col.id === progressColumnId}
-                predColumnId={predColumnId}
-                groupItems={groupItems}
-              />
-            </span>
+          <div key={col.id}>
+            <div
+              className={`flex items-center justify-between border-b border-neutral-100 dark:border-neutral-700 px-4 py-2.5 ${
+                isLastColumn && col.name !== "Lvl" ? "border-b-0" : ""
+              } ${scheduleBlockedReason ? "cursor-not-allowed" : ""}`}
+              title={isLockedField ? "由前置依賴或子項目統計自動計算" : undefined}
+              onClick={scheduleBlockedReason ? () => alert(scheduleBlockedReason) : undefined}
+            >
+              <span className="text-xs text-neutral-400 dark:text-neutral-500">{col.name}</span>
+              <span className="w-40 text-sm text-neutral-800 dark:text-neutral-100">
+                <CellEditor
+                  boardId={boardId}
+                  itemId={item.id}
+                  column={col}
+                  value={valuesByColumn.get(col.id) ?? null}
+                  users={users}
+                  canEdit={canEdit}
+                  isProgressColumn={col.id === progressColumnId}
+                  predColumnId={predColumnId}
+                  groupItems={groupItems}
+                />
+              </span>
+            </div>
+            {col.name === "Lvl" && (
+              <div
+                className={`flex items-center justify-between px-4 py-2.5 ${
+                  isLastColumn ? "" : "border-b border-neutral-100 dark:border-neutral-700"
+                }`}
+              >
+                <span className="text-xs text-neutral-400 dark:text-neutral-500">父項</span>
+                <span className="w-40 truncate text-right text-sm text-neutral-800 dark:text-neutral-100">
+                  {parentName ?? "—"}
+                </span>
+              </div>
+            )}
           </div>
         );
       })}
