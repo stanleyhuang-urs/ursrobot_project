@@ -264,14 +264,21 @@ export function BoardGantt({
 
   // Task-name color by status — 完成 beats 逾期 beats 實作中 (an item that's
   // both done and past its own end date still just reads as done); 尚未處理
-  // gets no override, just the theme's normal text color.
+  // gets no override, just the theme's normal text color. 完成/逾期 are date-
+  // and-progress driven (same definition the dashboard's overdue/upcoming
+  // cards already use); 實作中 is whatever the Status column itself says —
+  // matched by the option's label, not its id, since imported boards give
+  // their Status options random ids (only the label "In Progress" is stable).
   const ganttStatusColumn = useMemo(() => resolveStatusColumn(board), [board]);
   function ganttStatusColor(item: ItemData): string | undefined {
     if (isItemComplete(item, board, ganttStatusColumn)) return board.ganttCompletedColor;
     const range = ranges.get(item.id);
-    if (!range) return undefined;
-    if (range.end < today) return board.ganttOverdueColor;
-    if (range.start <= today) return board.ganttInProgressColor;
+    if (range && range.end < today) return board.ganttOverdueColor;
+    if (ganttStatusColumn) {
+      const value = item.cellValues.find((cv) => cv.columnId === ganttStatusColumn.id)?.value;
+      const option = getStatusOptions(ganttStatusColumn.options).find((o) => o.id === value);
+      if (option?.label.toLowerCase() === "in progress") return board.ganttInProgressColor;
+    }
     return undefined;
   }
 
