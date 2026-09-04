@@ -70,8 +70,10 @@ export function ItemCardTab({
   const personColumnIds = columns.filter((c) => c.type === "PERSON").map((c) => c.id);
   const isAssignedToUser = isItemAssignedToUser(item, personColumnIds, currentUserId);
   const lock = lockedScheduleFields?.get(item.id);
-  const wbsCode = groupItems ? computeWbsCodes(groupItems).get(item.id) : undefined;
-  const parentName = groupItems?.find((i) => i.id === item.parentId)?.name;
+  const wbsCodes = groupItems ? computeWbsCodes(groupItems) : undefined;
+  const wbsCode = wbsCodes?.get(item.id);
+  const parent = groupItems?.find((i) => i.id === item.parentId);
+  const parentWbsCode = parent ? wbsCodes?.get(parent.id) : undefined;
   const createdByName = users.find((u) => u.id === item.createdById)?.name;
 
   function saveName() {
@@ -151,7 +153,7 @@ export function ItemCardTab({
               <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-700 px-4 py-2.5">
                 <span className="text-xs text-neutral-400 dark:text-neutral-500">父項</span>
                 <span className="w-40 truncate text-right text-sm text-neutral-800 dark:text-neutral-100">
-                  {parentName ?? "—"}
+                  {parent ? `${parentWbsCode ? `${parentWbsCode} ` : ""}${parent.name}` : "—"}
                 </span>
               </div>
             )}
