@@ -338,6 +338,10 @@ export type PersonalItemEntry = {
    *  a Summary rollup, or the board's manual-schedule mode) and therefore
    *  not freely editable here — same rule the board table/gantt enforce. */
   scheduleLock: ScheduleLock | null;
+  /** Task-name color by status, same rule and same board-configured colors
+   *  as the Gantt view (BoardGantt.tsx's ganttStatusColor) — 完成 beats
+   *  逾期 beats 實作中, 尚未處理 gets no override. */
+  nameColor: string | undefined;
 };
 
 /**
@@ -415,6 +419,15 @@ export function computePersonalItems(
         ? computeItemProgress(item, board.items, board.progressColumnId)
         : null;
 
+      let nameColor: string | undefined;
+      if (isItemComplete(item, board, statusColumn ?? null)) {
+        nameColor = board.ganttCompletedColor;
+      } else if (range && range.end < todayUtc()) {
+        nameColor = board.ganttOverdueColor;
+      } else if (status?.label.toLowerCase() === "in progress") {
+        nameColor = board.ganttInProgressColor;
+      }
+
       result.push({
         boardId: board.id,
         boardName: board.name,
@@ -439,6 +452,7 @@ export function computePersonalItems(
         predColumnId: board.predColumnId,
         groupItems: itemsByGroup.get(item.groupId) ?? [],
         scheduleLock: scheduleLocks.get(item.id) ?? null,
+        nameColor,
       });
     }
   }

@@ -166,6 +166,24 @@ export function BoardTable({
     setCollapsedIds(allParentIds(board.items));
   }
 
+  function expandGroup(groupItems: ItemData[]) {
+    const ids = allParentIds(groupItems);
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.delete(id);
+      return next;
+    });
+  }
+
+  function collapseGroup(groupItems: ItemData[]) {
+    const ids = allParentIds(groupItems);
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.add(id);
+      return next;
+    });
+  }
+
   function toggleCollapse(itemId: string) {
     setCollapsedIds((prev) => {
       const next = new Set(prev);
@@ -492,6 +510,8 @@ export function BoardTable({
                   levelColors={board.levelColors}
                   collapsedIds={collapsedIds}
                   onToggleCollapse={toggleCollapse}
+                  onExpandGroup={() => expandGroup(itemsByGroup.get(group.id) ?? [])}
+                  onCollapseGroup={() => collapseGroup(itemsByGroup.get(group.id) ?? [])}
                   registerScrollPane={registerScrollPane}
                   onPaneScroll={handlePaneScroll}
                 />

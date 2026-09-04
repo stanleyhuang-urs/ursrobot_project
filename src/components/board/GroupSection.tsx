@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, ChevronRight, GripVertical, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, GripVertical, Trash2 } from "lucide-react";
 import type { GroupData, ColumnData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageStructure, canManageGroupStructure } from "@/lib/permissions";
@@ -37,6 +37,8 @@ export function GroupSection({
   levelColors,
   collapsedIds,
   onToggleCollapse,
+  onExpandGroup,
+  onCollapseGroup,
   registerScrollPane,
   onPaneScroll,
 }: {
@@ -60,6 +62,8 @@ export function GroupSection({
   levelColors?: string[];
   collapsedIds: Set<string>;
   onToggleCollapse: (itemId: string) => void;
+  onExpandGroup: () => void;
+  onCollapseGroup: () => void;
   registerScrollPane: (key: string, el: HTMLDivElement | null) => void;
   onPaneScroll: (key: string) => void;
 }) {
@@ -150,6 +154,22 @@ export function GroupSection({
             : `${items.filter((i) => visibleIds.has(i.id)).length} / ${items.length}`}{" "}
           項目
         </span>
+        <button
+          type="button"
+          onClick={onExpandGroup}
+          title="展開此分組"
+          className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-100"
+        >
+          <ChevronsDown size={13} />
+        </button>
+        <button
+          type="button"
+          onClick={onCollapseGroup}
+          title="收合此分組"
+          className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-100"
+        >
+          <ChevronsUp size={13} />
+        </button>
         {canEditStructure && (
           <RowMenu>
             <RowMenuItem danger onSelect={() => deleteGroup(boardId, group.id)}>

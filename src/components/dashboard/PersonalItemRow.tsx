@@ -56,6 +56,7 @@ export function PersonalItemRow({
         <Link
           href={`/boards/${item.boardId}?highlight=${item.itemId}`}
           className="min-w-0 flex-1 truncate text-sm text-neutral-800 dark:text-neutral-100 hover:text-blue-600"
+          style={item.nameColor ? { color: item.nameColor } : undefined}
         >
           {item.itemName}
         </Link>
