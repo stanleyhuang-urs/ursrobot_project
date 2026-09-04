@@ -150,6 +150,15 @@ model Board {
 
   levelColors String[] @default([])
 
+  // Gantt task-name colors — app-wide (see SystemSettings), mirrored here on
+  // write for the same reason levelColors is. Priority when an item matches
+  // more than one: 完成 (done) beats 逾期 (overdue) beats 實作中 (in
+  // progress); 尚未處理 (not started) gets no override, just the theme's
+  // normal text color.
+  ganttOverdueColor    String @default("#e2445c")
+  ganttCompletedColor  String @default("#9ca3af")
+  ganttInProgressColor String @default("#00c875")
+
   groups  Group[]
   columns Column[] @relation("BoardColumns")
   items   Item[]
@@ -417,6 +426,9 @@ model SystemSettings {
   emailNotificationsEnabled Boolean           @default(false)
   levelColors               String[]          @default([])
   ganttDurationMode         GanttDurationMode @default(BUSINESS)
+  ganttOverdueColor         String            @default("#e2445c")
+  ganttCompletedColor       String            @default("#9ca3af")
+  ganttInProgressColor      String            @default("#00c875")
   updatedAt                 DateTime          @updatedAt
 }
 

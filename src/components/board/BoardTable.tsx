@@ -18,7 +18,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, Search, Target, Trash2 } from "lucide-react";
+import { ChevronsDown, ChevronsUp, GripVertical, Plus, Search, Target, Trash2 } from "lucide-react";
 import type { BoardWithData, ColumnData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageStructure } from "@/lib/permissions";
@@ -105,6 +105,16 @@ function SortableColumnHeader({
   );
 }
 
+/** Every item id that's somebody's parent — i.e. every row a "collapse all"
+ *  should hide the children of. */
+function allParentIds(items: ItemData[]): Set<string> {
+  const parentIds = new Set<string>();
+  for (const item of items) {
+    if (item.parentId) parentIds.add(item.parentId);
+  }
+  return parentIds;
+}
+
 export function BoardTable({
   board,
   users,
@@ -144,15 +154,17 @@ export function BoardTable({
   // highlight-driven auto-expand below still opens the right ancestor
   // chain when needed) means a board's initial render cost tracks its
   // top-level item count, not its total item count.
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => {
-    const parentIds = new Set<string>();
-    for (const item of board.items) {
-      if (item.parentId) parentIds.add(item.parentId);
-    }
-    return parentIds;
-  });
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => allParentIds(board.items));
   const hasAutoSizedRef = useRef(false);
   const scrollPanesRef = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  function expandAll() {
+    setCollapsedIds(new Set());
+  }
+
+  function collapseAll() {
+    setCollapsedIds(allParentIds(board.items));
+  }
 
   function toggleCollapse(itemId: string) {
     setCollapsedIds((prev) => {
@@ -371,6 +383,20 @@ export function BoardTable({
             className="w-48 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 py-1 pl-7 pr-2 text-xs outline-none focus:border-blue-500"
           />
         </div>
+        <button
+          type="button"
+          onClick={expandAll}
+          className="flex items-center gap-1 rounded-md border border-neutral-300 dark:border-neutral-600 px-2 py-1 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+        >
+          <ChevronsDown size={13} /> 全部展開
+        </button>
+        <button
+          type="button"
+          onClick={collapseAll}
+          className="flex items-center gap-1 rounded-md border border-neutral-300 dark:border-neutral-600 px-2 py-1 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+        >
+          <ChevronsUp size={13} /> 全部收合
+        </button>
       </div>
       <FilterBar columns={orderedColumns} users={users} filters={filters} onChange={setFilters} />
 

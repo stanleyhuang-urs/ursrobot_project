@@ -48,6 +48,11 @@ export default async function SettingsPage() {
         emailNotificationsEnabled={settings.emailNotificationsEnabled}
         ganttDurationMode={settings.ganttDurationMode}
         levelColors={settings.levelColors}
+        ganttStatusColors={{
+          overdue: settings.ganttOverdueColor,
+          completed: settings.ganttCompletedColor,
+          inProgress: settings.ganttInProgressColor,
+        }}
         holidays={holidays}
         workloadThreshold={workloadThreshold}
         ganttMappingBoards={boards}

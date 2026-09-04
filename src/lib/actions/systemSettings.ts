@@ -14,6 +14,9 @@ export async function getSystemSettings() {
     emailNotificationsEnabled: false,
     levelColors: [] as string[],
     ganttDurationMode: "BUSINESS" as GanttDurationMode,
+    ganttOverdueColor: "#e2445c",
+    ganttCompletedColor: "#9ca3af",
+    ganttInProgressColor: "#00c875",
     updatedAt: new Date(),
   };
 }
@@ -65,6 +68,39 @@ export async function setGanttDurationMode(mode: GanttDurationMode) {
       update: { ganttDurationMode: mode },
     }),
     prisma.board.updateMany({ data: { ganttDurationMode: mode } }),
+  ]);
+
+  revalidatePath("/settings");
+  revalidatePath("/boards/[boardId]", "page");
+}
+
+/**
+ * Colors for the Gantt task-name text, by status: 逾期 (overdue, past its
+ * end date and not done), 完成 (done), 實作中 (in progress, started but not
+ * yet overdue/done). 尚未處理 (not started) deliberately has no color here —
+ * it just gets the theme's normal text color.
+ */
+export async function setGanttStatusColors(colors: {
+  overdue: string;
+  completed: string;
+  inProgress: string;
+}) {
+  const session = await requireSession();
+  requireBoardAdmin(session.role);
+
+  const data = {
+    ganttOverdueColor: colors.overdue,
+    ganttCompletedColor: colors.completed,
+    ganttInProgressColor: colors.inProgress,
+  };
+
+  await prisma.$transaction([
+    prisma.systemSettings.upsert({
+      where: { id: "global" },
+      create: { id: "global", ...data },
+      update: data,
+    }),
+    prisma.board.updateMany({ data }),
   ]);
 
   revalidatePath("/settings");

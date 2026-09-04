@@ -14,6 +14,7 @@ import { computeWbsCodes } from "@/lib/wbs";
 import { resizeItemBar, moveItemBar } from "@/lib/actions/ganttResize";
 import { getStatusOptions } from "@/types/column";
 import { computeVisibleItemIds, type ActiveFilter } from "@/lib/filter";
+import { isItemComplete, resolveStatusColumn } from "@/lib/dashboard";
 import { AssignmentModal } from "./AssignmentModal";
 import { ItemDetailModal } from "./ItemDetailModal";
 import { FilterBar } from "./FilterBar";
@@ -261,6 +262,19 @@ export function BoardGantt({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board.items, startColumnId, durationColumnId, durationMode, holidaySet, typeColumnId, typeOptions]);
 
+  // Task-name color by status — 完成 beats 逾期 beats 實作中 (an item that's
+  // both done and past its own end date still just reads as done); 尚未處理
+  // gets no override, just the theme's normal text color.
+  const ganttStatusColumn = useMemo(() => resolveStatusColumn(board), [board]);
+  function ganttStatusColor(item: ItemData): string | undefined {
+    if (isItemComplete(item, board, ganttStatusColumn)) return board.ganttCompletedColor;
+    const range = ranges.get(item.id);
+    if (!range) return undefined;
+    if (range.end < today) return board.ganttOverdueColor;
+    if (range.start <= today) return board.ganttInProgressColor;
+    return undefined;
+  }
+
   const days = useMemo(() => {
     if (ranges.size === 0) return [] as Date[];
     let min = Infinity;
@@ -461,6 +475,7 @@ export function BoardGantt({
       const hasChildren = (itemsByParent.get(item.id)?.length ?? 0) > 0;
       const isCollapsed = collapsed.has(item.id);
       const range = ranges.get(item.id);
+      const nameColor = ganttStatusColor(item);
 
       const row = (
         <div key={item.id} className="flex items-stretch border-b border-neutral-100 dark:border-neutral-700">
@@ -485,6 +500,7 @@ export function BoardGantt({
                 onClick={() => onNavigateToItem(item.id)}
                 title="在表格中查看此項目"
                 className="min-w-0 flex-1 truncate text-left hover:text-blue-600 hover:underline"
+                style={nameColor ? { color: nameColor } : undefined}
               >
                 {wbsCodes.get(item.id) && (
                   <span className="mr-1 text-neutral-400 dark:text-neutral-500">{wbsCodes.get(item.id)}</span>
@@ -492,7 +508,7 @@ export function BoardGantt({
                 {item.name}
               </button>
             ) : (
-              <span className="min-w-0 flex-1 truncate">
+              <span className="min-w-0 flex-1 truncate" style={nameColor ? { color: nameColor } : undefined}>
                 {wbsCodes.get(item.id) && (
                   <span className="mr-1 text-neutral-400 dark:text-neutral-500">{wbsCodes.get(item.id)}</span>
                 )}

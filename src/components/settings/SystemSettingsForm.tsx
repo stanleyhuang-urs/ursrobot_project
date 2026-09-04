@@ -7,6 +7,7 @@ import {
   setEmailNotificationsEnabled,
   setGanttDurationMode,
   setLevelColors,
+  setGanttStatusColors,
 } from "@/lib/actions/systemSettings";
 import { HolidaySettingsModal } from "@/components/dashboard/HolidaySettingsModal";
 import { WorkloadThresholdModal } from "@/components/dashboard/WorkloadThresholdModal";
@@ -190,6 +191,71 @@ function LevelColorCard({ initial }: { initial: string[] }) {
   );
 }
 
+function GanttStatusColorCard({
+  initial,
+}: {
+  initial: { overdue: string; completed: string; inProgress: string };
+}) {
+  const [colors, setColors] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  function updateColor(key: keyof typeof colors, value: string) {
+    setSaved(false);
+    setColors((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await setGanttStatusColors(colors);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const fields: { key: keyof typeof colors; label: string }[] = [
+    { key: "overdue", label: "逾期" },
+    { key: "completed", label: "完成" },
+    { key: "inProgress", label: "實作中" },
+  ];
+
+  return (
+    <div className="max-w-xl rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-3">
+      <p className="mb-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">甘特圖項目名稱顏色</p>
+      <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
+        套用到所有看板的甘特圖:依項目狀態為項目名稱上色。優先順序為完成 &gt; 逾期 &gt; 實作中;尚未處理(未開始且未逾期)不特別上色,維持預設文字顏色。
+      </p>
+      <div className="mb-3 space-y-2">
+        {fields.map(({ key, label }) => (
+          <div key={key} className="flex items-center gap-3">
+            <span className="w-16 shrink-0 text-sm text-neutral-700 dark:text-neutral-100">{label}</span>
+            <input
+              type="color"
+              value={colors[key]}
+              onChange={(e) => updateColor(key, e.target.value)}
+              className="h-8 w-14 shrink-0 cursor-pointer rounded border border-neutral-300 dark:border-neutral-600"
+            />
+            <span className="min-w-0 flex-1 truncate text-xs text-neutral-400 dark:text-neutral-500">{colors[key]}</span>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {saving ? "儲存中..." : "儲存"}
+        </button>
+        {saved && !saving && <span className="text-xs text-green-600">已儲存</span>}
+      </div>
+    </div>
+  );
+}
+
 function WorkloadThresholdCard({ threshold }: { threshold: WorkloadThresholdSettings }) {
   const [open, setOpen] = useState(false);
 
@@ -219,6 +285,7 @@ export function SystemSettingsForm({
   emailNotificationsEnabled,
   ganttDurationMode,
   levelColors,
+  ganttStatusColors,
   holidays,
   workloadThreshold,
   ganttMappingBoards,
@@ -227,6 +294,7 @@ export function SystemSettingsForm({
   emailNotificationsEnabled: boolean;
   ganttDurationMode: GanttDurationMode;
   levelColors: string[];
+  ganttStatusColors: { overdue: string; completed: string; inProgress: string };
   holidays: Holiday[];
   workloadThreshold: WorkloadThresholdSettings;
   ganttMappingBoards: GanttMappingBoard[];
@@ -238,6 +306,7 @@ export function SystemSettingsForm({
       <GanttModeCard initial={ganttDurationMode} />
       <HolidayCard holidays={holidays} />
       <LevelColorCard initial={levelColors} />
+      <GanttStatusColorCard initial={ganttStatusColors} />
       <WorkloadThresholdCard threshold={workloadThreshold} />
       <GanttColumnMappingCard boards={ganttMappingBoards} />
       <ReportSettingsCard boards={reportSettingsBoards} />

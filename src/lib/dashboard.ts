@@ -213,7 +213,7 @@ export type DueItemEntry = {
  * Link, ...) for different purposes — prefer the one actually named
  * "Status" over just grabbing whichever STATUS column comes first.
  */
-function resolveStatusColumn(board: BoardWithData): ColumnData | null {
+export function resolveStatusColumn(board: BoardWithData): ColumnData | null {
   return (
     board.columns.find((c) => c.type === "STATUS" && c.name === "Status") ??
     board.columns.find((c) => c.type === "STATUS") ??
@@ -227,7 +227,7 @@ function resolveStatusColumn(board: BoardWithData): ColumnData | null {
  *  board's mapped "done" options. Falls back to the "done" id every board's
  *  un-imported default status set uses, for boards that haven't configured
  *  報表設定 at all. */
-function isItemComplete(item: ItemData, board: BoardWithData, statusColumn: ColumnData | null): boolean {
+export function isItemComplete(item: ItemData, board: BoardWithData, statusColumn: ColumnData | null): boolean {
   if (board.progressColumnId) {
     const pct = computeItemProgress(item, board.items, board.progressColumnId);
     if (pct !== null && pct >= 1) return true;
