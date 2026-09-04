@@ -5,6 +5,7 @@ import * as Select from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
 import { upsertCellValue } from "@/lib/actions/cell";
 import { computeWbsCodes } from "@/lib/wbs";
+import { useCellSave } from "./useCellSave";
 import type { ItemData } from "@/types/board";
 
 const NONE = "__none__";
@@ -47,6 +48,7 @@ export function PredCell({
   const parentCode = currentItem?.parentId ? codes.get(currentItem.parentId) : undefined;
 
   const viewportRef = useRef<HTMLDivElement>(null);
+  const save = useCellSave();
 
   function handleOpenChange(open: boolean) {
     if (!open || !parentCode) return;
@@ -68,7 +70,7 @@ export function PredCell({
   return (
     <Select.Root
       value={value ?? NONE}
-      onValueChange={(v) => upsertCellValue(boardId, itemId, columnId, v === NONE ? null : v)}
+      onValueChange={(v) => save(() => upsertCellValue(boardId, itemId, columnId, v === NONE ? null : v))}
       onOpenChange={handleOpenChange}
     >
       <Select.Trigger className="flex w-full min-w-0 items-center justify-between gap-1 rounded border-none bg-transparent px-2 py-1 text-left text-sm outline-none hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:bg-white dark:focus:bg-neutral-900 focus:ring-1 focus:ring-blue-400">

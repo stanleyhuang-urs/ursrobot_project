@@ -3,6 +3,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { upsertCellValue } from "@/lib/actions/cell";
 import { getStatusOptions } from "@/types/column";
+import { useCellSave } from "./useCellSave";
 
 export function StatusCell({
   boardId,
@@ -18,6 +19,7 @@ export function StatusCell({
   options: unknown;
 }) {
   const statuses = getStatusOptions(options);
+  const save = useCellSave();
   const current = statuses.find((s) => s.id === value);
 
   return (
@@ -41,7 +43,7 @@ export function StatusCell({
             <DropdownMenu.Item
               key={option.id}
               onSelect={() =>
-                upsertCellValue(boardId, itemId, columnId, option.id)
+                save(() => upsertCellValue(boardId, itemId, columnId, option.id))
               }
               className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm outline-none hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >

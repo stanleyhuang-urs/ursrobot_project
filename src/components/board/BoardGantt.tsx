@@ -466,6 +466,20 @@ export function BoardGantt({
   }
   const renderRootParentId = parentFilterId ? (itemById.get(parentFilterId)?.parentId ?? null) : null;
 
+  // Top-level rows are split per 分組 — WBS codes restart at "1" inside each
+  // group, so rendering every group's roots as one flat list produced two
+  // "1.1.1"s with nothing to tell them apart. Groups with nothing visible
+  // under the current filters drop out entirely, header included.
+  const groupSections = board.groups
+    .map((group) => ({
+      group,
+      roots: (itemsByParent.get(renderRootParentId) ?? []).filter((i) => i.groupId === group.id),
+      visibleCount: board.items.filter(
+        (i) => i.groupId === group.id && (visibleIds === null || visibleIds.has(i.id))
+      ).length,
+    }))
+    .filter((section) => section.roots.length > 0);
+
   function toggleCollapsed(itemId: string) {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -487,8 +501,8 @@ export function BoardGantt({
     setDetailItem(created);
   }
 
-  function renderRows(parentId: string | null, depth: number): ReactNode[] {
-    const children = itemsByParent.get(parentId) ?? [];
+  function renderRows(parentId: string | null, depth: number, siblings?: ItemData[]): ReactNode[] {
+    const children = siblings ?? itemsByParent.get(parentId) ?? [];
     return children.flatMap((item) => {
       const hasChildren = (itemsByParent.get(item.id)?.length ?? 0) > 0;
       const isCollapsed = collapsed.has(item.id);
@@ -779,7 +793,27 @@ export function BoardGantt({
               </div>
             </div>
 
-            {renderRows(renderRootParentId, 0)}
+            {groupSections.flatMap(({ group, roots, visibleCount }) => [
+              <div
+                key={`group:${group.id}`}
+                className="flex items-stretch border-b border-neutral-200 dark:border-neutral-700"
+              >
+                <div
+                  className="sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-neutral-50 dark:bg-neutral-800 px-2 py-1.5 text-sm font-semibold text-neutral-700 dark:text-neutral-100"
+                  style={{ width: labelWidth, borderLeft: `4px solid ${group.color}` }}
+                >
+                  <span className="min-w-0 flex-1 truncate">{group.name}</span>
+                  <span className="shrink-0 text-xs font-normal text-neutral-400 dark:text-neutral-500">
+                    {visibleCount} 項目
+                  </span>
+                </div>
+                <div
+                  className="shrink-0 bg-neutral-50 dark:bg-neutral-800"
+                  style={{ width: days.length * dayWidth, height: 34 }}
+                />
+              </div>,
+              ...renderRows(renderRootParentId, 0, roots),
+            ])}
 
           {usersWithLoad.length > 0 && (
             <div>

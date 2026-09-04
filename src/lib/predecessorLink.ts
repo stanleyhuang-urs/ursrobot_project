@@ -611,21 +611,25 @@ function outOfWindowError(
   );
 }
 
-export async function assertScheduleWithinAncestorRule(
+/** Returns the reason this edit is rejected, or null when it's allowed.
+ *  Returns rather than throws because Next.js redacts thrown Server Action
+ *  errors in production — a thrown message never reaches the user. */
+export async function checkScheduleWithinAncestorRule(
   boardId: string,
   itemId: string,
   columnId: string,
   newValue: string | number | null
-): Promise<void> {
+): Promise<string | null> {
   const window = await resolveAncestorScheduleWindow(boardId, itemId, columnId);
-  if (!window) return;
+  if (!window) return null;
 
   const preview = await previewScheduleChange(boardId, itemId, columnId, newValue);
-  if (!preview) return;
+  if (!preview) return null;
 
   if (preview.start < window.start || preview.end > window.end) {
-    throw outOfWindowError(window, preview.start, preview.end);
+    return outOfWindowError(window, preview.start, preview.end).message;
   }
+  return null;
 }
 
 /** Same rule as assertScheduleWithinAncestorRule, for the Gantt drag paths,

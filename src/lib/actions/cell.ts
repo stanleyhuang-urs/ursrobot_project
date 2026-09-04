@@ -10,7 +10,7 @@ import { syncGanttDates } from "@/lib/ganttSync";
 import {
   syncPredecessorSchedule,
   resolveLockedScheduleFields,
-  assertScheduleWithinAncestorRule,
+  checkScheduleWithinAncestorRule,
 } from "@/lib/predecessorLink";
 import { canEditCellValue, canModifyItemSchedule } from "@/lib/permissions";
 import { requireItemBoardAccess } from "@/lib/boardAccess";
@@ -69,7 +69,7 @@ export async function upsertCellValue(
   ]);
 
   if (column && column.boardId !== boardId) {
-    throw new Error("欄位不屬於此項目所在的看板");
+    return { error: "欄位不屬於此項目所在的看板" };
   }
 
   const personColumnIds = personColumns.map((c) => c.id);
@@ -88,7 +88,7 @@ export async function upsertCellValue(
       isAssignedToGroupDiscipline
     )
   ) {
-    throw new Error("權限不足:你只能編輯自己被指派或負責項目的狀態與進度欄位");
+    return { error: "權限不足:你只能編輯自己被指派或負責項目的狀態與進度欄位" };
   }
 
   const isScheduleColumn =
@@ -102,7 +102,7 @@ export async function upsertCellValue(
     item &&
     !canModifyItemSchedule(session.role, item.createdById, session.userId, groupRole?.access.hasScheduleRole ?? false)
   ) {
-    throw new Error("權限不足:僅建立者或管理者可以修改此項目的時程");
+    return { error: "權限不足:僅建立者或管理者可以修改此項目的時程" };
   }
 
   if (
@@ -140,14 +140,15 @@ export async function upsertCellValue(
       (column.id === board.ganttEndColumnId && lock?.endLocked) ||
       (column.id === board.ganttDurationColumnId && lock?.daysLocked);
     if (isLocked) {
-      throw new Error("此日期/天數由前置依賴或子項目統計自動計算,無法手動編輯");
+      return { error: "此日期/天數由前置依賴或子項目統計自動計算,無法手動編輯" };
     }
   }
 
   // A summary with a schedule rule of its own owns its dates, so nothing
   // below it may be scheduled outside that window.
   if (typeof value === "string" || typeof value === "number" || value === null) {
-    await assertScheduleWithinAncestorRule(boardId, itemId, columnId, value);
+    const rejection = await checkScheduleWithinAncestorRule(boardId, itemId, columnId, value);
+    if (rejection) return { error: rejection };
   }
 
   const jsonValue = value === null ? Prisma.JsonNull : value;

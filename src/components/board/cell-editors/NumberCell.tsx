@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { upsertCellValue } from "@/lib/actions/cell";
 import { parseNumberInput } from "@/lib/cellValue";
+import { useCellSave } from "./useCellSave";
 
 export function NumberCell({
   boardId,
@@ -19,12 +20,13 @@ export function NumberCell({
 }) {
   const displayValue = percent && value !== null ? Math.round(value * 100) : value;
   const [text, setText] = useState(displayValue === null ? "" : String(displayValue));
+  const runSave = useCellSave();
 
   function save() {
     const entered = parseNumberInput(text);
     const normalized = percent && entered !== null ? entered / 100 : entered;
     if (normalized !== value) {
-      upsertCellValue(boardId, itemId, columnId, normalized);
+      runSave(() => upsertCellValue(boardId, itemId, columnId, normalized));
     }
   }
 
