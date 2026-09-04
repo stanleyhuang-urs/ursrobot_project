@@ -71,8 +71,10 @@ export function PredCell({
       onValueChange={(v) => upsertCellValue(boardId, itemId, columnId, v === NONE ? null : v)}
       onOpenChange={handleOpenChange}
     >
-      <Select.Trigger className="flex w-full items-center justify-between gap-1 rounded border-none bg-transparent px-2 py-1 text-left text-sm outline-none hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:bg-white dark:focus:bg-neutral-900 focus:ring-1 focus:ring-blue-400">
-        <Select.Value placeholder="未設定" />
+      <Select.Trigger className="flex w-full min-w-0 items-center justify-between gap-1 rounded border-none bg-transparent px-2 py-1 text-left text-sm outline-none hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:bg-white dark:focus:bg-neutral-900 focus:ring-1 focus:ring-blue-400">
+        <span className="min-w-0 flex-1 truncate">
+          <Select.Value placeholder="未設定" />
+        </span>
         <Select.Icon className="shrink-0 text-neutral-400">
           <ChevronDown size={14} />
         </Select.Icon>

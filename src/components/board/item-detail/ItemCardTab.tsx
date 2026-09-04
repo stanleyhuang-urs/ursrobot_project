@@ -72,6 +72,7 @@ export function ItemCardTab({
   const lock = lockedScheduleFields?.get(item.id);
   const wbsCode = groupItems ? computeWbsCodes(groupItems).get(item.id) : undefined;
   const parentName = groupItems?.find((i) => i.id === item.parentId)?.name;
+  const createdByName = users.find((u) => u.id === item.createdById)?.name;
 
   function saveName() {
     if (name.trim() && name !== item.name) {
@@ -103,8 +104,7 @@ export function ItemCardTab({
           />
         </div>
       </div>
-      {columns.map((col, index) => {
-        const isLastColumn = index === columns.length - 1;
+      {columns.map((col) => {
         const isScheduleColumn =
           col.id === ganttStartColumnId || col.id === ganttDurationColumnId || col.id === ganttEndColumnId;
         const isLockedField =
@@ -127,8 +127,8 @@ export function ItemCardTab({
           <div key={col.id}>
             <div
               className={`flex items-center justify-between border-b border-neutral-100 dark:border-neutral-700 px-4 py-2.5 ${
-                isLastColumn && col.name !== "Lvl" ? "border-b-0" : ""
-              } ${scheduleBlockedReason ? "cursor-not-allowed" : ""}`}
+                scheduleBlockedReason ? "cursor-not-allowed" : ""
+              }`}
               title={isLockedField ? "由前置依賴或子項目統計自動計算" : undefined}
               onClick={scheduleBlockedReason ? () => alert(scheduleBlockedReason) : undefined}
             >
@@ -148,11 +148,7 @@ export function ItemCardTab({
               </span>
             </div>
             {col.name === "Lvl" && (
-              <div
-                className={`flex items-center justify-between px-4 py-2.5 ${
-                  isLastColumn ? "" : "border-b border-neutral-100 dark:border-neutral-700"
-                }`}
-              >
+              <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-700 px-4 py-2.5">
                 <span className="text-xs text-neutral-400 dark:text-neutral-500">父項</span>
                 <span className="w-40 truncate text-right text-sm text-neutral-800 dark:text-neutral-100">
                   {parentName ?? "—"}
@@ -162,6 +158,12 @@ export function ItemCardTab({
           </div>
         );
       })}
+      <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-700 px-4 py-2.5">
+        <span className="text-xs text-neutral-400 dark:text-neutral-500">任務派遣人</span>
+        <span className="w-40 truncate text-right text-sm text-neutral-800 dark:text-neutral-100">
+          {createdByName ?? "—"}
+        </span>
+      </div>
       {todoStats && (
         <div className="flex items-center justify-between px-4 py-2.5">
           <span className="text-xs text-neutral-400 dark:text-neutral-500">待辦事項</span>

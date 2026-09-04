@@ -276,8 +276,10 @@ export async function insertItem(
         createdById: session.userId,
         cellValues: { create: cellValues },
       },
+      include: itemDetailInclude,
     }),
   ]);
+  let item = created;
 
   // Same as createItem: with start(set)=today and duration=0 now set (see
   // buildDefaultCellValues), an "always computed" board can already resolve
@@ -285,9 +287,12 @@ export async function insertItem(
   // instead of leaving the new row blank until some other edit triggers it.
   if (board?.manualStartColumnId && board?.manualDurationColumnId) {
     await syncPredecessorSchedule(boardId, created.id, board.manualStartColumnId);
+    item = await prisma.item.findUniqueOrThrow({ where: { id: created.id }, include: itemDetailInclude });
   }
 
   revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/dashboard");
+  return item;
 }
 
 export async function renameItem(
