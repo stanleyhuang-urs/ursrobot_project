@@ -243,27 +243,50 @@ export function isItemComplete(item: ItemData, board: BoardWithData, statusColum
   return false;
 }
 
+export type ItemStatusKind = "done" | "overdue" | "inProgress" | "notStarted";
+
+/** Classifies an item into the 4 status kinds shared by the Gantt view, the
+ *  board table, the dashboard's personal-items lists, and the kanban card
+ *  order — 完成 beats 逾期 beats 實作中 beats 尚未處理 (an item that's both
+ *  done and past its own end date still just reads as done). 實作中 is
+ *  matched by the Status option's label, not its id, since imported boards
+ *  give their Status options random ids. */
+export function classifyItemStatus(
+  item: ItemData,
+  board: BoardWithData,
+  statusColumn: ColumnData | null,
+  range: { start: Date; end: Date } | null
+): ItemStatusKind {
+  if (isItemComplete(item, board, statusColumn)) return "done";
+  if (range && range.end < todayUtc()) return "overdue";
+  if (statusColumn) {
+    const value = item.cellValues.find((cv) => cv.columnId === statusColumn.id)?.value;
+    const option = getStatusOptions(statusColumn.options).find((o) => o.id === value);
+    if (option?.label.toLowerCase() === "in progress") return "inProgress";
+  }
+  return "notStarted";
+}
+
 /** Task-name color by status — shared by the Gantt view, the board table,
  *  and the dashboard's personal-items lists so all three agree on the same
- *  rule and the same board-configured colors. 完成 beats 逾期 beats 實作中
- *  (an item that's both done and past its own end date still just reads as
- *  done); 尚未處理 gets no override, just the theme's normal text color.
- *  實作中 is matched by the Status option's label, not its id, since
- *  imported boards give their Status options random ids. */
+ *  rule and the same board-configured colors. 尚未處理 gets no override,
+ *  just the theme's normal text color. */
 export function resolveItemNameColor(
   item: ItemData,
   board: BoardWithData,
   statusColumn: ColumnData | null,
   range: { start: Date; end: Date } | null
 ): string | undefined {
-  if (isItemComplete(item, board, statusColumn)) return board.ganttCompletedColor;
-  if (range && range.end < todayUtc()) return board.ganttOverdueColor;
-  if (statusColumn) {
-    const value = item.cellValues.find((cv) => cv.columnId === statusColumn.id)?.value;
-    const option = getStatusOptions(statusColumn.options).find((o) => o.id === value);
-    if (option?.label.toLowerCase() === "in progress") return board.ganttInProgressColor;
+  switch (classifyItemStatus(item, board, statusColumn, range)) {
+    case "done":
+      return board.ganttCompletedColor;
+    case "overdue":
+      return board.ganttOverdueColor;
+    case "inProgress":
+      return board.ganttInProgressColor;
+    default:
+      return undefined;
   }
-  return undefined;
 }
 
 /**

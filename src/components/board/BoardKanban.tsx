@@ -11,11 +11,23 @@ import {
   type DragOverEvent,
 } from "@dnd-kit/core";
 import type { BoardWithData, ColumnData, ItemData, UserOption } from "@/types/board";
-import type { UserRole } from "@prisma/client";
+import type { Holiday, UserRole } from "@prisma/client";
 import { getStatusOptions } from "@/types/column";
 import { itemOwnerIds } from "@/lib/boardReport";
+import { classifyItemStatus, resolveStatusColumn, type ItemStatusKind } from "@/lib/dashboard";
+import { computeRolledUpDateRange } from "@/lib/gantt";
 import { KanbanLane } from "./KanbanLane";
 import { upsertCellValue } from "@/lib/actions/cell";
+
+// 逾期 first, then 未處理, then 實作中, then 已完成 last — same status
+// precedence as the Gantt/table/dashboard name-color rule, repurposed as a
+// sort key so the most urgent cards in each lane surface at the top.
+const STATUS_SORT_RANK: Record<ItemStatusKind, number> = {
+  overdue: 0,
+  notStarted: 1,
+  inProgress: 2,
+  done: 3,
+};
 
 function personColumnIdsOf(columns: ColumnData[]): string[] {
   return columns.filter((c) => c.type === "PERSON").map((c) => c.id);
@@ -31,6 +43,7 @@ export function BoardKanban({
   users,
   userRole,
   currentUserId,
+  holidays,
 }: {
   board: BoardWithData;
   statusColumns: ColumnData[];
@@ -39,6 +52,7 @@ export function BoardKanban({
   users: UserOption[];
   userRole: UserRole;
   currentUserId: string;
+  holidays: Holiday[];
 }) {
   const column = statusColumns.find((c) => c.id === columnId) ?? statusColumns[0];
   const personColumnIds = personColumnIdsOf(board.columns);
@@ -127,6 +141,27 @@ export function BoardKanban({
     return UNSET_LANE;
   }
 
+  const holidaySet = useMemo(() => new Set(holidays.map((h) => h.date)), [holidays]);
+  const sortStatusColumn = useMemo(() => resolveStatusColumn(board), [board]);
+  const rangesById = useMemo(() => {
+    const map = new Map<string, { start: Date; end: Date } | null>();
+    if (!board.ganttStartColumnId || !board.ganttDurationColumnId) return map;
+    for (const item of scopedItems) {
+      map.set(
+        item.id,
+        computeRolledUpDateRange(
+          item,
+          board.items,
+          board.ganttStartColumnId,
+          board.ganttDurationColumnId,
+          board.ganttDurationMode,
+          holidaySet
+        )
+      );
+    }
+    return map;
+  }, [scopedItems, board, holidaySet]);
+
   const lanes = useMemo(() => {
     const map = new Map<string, ItemData[]>();
     map.set(UNSET_LANE, []);
@@ -137,9 +172,17 @@ export function BoardKanban({
       list.push(item);
       map.set(laneId, list);
     }
+    // 逾期 first, then 未處理, 實作中, 已完成 last — see STATUS_SORT_RANK.
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        const rankA = STATUS_SORT_RANK[classifyItemStatus(a, board, sortStatusColumn, rangesById.get(a.id) ?? null)];
+        const rankB = STATUS_SORT_RANK[classifyItemStatus(b, board, sortStatusColumn, rangesById.get(b.id) ?? null)];
+        return rankA - rankB;
+      });
+    }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedItems, column, statuses]);
+  }, [scopedItems, column, statuses, board, sortStatusColumn, rangesById]);
 
   function findLaneOfCard(cardId: string): string | undefined {
     for (const [laneId, laneItems] of lanes) {

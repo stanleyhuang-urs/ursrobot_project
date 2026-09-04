@@ -179,7 +179,7 @@ export function BoardGantt({
     if (isWeekendDay(d)) return "#e9ecef";
     return undefined;
   }
-  const dayWidth = ZOOM_DAY_WIDTH[zoom] * (scalePct / 100);
+  const dayWidth = ZOOM_DAY_WIDTH[zoom];
   const scrollRef = useRef<HTMLDivElement>(null);
   const topScrollRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startX: number; startScrollLeft: number } | null>(null);
@@ -701,7 +701,7 @@ export function BoardGantt({
       )}
 
       {startColumnId && durationColumnId && days.length > 0 && (
-        <>
+        <div style={{ zoom: scalePct / 100 }}>
           <div
             ref={topScrollRef}
             onScroll={syncFromTopScroll}
@@ -805,7 +805,7 @@ export function BoardGantt({
           )}
           </div>
           </div>
-        </>
+        </div>
       )}
 
       <AssignmentModal
