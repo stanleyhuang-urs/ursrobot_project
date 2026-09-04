@@ -155,7 +155,8 @@ export function BoardKanban({
           board.ganttStartColumnId,
           board.ganttDurationColumnId,
           board.ganttDurationMode,
-          holidaySet
+          holidaySet,
+          { predColumnId: board.predColumnId, manualStartColumnId: board.manualStartColumnId }
         )
       );
     }

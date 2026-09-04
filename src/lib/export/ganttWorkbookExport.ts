@@ -356,7 +356,8 @@ function buildRowMeta(
         board.ganttStartColumnId,
         board.ganttDurationColumnId,
         board.ganttDurationMode,
-        holidaySet
+        holidaySet,
+        { predColumnId: board.predColumnId, manualStartColumnId: board.manualStartColumnId }
       );
       if (rolled) {
         r.startOverride = rolled.start;

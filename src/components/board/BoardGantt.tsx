@@ -265,7 +265,15 @@ export function BoardGantt({
     const map = new Map<string, DateRange>();
     if (!startColumnId || !durationColumnId) return map;
     for (const item of board.items) {
-      const range = computeRolledUpDateRange(item, board.items, startColumnId, durationColumnId, durationMode, holidaySet);
+      const range = computeRolledUpDateRange(
+        item,
+        board.items,
+        startColumnId,
+        durationColumnId,
+        durationMode,
+        holidaySet,
+        { predColumnId: board.predColumnId, manualStartColumnId: board.manualStartColumnId }
+      );
       if (!range) continue;
       map.set(item.id, isMilestone(item) ? { start: range.start, end: range.start } : range);
     }
@@ -610,7 +618,10 @@ export function BoardGantt({
         isFullscreen ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-white dark:bg-neutral-950 p-4" : ""
       }
     >
-      <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 text-sm">
+      {/* One toolbar row: scale/zoom, the group + parent filters, and the
+          fullscreen toggle pinned right — every line saved here is a line the
+          chart itself gets to use. */}
+      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 text-sm">
         <span className="text-neutral-500 dark:text-neutral-400">時間刻度</span>
         <div className="flex overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700 text-xs">
           {(["day", "week", "month"] as const).map((z) => (
@@ -637,17 +648,7 @@ export function BoardGantt({
           className="w-28"
         />
         <span className="w-10 text-xs text-neutral-500 dark:text-neutral-400">{scalePct}%</span>
-        <button
-          type="button"
-          onClick={() => setIsFullscreen((v) => !v)}
-          className="ml-auto flex items-center gap-1 rounded-md border border-neutral-300 dark:border-neutral-600 px-2 py-1 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-        >
-          {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-          {isFullscreen ? "退出全螢幕" : "全螢幕"}
-        </button>
-      </div>
-      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 text-sm">
-        <div className="flex items-center gap-2">
+        <div className="ml-2 flex items-center gap-2">
           <span className="text-neutral-500 dark:text-neutral-400">專案(分組)</span>
           <select
             value={groupFilterId}
@@ -689,6 +690,14 @@ export function BoardGantt({
             清除
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setIsFullscreen((v) => !v)}
+          className="ml-auto flex items-center gap-1 rounded-md border border-neutral-300 dark:border-neutral-600 px-2 py-1 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+        >
+          {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          {isFullscreen ? "退出全螢幕" : "全螢幕"}
+        </button>
       </div>
       <div className="shrink-0">
         <FilterBar columns={board.columns} users={users} filters={filters} onChange={setFilters} />

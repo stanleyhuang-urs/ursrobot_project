@@ -9,7 +9,12 @@ import { canModifyItemSchedule } from "@/lib/permissions";
 import { loadGroupRoleContext } from "@/lib/groupRoleContext";
 import { getItemDateRange } from "@/lib/gantt";
 import { countDaysInRange } from "@/lib/workday";
-import { resolveLockedScheduleFields, syncPredecessorSchedule, type ScheduleLock } from "@/lib/predecessorLink";
+import {
+  resolveLockedScheduleFields,
+  syncPredecessorSchedule,
+  assertRangeWithinAncestorRule,
+  type ScheduleLock,
+} from "@/lib/predecessorLink";
 import { logActivity } from "@/lib/activityLog";
 import { listHolidays, toHolidaySet } from "@/lib/holidays";
 import { notifyItemAssignees } from "@/lib/notify";
@@ -124,6 +129,8 @@ export async function resizeItemBar(
   const startIso = newStart.toISOString().slice(0, 10);
   const endIso = newEnd.toISOString().slice(0, 10);
 
+  await assertRangeWithinAncestorRule(boardId, itemId, { start: newStart, end: newEnd });
+
   await prisma.$transaction([
     prisma.cellValue.upsert({
       where: { itemId_columnId: { itemId, columnId: board.ganttStartColumnId! } },
@@ -205,6 +212,8 @@ export async function moveItemBar(
   const oldEndIso = currentRange.end.toISOString().slice(0, 10);
   const startIso = newRange.start.toISOString().slice(0, 10);
   const endIso = newRange.end.toISOString().slice(0, 10);
+
+  await assertRangeWithinAncestorRule(boardId, itemId, newRange);
 
   await prisma.$transaction([
     prisma.cellValue.upsert({

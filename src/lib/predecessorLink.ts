@@ -2,7 +2,7 @@ import type { GanttDurationMode } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getStatusOptions } from "@/types/column";
 import type { ItemData } from "@/types/board";
-import { getItemDateRange, type DateRange } from "@/lib/gantt";
+import { getItemDateRange, hasOwnScheduleRule, type DateRange } from "@/lib/gantt";
 import { shiftDate } from "@/lib/workday";
 import { listHolidays, toHolidaySet } from "@/lib/holidays";
 
@@ -515,6 +515,134 @@ export async function previewScheduleChange(
     end: scheduled.end.toISOString().slice(0, 10),
     days: myDays,
   };
+}
+
+function isoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Throws if this edit would push the item's schedule outside the window of
+ * the nearest ancestor that has a schedule rule of its own (a Pred or a
+ * manual start — see hasOwnScheduleRule). Such an ancestor is the authority
+ * on its own dates, so everything underneath it has to finish inside them.
+ *
+ * Only guards edits a person makes to a schedule-driving cell; the engine's
+ * own cascades (syncPredecessorSchedule) go around this deliberately, so a
+ * recompute can never be blocked half-way. Silently returns whenever the
+ * outcome can't be determined (no ancestor rule, no resolvable range),
+ * rather than blocking on a guess.
+ */
+async function resolveAncestorScheduleWindow(
+  boardId: string,
+  itemId: string,
+  /** When given, only these columns are treated as schedule-driving; an edit
+   *  to anything else needs no check at all. */
+  editedColumnId?: string
+): Promise<{ name: string; start: string; end: string } | null> {
+  const board = await prisma.board.findUnique({
+    where: { id: boardId },
+    select: {
+      predColumnId: true,
+      linkColumnId: true,
+      lagColumnId: true,
+      ganttStartColumnId: true,
+      ganttDurationColumnId: true,
+      ganttEndColumnId: true,
+      ganttDurationMode: true,
+      manualStartColumnId: true,
+      manualDurationColumnId: true,
+    },
+  });
+  if (!board?.ganttStartColumnId || !board.ganttDurationColumnId) return null;
+
+  if (editedColumnId !== undefined) {
+    const drivesSchedule = [
+      board.predColumnId,
+      board.linkColumnId,
+      board.lagColumnId,
+      board.ganttStartColumnId,
+      board.ganttDurationColumnId,
+      board.ganttEndColumnId,
+      board.manualStartColumnId,
+      board.manualDurationColumnId,
+    ].includes(editedColumnId);
+    if (!drivesSchedule) return null;
+  }
+
+  const ruleColumns = {
+    predColumnId: board.predColumnId,
+    manualStartColumnId: board.manualStartColumnId,
+  };
+  const items = await prisma.item.findMany({
+    where: { boardId },
+    select: { id: true, parentId: true, name: true, cellValues: true },
+  });
+  const byId = new Map(items.map((i) => [i.id, i]));
+
+  const self = byId.get(itemId);
+  let ancestor = self?.parentId ? byId.get(self.parentId) : undefined;
+  while (ancestor && !hasOwnScheduleRule(ancestor, ruleColumns)) {
+    ancestor = ancestor.parentId ? byId.get(ancestor.parentId) : undefined;
+  }
+  if (!ancestor) return null;
+
+  const holidays = toHolidaySet(await listHolidays());
+  const window = getItemDateRange(
+    ancestor,
+    board.ganttStartColumnId,
+    board.ganttDurationColumnId,
+    board.ganttDurationMode,
+    holidays
+  );
+  if (!window) return null;
+
+  return { name: ancestor.name, start: isoDate(window.start), end: isoDate(window.end) };
+}
+
+function outOfWindowError(
+  window: { name: string; start: string; end: string },
+  start: string,
+  end: string
+): Error {
+  return new Error(
+    `超出上層「${window.name}」設定的時程 ${window.start} ~ ${window.end}:` +
+      `此項目會變成 ${start} ~ ${end},請改在區間內,或先調整上層項目的時程。`
+  );
+}
+
+export async function assertScheduleWithinAncestorRule(
+  boardId: string,
+  itemId: string,
+  columnId: string,
+  newValue: string | number | null
+): Promise<void> {
+  const window = await resolveAncestorScheduleWindow(boardId, itemId, columnId);
+  if (!window) return;
+
+  const preview = await previewScheduleChange(boardId, itemId, columnId, newValue);
+  if (!preview) return;
+
+  if (preview.start < window.start || preview.end > window.end) {
+    throw outOfWindowError(window, preview.start, preview.end);
+  }
+}
+
+/** Same rule as assertScheduleWithinAncestorRule, for the Gantt drag paths,
+ *  which already know the exact range the drag would produce. */
+export async function assertRangeWithinAncestorRule(
+  boardId: string,
+  itemId: string,
+  range: DateRange
+): Promise<void> {
+  const window = await resolveAncestorScheduleWindow(boardId, itemId);
+  if (!window) return;
+
+  const start = isoDate(range.start);
+  const end = isoDate(range.end);
+  if (start < window.start || end > window.end) {
+    throw outOfWindowError(window, start, end);
+  }
 }
 
 /**

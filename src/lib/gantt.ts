@@ -39,12 +39,43 @@ export function getItemDateRange(
   return { start, end };
 }
 
+/** The columns that can pin an item's schedule to a rule of its own: a Pred
+ *  (its dates follow that predecessor) or a manual start date. */
+export type OwnScheduleRuleColumns = {
+  predColumnId?: string | null;
+  manualStartColumnId?: string | null;
+};
+
+/**
+ * Whether this item's schedule is driven by a rule it owns — a Pred, or an
+ * explicitly set manual start date — rather than being whatever its children
+ * happen to span. A summary with a rule of its own is the authority on its
+ * dates; its children are expected to fit inside that window.
+ */
+export function hasOwnScheduleRule(
+  item: Pick<ItemData, "cellValues">,
+  columns?: OwnScheduleRuleColumns
+): boolean {
+  if (!columns) return false;
+  for (const columnId of [columns.predColumnId, columns.manualStartColumnId]) {
+    if (!columnId) continue;
+    const value = item.cellValues.find((cv) => cv.columnId === columnId)?.value;
+    if (typeof value === "string" && value.trim() !== "") return true;
+  }
+  return false;
+}
+
 /**
  * Like getItemDateRange, but for an item with children it rolls up to the
  * earliest child start and latest child end (recursively) instead of
  * reading its own Start/Days cells — a "Summary" row's range is whatever
  * its subtree currently spans, computed fresh each time (never stored).
  * Leaf items (no children) behave exactly like getItemDateRange.
+ *
+ * Exception: pass `ownRuleColumns` and a parent that has a schedule rule of
+ * its own (see hasOwnScheduleRule) keeps its own Start/Days instead of being
+ * redefined by its subtree — otherwise adding a child to a Pred-driven task
+ * would silently throw its computed dates away.
  */
 export function computeRolledUpDateRange(
   item: Pick<ItemData, "id" | "cellValues">,
@@ -52,17 +83,31 @@ export function computeRolledUpDateRange(
   startColumnId: string,
   durationColumnId: string,
   mode: GanttDurationMode = "CALENDAR",
-  holidays: Set<string> = new Set()
+  holidays: Set<string> = new Set(),
+  ownRuleColumns?: OwnScheduleRuleColumns
 ): DateRange | null {
   const children = allItems.filter((i) => i.parentId === item.id);
   if (children.length === 0) {
     return getItemDateRange(item, startColumnId, durationColumnId, mode, holidays);
   }
 
+  if (hasOwnScheduleRule(item, ownRuleColumns)) {
+    const own = getItemDateRange(item, startColumnId, durationColumnId, mode, holidays);
+    if (own) return own;
+  }
+
   let min: Date | null = null;
   let max: Date | null = null;
   for (const child of children) {
-    const childRange = computeRolledUpDateRange(child, allItems, startColumnId, durationColumnId, mode, holidays);
+    const childRange = computeRolledUpDateRange(
+      child,
+      allItems,
+      startColumnId,
+      durationColumnId,
+      mode,
+      holidays,
+      ownRuleColumns
+    );
     if (!childRange) continue;
     if (!min || childRange.start < min) min = childRange.start;
     if (!max || childRange.end > max) max = childRange.end;

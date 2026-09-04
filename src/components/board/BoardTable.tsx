@@ -232,7 +232,8 @@ export function BoardTable({
         board.ganttStartColumnId,
         board.ganttDurationColumnId,
         board.ganttDurationMode,
-        holidaySet
+        holidaySet,
+        { predColumnId: board.predColumnId, manualStartColumnId: board.manualStartColumnId }
       );
       const color = resolveItemNameColor(item, board, statusColumn, range);
       if (color) map.set(item.id, color);

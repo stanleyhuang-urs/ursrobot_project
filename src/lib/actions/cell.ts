@@ -7,7 +7,11 @@ import { requireSession } from "@/lib/session";
 import { notifyItemAssignees, notifyEmailIfNeeded } from "@/lib/notify";
 import { executeAutomationRules } from "@/lib/automation";
 import { syncGanttDates } from "@/lib/ganttSync";
-import { syncPredecessorSchedule, resolveLockedScheduleFields } from "@/lib/predecessorLink";
+import {
+  syncPredecessorSchedule,
+  resolveLockedScheduleFields,
+  assertScheduleWithinAncestorRule,
+} from "@/lib/predecessorLink";
 import { canEditCellValue, canModifyItemSchedule } from "@/lib/permissions";
 import { requireItemBoardAccess } from "@/lib/boardAccess";
 import { logActivity } from "@/lib/activityLog";
@@ -138,6 +142,12 @@ export async function upsertCellValue(
     if (isLocked) {
       throw new Error("此日期/天數由前置依賴或子項目統計自動計算,無法手動編輯");
     }
+  }
+
+  // A summary with a schedule rule of its own owns its dates, so nothing
+  // below it may be scheduled outside that window.
+  if (typeof value === "string" || typeof value === "number" || value === null) {
+    await assertScheduleWithinAncestorRule(boardId, itemId, columnId, value);
   }
 
   const jsonValue = value === null ? Prisma.JsonNull : value;
