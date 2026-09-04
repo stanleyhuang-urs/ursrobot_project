@@ -701,14 +701,14 @@ export function BoardGantt({
       )}
 
       {startColumnId && durationColumnId && days.length > 0 && (
-        <div style={{ zoom: scalePct / 100 }}>
+        <div>
           <div
             ref={topScrollRef}
             onScroll={syncFromTopScroll}
             className="sticky top-0 z-30 mb-1 overflow-x-auto overflow-y-hidden bg-white dark:bg-neutral-900"
             style={{ height: 14 }}
           >
-            <div style={{ width: contentWidth, height: 1 }} />
+            <div style={{ width: contentWidth * (scalePct / 100), height: 1 }} />
           </div>
           <div
             ref={scrollRef}
@@ -721,6 +721,7 @@ export function BoardGantt({
               isPanning ? "cursor-grabbing select-none" : "cursor-grab"
             }`}
           >
+          <div style={{ zoom: scalePct / 100 }}>
           <div className="relative" style={{ minWidth: labelWidth + days.length * dayWidth }}>
             {todayIndex >= 0 && (
               <div
@@ -803,6 +804,7 @@ export function BoardGantt({
               ))}
             </div>
           )}
+          </div>
           </div>
           </div>
         </div>
