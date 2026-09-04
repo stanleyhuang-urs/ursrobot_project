@@ -20,11 +20,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Plus, Search, Target, Trash2 } from "lucide-react";
 import type { BoardWithData, ColumnData, ItemData, UserOption } from "@/types/board";
-import type { UserRole } from "@prisma/client";
+import type { Holiday, UserRole } from "@prisma/client";
 import { canManageStructure } from "@/lib/permissions";
 import { computeVisibleItemIds, type ActiveFilter } from "@/lib/filter";
 import { computeAncestorIds } from "@/lib/wbs";
 import { resolveLockedScheduleFields } from "@/lib/predecessorLink";
+import { computeRolledUpDateRange } from "@/lib/gantt";
+import { resolveItemNameColor, resolveStatusColumn } from "@/lib/dashboard";
 import { GroupSection } from "./GroupSection";
 import { FilterBar } from "./FilterBar";
 import { ItemDetailModal } from "./ItemDetailModal";
@@ -122,6 +124,7 @@ export function BoardTable({
   currentUserId,
   onAddColumn,
   highlightItemId,
+  holidays,
 }: {
   board: BoardWithData;
   users: UserOption[];
@@ -129,6 +132,7 @@ export function BoardTable({
   currentUserId: string;
   onAddColumn: () => void;
   highlightItemId?: string | null;
+  holidays: Holiday[];
 }) {
   const canEditStructure = canManageStructure(userRole);
   const router = useRouter();
@@ -213,6 +217,28 @@ export function BoardTable({
     () => computeAncestorIds(board.items, highlightItemId),
     [board.items, highlightItemId]
   );
+  // Task-name color by status — same rule and board-configured colors as
+  // the Gantt view (BoardGantt.tsx's ganttStatusColor), via the shared
+  // resolveItemNameColor helper.
+  const nameColors = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!board.ganttStartColumnId || !board.ganttDurationColumnId) return map;
+    const statusColumn = resolveStatusColumn(board);
+    const holidaySet = new Set(holidays.map((h) => h.date));
+    for (const item of board.items) {
+      const range = computeRolledUpDateRange(
+        item,
+        board.items,
+        board.ganttStartColumnId,
+        board.ganttDurationColumnId,
+        board.ganttDurationMode,
+        holidaySet
+      );
+      const color = resolveItemNameColor(item, board, statusColumn, range);
+      if (color) map.set(item.id, color);
+    }
+    return map;
+  }, [board, holidays]);
   // Clicking a notification (or any other ?highlight= link) should open that
   // item's card directly, not just scroll the row into view — re-arms on
   // every new highlightItemId so a second, different notification click
@@ -486,6 +512,7 @@ export function BoardTable({
                   highlightItemId={highlightItemId}
                   expandIds={expandIds}
                   levelColors={board.levelColors}
+                  nameColors={nameColors}
                   collapsedIds={collapsedIds}
                   onToggleCollapse={toggleCollapse}
                   onExpandGroup={() => expandGroup(itemsByGroup.get(group.id) ?? [])}

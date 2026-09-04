@@ -14,7 +14,7 @@ import { computeWbsCodes } from "@/lib/wbs";
 import { resizeItemBar, moveItemBar } from "@/lib/actions/ganttResize";
 import { getStatusOptions } from "@/types/column";
 import { computeVisibleItemIds, type ActiveFilter } from "@/lib/filter";
-import { isItemComplete, resolveStatusColumn } from "@/lib/dashboard";
+import { resolveItemNameColor, resolveStatusColumn } from "@/lib/dashboard";
 import { AssignmentModal } from "./AssignmentModal";
 import { ItemDetailModal } from "./ItemDetailModal";
 import { FilterBar } from "./FilterBar";
@@ -271,15 +271,7 @@ export function BoardGantt({
   // their Status options random ids (only the label "In Progress" is stable).
   const ganttStatusColumn = useMemo(() => resolveStatusColumn(board), [board]);
   function ganttStatusColor(item: ItemData): string | undefined {
-    if (isItemComplete(item, board, ganttStatusColumn)) return board.ganttCompletedColor;
-    const range = ranges.get(item.id);
-    if (range && range.end < today) return board.ganttOverdueColor;
-    if (ganttStatusColumn) {
-      const value = item.cellValues.find((cv) => cv.columnId === ganttStatusColumn.id)?.value;
-      const option = getStatusOptions(ganttStatusColumn.options).find((o) => o.id === value);
-      if (option?.label.toLowerCase() === "in progress") return board.ganttInProgressColor;
-    }
-    return undefined;
+    return resolveItemNameColor(item, board, ganttStatusColumn, ranges.get(item.id) ?? null);
   }
 
   const days = useMemo(() => {

@@ -47,6 +47,7 @@ export function ItemRow({
   highlightItemId,
   expandIds,
   levelColors,
+  nameColors,
   collapsedIds,
   onToggleCollapse,
   hasGroupScheduleRole = false,
@@ -75,6 +76,7 @@ export function ItemRow({
   highlightItemId?: string | null;
   expandIds?: Set<string>;
   levelColors?: string[];
+  nameColors?: Map<string, string>;
   collapsedIds: Set<string>;
   onToggleCollapse: (itemId: string) => void;
   /** Group role bypasses — see resolveGroupRoleAccess. hasGroupScheduleRole
@@ -165,6 +167,7 @@ export function ItemRow({
           highlightItemId={highlightItemId}
           expandIds={expandIds}
           levelColors={levelColors}
+          nameColors={nameColors}
           collapsedIds={collapsedIds}
           onToggleCollapse={onToggleCollapse}
         />
@@ -206,6 +209,7 @@ export function ItemRow({
                 setDetailOpen(true);
               }}
               title="編輯此項目所有欄位"
+              style={nameColors?.get(item.id) ? { color: nameColors.get(item.id) } : undefined}
               className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm outline-none hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:bg-white dark:focus:bg-neutral-900 focus:ring-1 focus:ring-blue-400"
             >
               {item.name}

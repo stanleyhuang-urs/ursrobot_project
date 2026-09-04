@@ -184,6 +184,7 @@ export function BoardView({
             currentUserId={currentUserId}
             onAddColumn={() => setAddColumnOpen(true)}
             highlightItemId={ganttNavigateHighlight ?? highlightItemId}
+            holidays={holidays}
           />
         )}
         {view === "kanban" && (

@@ -243,6 +243,29 @@ export function isItemComplete(item: ItemData, board: BoardWithData, statusColum
   return false;
 }
 
+/** Task-name color by status — shared by the Gantt view, the board table,
+ *  and the dashboard's personal-items lists so all three agree on the same
+ *  rule and the same board-configured colors. 完成 beats 逾期 beats 實作中
+ *  (an item that's both done and past its own end date still just reads as
+ *  done); 尚未處理 gets no override, just the theme's normal text color.
+ *  實作中 is matched by the Status option's label, not its id, since
+ *  imported boards give their Status options random ids. */
+export function resolveItemNameColor(
+  item: ItemData,
+  board: BoardWithData,
+  statusColumn: ColumnData | null,
+  range: { start: Date; end: Date } | null
+): string | undefined {
+  if (isItemComplete(item, board, statusColumn)) return board.ganttCompletedColor;
+  if (range && range.end < todayUtc()) return board.ganttOverdueColor;
+  if (statusColumn) {
+    const value = item.cellValues.find((cv) => cv.columnId === statusColumn.id)?.value;
+    const option = getStatusOptions(statusColumn.options).find((o) => o.id === value);
+    if (option?.label.toLowerCase() === "in progress") return board.ganttInProgressColor;
+  }
+  return undefined;
+}
+
 /**
  * Items whose Gantt end date has passed (overdue) or falls within the next 7
  * days (upcoming), excluding anything already complete — those show up in
@@ -419,14 +442,7 @@ export function computePersonalItems(
         ? computeItemProgress(item, board.items, board.progressColumnId)
         : null;
 
-      let nameColor: string | undefined;
-      if (isItemComplete(item, board, statusColumn ?? null)) {
-        nameColor = board.ganttCompletedColor;
-      } else if (range && range.end < todayUtc()) {
-        nameColor = board.ganttOverdueColor;
-      } else if (status?.label.toLowerCase() === "in progress") {
-        nameColor = board.ganttInProgressColor;
-      }
+      const nameColor = resolveItemNameColor(item, board, statusColumn ?? null, range);
 
       result.push({
         boardId: board.id,
