@@ -217,7 +217,7 @@ export function resolveLockedScheduleFields(
  * mode, which also works without Pred/Link configured — then only the
  * manual columns feed Start/Finish/Days, with no predecessor override).
  */
-async function buildScheduleContext(boardId: string) {
+async function buildScheduleContext(boardId: string, groupId?: string) {
   const board = await prisma.board.findUnique({
     where: { id: boardId },
     select: {
@@ -252,8 +252,11 @@ async function buildScheduleContext(boardId: string) {
     linkColumnId
       ? prisma.column.findUnique({ where: { id: linkColumnId }, select: { options: true } })
       : Promise.resolve(null),
+    // A recompute cascade follows Pred/Link and parent/child links, both of
+    // which stay inside one group — so a single-item edit only needs that
+    // item's group, while a whole-board recompute passes no groupId.
     prisma.item.findMany({
-      where: { boardId },
+      where: groupId ? { groupId } : { boardId },
       select: { id: true, parentId: true, order: true, cellValues: true, groupId: true },
     }),
     listHolidays(),
@@ -390,12 +393,47 @@ async function buildScheduleContext(boardId: string) {
  * editing Start/Finish (manually, or as a result of this same recompute)
  * cascades to every item whose Pred points back at it.
  */
+/**
+ * Which columns can move a schedule, read from the board row alone. Editing
+ * anything else (a status, an owner, a comment) can't affect any date, and
+ * this check costs one small query — buildScheduleContext, by contrast, has
+ * to load every item on the board with its cell values, which is far too
+ * much work to do just to discover there was nothing to recompute.
+ */
+async function scheduleTriggerColumnIds(boardId: string): Promise<Set<string>> {
+  const board = await prisma.board.findUnique({
+    where: { id: boardId },
+    select: {
+      predColumnId: true,
+      linkColumnId: true,
+      lagColumnId: true,
+      ganttStartColumnId: true,
+      ganttDurationColumnId: true,
+      ganttEndColumnId: true,
+      manualStartColumnId: true,
+      manualDurationColumnId: true,
+    },
+  });
+  if (!board) return new Set();
+  const alwaysComputed = !!board.manualStartColumnId && !!board.manualDurationColumnId;
+  const own = alwaysComputed
+    ? [board.predColumnId, board.linkColumnId, board.lagColumnId, board.manualDurationColumnId, board.manualStartColumnId]
+    : [board.predColumnId, board.linkColumnId, board.lagColumnId, board.ganttDurationColumnId];
+  return new Set(
+    [...own, board.ganttStartColumnId, board.ganttEndColumnId].filter((id): id is string => !!id)
+  );
+}
+
 export async function syncPredecessorSchedule(
   boardId: string,
   itemId: string,
   editedColumnId: string
 ) {
-  const ctx = await buildScheduleContext(boardId);
+  const triggers = await scheduleTriggerColumnIds(boardId);
+  if (!triggers.has(editedColumnId)) return;
+
+  const edited = await prisma.item.findUnique({ where: { id: itemId }, select: { groupId: true } });
+  const ctx = await buildScheduleContext(boardId, edited?.groupId);
   if (!ctx) return;
   if (!ctx.ownTriggers.includes(editedColumnId) && !ctx.cascadeTriggers.includes(editedColumnId)) return;
 
@@ -452,12 +490,15 @@ export async function previewScheduleChange(
   const alwaysComputed = !!manualStartColumnId && !!manualDurationColumnId;
   if (!startId || !durId) return null;
 
+  const self = await prisma.item.findUnique({ where: { id: itemId }, select: { groupId: true } });
+  if (!self) return null;
   const [linkColumn, items, holidayRows] = await Promise.all([
     linkColumnId
       ? prisma.column.findUnique({ where: { id: linkColumnId }, select: { options: true } })
       : Promise.resolve(null),
+    // Group-scoped: a Pred reference resolves within the item's own group.
     prisma.item.findMany({
-      where: { boardId },
+      where: { groupId: self.groupId },
       select: { id: true, parentId: true, order: true, cellValues: true, groupId: true },
     }),
     listHolidays(),
@@ -574,8 +615,12 @@ async function resolveAncestorScheduleWindow(
     predColumnId: board.predColumnId,
     manualStartColumnId: board.manualStartColumnId,
   };
+  // Ancestors are always in the same group, so this stays group-scoped
+  // rather than loading every item on the board.
+  const self0 = await prisma.item.findUnique({ where: { id: itemId }, select: { groupId: true, parentId: true } });
+  if (!self0?.parentId) return null;
   const items = await prisma.item.findMany({
-    where: { boardId },
+    where: { groupId: self0.groupId },
     select: { id: true, parentId: true, name: true, cellValues: true },
   });
   const byId = new Map(items.map((i) => [i.id, i]));
