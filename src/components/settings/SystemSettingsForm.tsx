@@ -12,8 +12,10 @@ import {
 import { HolidaySettingsModal } from "@/components/dashboard/HolidaySettingsModal";
 import { WorkloadThresholdModal } from "@/components/dashboard/WorkloadThresholdModal";
 import type { WorkloadThresholdSettings } from "@/lib/workload";
+import type { UserOption } from "@/types/board";
 import { GanttColumnMappingCard, type GanttMappingBoard } from "./GanttColumnMappingCard";
 import { ReportSettingsCard, type ReportSettingsBoardWithName } from "./ReportSettingsCard";
+import { BoardSharingCard, type SharingBoard } from "./BoardSharingCard";
 
 const MAX_LEVELS = 6;
 
@@ -282,6 +284,7 @@ function WorkloadThresholdCard({ threshold }: { threshold: WorkloadThresholdSett
 }
 
 export function SystemSettingsForm({
+  isAdmin,
   emailNotificationsEnabled,
   ganttDurationMode,
   levelColors,
@@ -290,7 +293,10 @@ export function SystemSettingsForm({
   workloadThreshold,
   ganttMappingBoards,
   reportSettingsBoards,
+  sharingBoards,
+  users,
 }: {
+  isAdmin: boolean;
   emailNotificationsEnabled: boolean;
   ganttDurationMode: GanttDurationMode;
   levelColors: string[];
@@ -299,17 +305,24 @@ export function SystemSettingsForm({
   workloadThreshold: WorkloadThresholdSettings;
   ganttMappingBoards: GanttMappingBoard[];
   reportSettingsBoards: ReportSettingsBoardWithName[];
+  sharingBoards: SharingBoard[];
+  users: UserOption[];
 }) {
   return (
     <div className="space-y-4">
-      <EmailNotificationsCard initial={emailNotificationsEnabled} />
-      <GanttModeCard initial={ganttDurationMode} />
-      <HolidayCard holidays={holidays} />
-      <LevelColorCard initial={levelColors} />
-      <GanttStatusColorCard initial={ganttStatusColors} />
-      <WorkloadThresholdCard threshold={workloadThreshold} />
-      <GanttColumnMappingCard boards={ganttMappingBoards} />
-      <ReportSettingsCard boards={reportSettingsBoards} />
+      {isAdmin && (
+        <>
+          <EmailNotificationsCard initial={emailNotificationsEnabled} />
+          <GanttModeCard initial={ganttDurationMode} />
+          <HolidayCard holidays={holidays} />
+          <LevelColorCard initial={levelColors} />
+          <GanttStatusColorCard initial={ganttStatusColors} />
+          <WorkloadThresholdCard threshold={workloadThreshold} />
+          <GanttColumnMappingCard boards={ganttMappingBoards} />
+          <ReportSettingsCard boards={reportSettingsBoards} />
+        </>
+      )}
+      <BoardSharingCard boards={sharingBoards} users={users} />
     </div>
   );
 }

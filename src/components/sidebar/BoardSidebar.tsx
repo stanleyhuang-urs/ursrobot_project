@@ -216,19 +216,17 @@ export function BoardSidebar({
             使用者管理
           </Link>
         )}
-        {userRole === "ADMIN" && (
-          <Link
-            href="/settings"
-            className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
-              pathname === "/settings"
-                ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                : "text-neutral-700 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            }`}
-          >
-            <Settings size={14} className="shrink-0" />
-            系統設定
-          </Link>
-        )}
+        <Link
+          href="/settings"
+          className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
+            pathname === "/settings"
+              ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+              : "text-neutral-700 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          }`}
+        >
+          <Settings size={14} className="shrink-0" />
+          系統設定
+        </Link>
         {userRole === "ADMIN" && (
           <Link
             href="/group-roles"

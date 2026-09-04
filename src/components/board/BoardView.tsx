@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Table2, LayoutGrid, Upload, Download, GanttChartSquare, Users2, Zap, Share2, BarChart3 } from "lucide-react";
+import { Table2, LayoutGrid, Upload, Download, GanttChartSquare, Users2, Zap, BarChart3 } from "lucide-react";
 import type { BoardWithData, UserOption } from "@/types/board";
 import type { Holiday, UserRole } from "@prisma/client";
 import { canManageBoard, canManageStructure } from "@/lib/permissions";
@@ -13,7 +13,6 @@ import { AddColumnDialog } from "./AddColumnDialog";
 import { ImportWizard } from "./ImportWizard";
 import { ResourceMappingModal } from "./ResourceMappingModal";
 import { AutomationRulesModal } from "./AutomationRulesModal";
-import { BoardSharingModal } from "./BoardSharingModal";
 import { ExportGanttModal } from "./ExportGanttModal";
 
 export function BoardView({
@@ -50,9 +49,7 @@ export function BoardView({
   const [importOpen, setImportOpen] = useState(false);
   const [resourceMappingOpen, setResourceMappingOpen] = useState(false);
   const [automationOpen, setAutomationOpen] = useState(false);
-  const [sharingOpen, setSharingOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  const canManageSharing = canManageBoard(userRole) || board.ownerId === currentUserId;
 
   const statusColumns = board.columns.filter((c) => c.type === "STATUS");
   const [kanbanColumnId, setKanbanColumnId] = useState(
@@ -115,15 +112,6 @@ export function BoardView({
               className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
             >
               <Zap size={14} /> 自動化
-            </button>
-          )}
-          {canManageSharing && (
-            <button
-              type="button"
-              onClick={() => setSharingOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-            >
-              <Share2 size={14} /> 分享設定
             </button>
           )}
           <div className="flex overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
@@ -267,15 +255,6 @@ export function BoardView({
         />
       )}
 
-      {canManageSharing && (
-        <BoardSharingModal
-          boardId={board.id}
-          visibility={board.visibility}
-          users={users}
-          open={sharingOpen}
-          onOpenChange={setSharingOpen}
-        />
-      )}
     </div>
   );
 }

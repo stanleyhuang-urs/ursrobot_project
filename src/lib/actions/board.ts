@@ -141,6 +141,7 @@ export async function setBoardVisibility(boardId: string, visibility: BoardVisib
   await requireBoardOwnerOrAdmin(boardId, session);
   await prisma.board.update({ where: { id: boardId }, data: { visibility } });
   revalidatePath(`/boards/${boardId}`);
+  revalidatePath("/settings");
 }
 
 export async function listBoardMembers(boardId: string) {

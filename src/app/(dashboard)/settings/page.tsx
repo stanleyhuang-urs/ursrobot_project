@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { getSystemSettings } from "@/lib/actions/systemSettings";
@@ -8,11 +7,12 @@ import { SystemSettingsForm } from "@/components/settings/SystemSettingsForm";
 
 export default async function SettingsPage() {
   const session = await requireSession();
-  if (session.role !== "ADMIN") {
-    redirect("/boards");
-  }
+  const isAdmin = session.role === "ADMIN";
 
-  const [settings, holidays, workloadThreshold, boards] = await Promise.all([
+  // Non-admins still reach this page for 看板分享設定 alone (they can only
+  // manage sharing for boards they own — see requireBoardOwnerOrAdmin) —
+  // every other section below is admin-only and gated inside the form.
+  const [settings, holidays, workloadThreshold, boards, users] = await Promise.all([
     getSystemSettings(),
     listHolidays(),
     getWorkloadThreshold(),
@@ -20,6 +20,8 @@ export default async function SettingsPage() {
       select: {
         id: true,
         name: true,
+        ownerId: true,
+        visibility: true,
         columns: true,
         ganttStartColumnId: true,
         ganttDurationColumnId: true,
@@ -39,12 +41,19 @@ export default async function SettingsPage() {
       },
       orderBy: { name: "asc" },
     }),
+    prisma.user.findMany({
+      select: { id: true, name: true, supervisorId: true, avatarUrl: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
+
+  const sharingBoards = isAdmin ? boards : boards.filter((b) => b.ownerId === session.userId);
 
   return (
     <div className="p-6">
       <h1 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">系統設定</h1>
       <SystemSettingsForm
+        isAdmin={isAdmin}
         emailNotificationsEnabled={settings.emailNotificationsEnabled}
         ganttDurationMode={settings.ganttDurationMode}
         levelColors={settings.levelColors}
@@ -57,6 +66,8 @@ export default async function SettingsPage() {
         workloadThreshold={workloadThreshold}
         ganttMappingBoards={boards}
         reportSettingsBoards={boards}
+        sharingBoards={sharingBoards}
+        users={users}
       />
     </div>
   );
