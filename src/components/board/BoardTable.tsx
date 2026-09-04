@@ -18,7 +18,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronsDown, ChevronsUp, GripVertical, Plus, Search, Target, Trash2 } from "lucide-react";
+import { GripVertical, Plus, Search, Target, Trash2 } from "lucide-react";
 import type { BoardWithData, ColumnData, ItemData, UserOption } from "@/types/board";
 import type { UserRole } from "@prisma/client";
 import { canManageStructure } from "@/lib/permissions";
@@ -157,14 +157,6 @@ export function BoardTable({
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => allParentIds(board.items));
   const hasAutoSizedRef = useRef(false);
   const scrollPanesRef = useRef<Map<string, HTMLDivElement>>(new Map());
-
-  function expandAll() {
-    setCollapsedIds(new Set());
-  }
-
-  function collapseAll() {
-    setCollapsedIds(allParentIds(board.items));
-  }
 
   function expandGroup(groupItems: ItemData[]) {
     const ids = allParentIds(groupItems);
@@ -401,20 +393,6 @@ export function BoardTable({
             className="w-48 rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 py-1 pl-7 pr-2 text-xs outline-none focus:border-blue-500"
           />
         </div>
-        <button
-          type="button"
-          onClick={expandAll}
-          className="flex items-center gap-1 rounded-md border border-neutral-300 dark:border-neutral-600 px-2 py-1 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-        >
-          <ChevronsDown size={13} /> 全部展開
-        </button>
-        <button
-          type="button"
-          onClick={collapseAll}
-          className="flex items-center gap-1 rounded-md border border-neutral-300 dark:border-neutral-600 px-2 py-1 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-        >
-          <ChevronsUp size={13} /> 全部收合
-        </button>
       </div>
       <FilterBar columns={orderedColumns} users={users} filters={filters} onChange={setFilters} />
 
