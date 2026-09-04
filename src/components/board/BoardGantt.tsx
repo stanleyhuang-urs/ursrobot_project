@@ -7,9 +7,14 @@ import type { GanttDurationMode, Holiday, UserRole } from "@prisma/client";
 import { canManageGroupStructure, canEditGanttItem, canModifyItemSchedule } from "@/lib/permissions";
 import { resolveGroupRoleAccess, groupDisciplineTeamUserIds, type GroupRoleAccess } from "@/lib/groupRoles";
 import { isItemAssignedToUser, isItemAssignedToTeam } from "@/lib/itemAssignment";
-import { computeRolledUpDateRange, computeDailyLoadByUser, type DateRange } from "@/lib/gantt";
+import {
+  computeRolledUpDateRange,
+  computeDailyLoadByUser,
+  hasOwnScheduleRule,
+  type DateRange,
+} from "@/lib/gantt";
 import { countDaysInRange, endFromStartAndDays } from "@/lib/workday";
-import { resolveLockedScheduleFields } from "@/lib/predecessorLink";
+import { resolveLockedScheduleFields, buildWbsIndexFromItems, resolveWbsCode } from "@/lib/predecessorLink";
 import { computeWbsCodes } from "@/lib/wbs";
 import { resizeItemBar, moveItemBar } from "@/lib/actions/ganttResize";
 import { getStatusOptions } from "@/types/column";
@@ -249,6 +254,30 @@ export function BoardGantt({
     board.manualStartColumnId,
     board.manualDurationColumnId,
   ]);
+
+  // Dragging is governed by what actually decides the dates, not by the
+  // blanket lock: with 手動開始日期/天數 configured, Start/Days/Finish are
+  // outputs for every item, but start(set)/duration remain editable — so a
+  // drag is still meaningful and ganttResize writes those instead. Only a
+  // Pred, a child rollup, or a Milestone genuinely rules a drag out.
+  const wbsIndex = useMemo(() => buildWbsIndexFromItems(board.items), [board.items]);
+  const ruleColumns = useMemo(
+    () => ({ predColumnId, manualStartColumnId: board.manualStartColumnId }),
+    [predColumnId, board.manualStartColumnId]
+  );
+
+  const dragLocks = useMemo(() => {
+    const linkColumn = board.columns.find((c) => c.id === linkColumnId);
+    const typeColumn = board.columns.find((c) => c.id === typeColumnId);
+    return resolveLockedScheduleFields(
+      board.items,
+      predColumnId,
+      linkColumnId,
+      linkColumn?.options,
+      typeColumnId,
+      typeColumn?.options
+    );
+  }, [board.items, board.columns, predColumnId, linkColumnId, typeColumnId]);
 
   const typeOptions = useMemo(() => {
     const typeColumn = board.columns.find((c) => c.id === typeColumnId);
@@ -501,6 +530,36 @@ export function BoardGantt({
     setDetailItem(created);
   }
 
+  /** Names whatever actually decides this item's dates, so a refused drag can
+   *  say which item (or which field) to change instead of just "it's
+   *  computed". Returns null when nothing is driving it. */
+  function scheduleLockCause(item: ItemData): string | null {
+    const children = itemsByParent.get(item.id) ?? [];
+    if (children.length > 0 && !hasOwnScheduleRule(item, ruleColumns)) {
+      const names = children
+        .slice(0, 3)
+        .map((c) => `${wbsCodes.get(c.id) ?? ""} ${c.name}`.trim())
+        .join("、");
+      return `此項目的時程是由子項目統計出來的,要改請改子項目的時間:${names}${children.length > 3 ? " 等" : ""}`;
+    }
+
+    if (predColumnId && linkColumnId) {
+      const predValue = item.cellValues.find((cv) => cv.columnId === predColumnId)?.value;
+      if (typeof predValue === "string" && predValue.trim()) {
+        const predId = resolveWbsCode(wbsIndex, item.groupId, predValue);
+        const predItem = predId ? itemById.get(predId) : undefined;
+        if (predItem) {
+          return `此項目的時間由前置依賴「${wbsCodes.get(predItem.id) ?? ""} ${predItem.name}」決定,要提前或延後請改該項目的時間,或改此項目的 Pred / Link / Lag`;
+        }
+      }
+    }
+
+    if (isMilestone(item)) {
+      return "里程碑的天數固定為 0,只能改開始日期,無法拉長或縮短";
+    }
+    return null;
+  }
+
   function renderRows(parentId: string | null, depth: number, siblings?: ItemData[]): ReactNode[] {
     const children = siblings ?? itemsByParent.get(parentId) ?? [];
     return children.flatMap((item) => {
@@ -608,9 +667,10 @@ export function BoardGantt({
                 durationMode={durationMode}
                 holidaySet={holidaySet}
                 isMilestone={isMilestone(item)}
-                startLocked={lockedScheduleFields.get(item.id)?.startLocked ?? false}
-                endLocked={lockedScheduleFields.get(item.id)?.endLocked ?? false}
-                daysLocked={lockedScheduleFields.get(item.id)?.daysLocked ?? false}
+                startLocked={dragLocks.get(item.id)?.startLocked ?? false}
+                endLocked={dragLocks.get(item.id)?.endLocked ?? false}
+                daysLocked={dragLocks.get(item.id)?.daysLocked ?? false}
+                lockCause={scheduleLockCause(item)}
                 canEdit={canEditItemSchedule(item)}
                 onClick={canEditItem(item) ? () => setAssignmentItem(item) : undefined}
               />
@@ -952,6 +1012,7 @@ function GanttBar({
   startLocked,
   endLocked,
   daysLocked,
+  lockCause,
   canEdit,
   onClick,
 }: {
@@ -968,6 +1029,8 @@ function GanttBar({
   startLocked: boolean;
   endLocked: boolean;
   daysLocked: boolean;
+  /** What is actually driving these dates — see scheduleLockCause. */
+  lockCause?: string | null;
   canEdit: boolean;
   onClick?: () => void;
 }) {
@@ -996,6 +1059,7 @@ function GanttBar({
     if (!canEdit) return "權限不足:僅建立者、分組的Team Leader/PMD或管理者可以調整此項目的時程";
     const locked = field === "start" ? startLocked || daysLocked : field === "end" ? endLocked || daysLocked : startLocked || endLocked;
     if (!locked) return null;
+    if (lockCause) return lockCause;
     return field === "move"
       ? "此時程由前置依賴或子項目統計自動計算,無法整體搬移"
       : "此日期由前置依賴、子項目統計或里程碑規則自動計算,請改天數、前置依賴或子項目設定";

@@ -68,19 +68,27 @@ async function loadGanttEditContext(itemId: string, session: SessionPayload) {
       select: { id: true, parentId: true, order: true, cellValues: true, groupId: true },
     }),
   ]);
+  // Deliberately resolved WITHOUT the manual columns: in "always computed"
+  // mode those lock Start/Days/Finish for every item, but only because they
+  // are outputs there — the real inputs (start(set)/duration) stay editable,
+  // so a drag is still meaningful and just has to write to them instead.
+  // What genuinely makes a drag impossible is the same in both modes: a Pred
+  // determines that end, a subtree rolls the dates up, or a Milestone fixes
+  // Days. Writes below go to whichever columns are the inputs.
+  const alwaysComputed = !!board.manualStartColumnId && !!board.manualDurationColumnId;
   const lock: ScheduleLock | undefined = resolveLockedScheduleFields(
     boardItems,
     board.predColumnId,
     board.linkColumnId,
     linkColumn?.options,
     board.typeColumnId,
-    typeColumn?.options,
-    board.manualStartColumnId,
-    board.manualDurationColumnId
+    typeColumn?.options
   ).get(itemId);
+  const writeStartColumnId = alwaysComputed ? board.manualStartColumnId! : board.ganttStartColumnId!;
+  const writeDurationColumnId = alwaysComputed ? board.manualDurationColumnId! : board.ganttDurationColumnId!;
 
   const holidays = toHolidaySet(await listHolidays());
-  return { boardId, board, item, lock, holidays };
+  return { boardId, board, item, lock, holidays, alwaysComputed, writeStartColumnId, writeDurationColumnId };
 }
 
 /**
@@ -99,7 +107,8 @@ export async function resizeItemBar(
   newDateIso: string
 ) {
   const session = await requireSession();
-  const { boardId, board, item, lock, holidays } = await loadGanttEditContext(itemId, session);
+  const { boardId, board, item, lock, holidays, alwaysComputed, writeStartColumnId, writeDurationColumnId } =
+    await loadGanttEditContext(itemId, session);
   const isLocked = lock?.daysLocked || (edge === "start" ? lock?.startLocked : lock?.endLocked);
   if (isLocked) {
     throw new Error("此日期由前置依賴、子項目統計或里程碑規則自動計算,請改天數、前置依賴或子項目設定");
@@ -133,16 +142,18 @@ export async function resizeItemBar(
 
   await prisma.$transaction([
     prisma.cellValue.upsert({
-      where: { itemId_columnId: { itemId, columnId: board.ganttStartColumnId! } },
-      create: { itemId, columnId: board.ganttStartColumnId!, value: startIso },
+      where: { itemId_columnId: { itemId, columnId: writeStartColumnId } },
+      create: { itemId, columnId: writeStartColumnId, value: startIso },
       update: { value: startIso },
     }),
     prisma.cellValue.upsert({
-      where: { itemId_columnId: { itemId, columnId: board.ganttDurationColumnId! } },
-      create: { itemId, columnId: board.ganttDurationColumnId!, value: days },
+      where: { itemId_columnId: { itemId, columnId: writeDurationColumnId } },
+      create: { itemId, columnId: writeDurationColumnId, value: days },
       update: { value: days },
     }),
-    ...(board.ganttEndColumnId
+    // Finish is an output in "always computed" mode — syncPredecessorSchedule
+    // below writes it, along with the recomputed Start/Days.
+    ...(board.ganttEndColumnId && !alwaysComputed
       ? [
           prisma.cellValue.upsert({
             where: { itemId_columnId: { itemId, columnId: board.ganttEndColumnId } },
@@ -161,7 +172,7 @@ export async function resizeItemBar(
     "UPDATED",
     `「${item.name}」的時程已調整:${oldStartIso}~${oldEndIso} → ${startIso}~${endIso}`
   );
-  await syncPredecessorSchedule(boardId, itemId, board.ganttStartColumnId!);
+  await syncPredecessorSchedule(boardId, itemId, writeStartColumnId);
 
   revalidatePath(`/boards/${boardId}`);
 }
@@ -182,7 +193,8 @@ export async function moveItemBar(
   newStartIso: string
 ) {
   const session = await requireSession();
-  const { boardId, board, item, lock, holidays } = await loadGanttEditContext(itemId, session);
+  const { boardId, board, item, lock, holidays, alwaysComputed, writeStartColumnId } =
+    await loadGanttEditContext(itemId, session);
   if (lock?.startLocked || lock?.endLocked) {
     throw new Error("此時程由前置依賴或子項目統計自動計算,無法整體搬移");
   }
@@ -217,11 +229,11 @@ export async function moveItemBar(
 
   await prisma.$transaction([
     prisma.cellValue.upsert({
-      where: { itemId_columnId: { itemId, columnId: startColumnId } },
-      create: { itemId, columnId: startColumnId, value: startIso },
+      where: { itemId_columnId: { itemId, columnId: writeStartColumnId } },
+      create: { itemId, columnId: writeStartColumnId, value: startIso },
       update: { value: startIso },
     }),
-    ...(board.ganttEndColumnId
+    ...(board.ganttEndColumnId && !alwaysComputed
       ? [
           prisma.cellValue.upsert({
             where: { itemId_columnId: { itemId, columnId: board.ganttEndColumnId } },
@@ -240,7 +252,7 @@ export async function moveItemBar(
     "UPDATED",
     `「${item.name}」的時程已搬移:${oldStartIso}~${oldEndIso} → ${startIso}~${endIso}`
   );
-  await syncPredecessorSchedule(boardId, itemId, startColumnId);
+  await syncPredecessorSchedule(boardId, itemId, writeStartColumnId);
 
   revalidatePath(`/boards/${boardId}`);
 }
